@@ -42,8 +42,7 @@ init config =
 
 
 type Msg
-    = Todo
-    | DataSetListResponse (Remote.WebData DataSetList)
+    = DataSetListResponse (Remote.WebData DataSetList)
     | SetTableState Table.State
     | DeleteDataSet DataSet
 
@@ -51,9 +50,6 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Todo ->
-            model => Cmd.none
-
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
 

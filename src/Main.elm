@@ -64,16 +64,28 @@ setRoute route model =
                 ( pageModel, initCmd ) =
                     DataSets.init model.config
             in
-                { model | page = (DataSets pageModel) } => (Cmd.map DataSetsMsg initCmd)
+                { model | page = DataSets pageModel } => (Cmd.map DataSetsMsg initCmd)
 
         Just Route.Imports ->
-            ( { model | page = Imports Imports.init }, Cmd.none )
+            let
+                ( pageModel, initCmd ) =
+                    Imports.init model.config
+            in
+                ( { model | page = Imports pageModel }, (Cmd.map ImportsMsg initCmd) )
 
         Just Route.Sessions ->
-            ( { model | page = Sessions Sessions.init }, Cmd.none )
+            let
+                ( pageModel, initCmd ) =
+                    Sessions.init model.config
+            in
+                ( { model | page = Sessions pageModel }, (Cmd.map SessionsMsg initCmd) )
 
         Just Route.Models ->
-            ( { model | page = Models Models.init }, Cmd.none )
+            let
+                ( pageModel, initCmd ) =
+                    Models.init model.config
+            in
+                ( { model | page = Models pageModel }, (Cmd.map ModelsMsg initCmd) )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

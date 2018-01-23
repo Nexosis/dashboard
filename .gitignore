@@ -4,4 +4,7 @@ elm-stuff/
 repl-temp-*
 
 elm.js
+elm.min.js
 config.json
+junit.xml
+node_modules/

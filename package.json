@@ -1,0 +1,24 @@
+{
+    "name": "nexosis-dashboard",
+    "version": "1.0.0",
+    "description": "Dashboard used to interface and manage the Nexosis Machine Learning API",
+    "author": "Nexosis",
+    "license": "Proprietary",
+    "scripts": {
+        "test": "node node_modules/elm-test/bin/elm-test",
+        "test-watch": "node node_modules/elm-test/bin/elm-test --watch",
+        "test-output": "node node_modules/elm-test/bin/elm-test --report=junit > junit.xml",
+        "prod-build": "elm make --output elm.js && uglifyjs -mc -o elm.min.js elm.js",
+        "build": "elm make --output elm.js --debug --warn",
+        "open-app": "elm-live --output=elm.js src/Main.elm --pushstate --open --debug",
+        "analyse": "node node_modules/elm-analyse/js/bin/index.js -s"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "elm": "0.18.0",
+        "elm-analyse": "0.13.3",
+        "elm-live": "2.7.5",
+        "elm-test": "0.18.12",
+        "uglify-js": "^3.3.8"
+    }
+}

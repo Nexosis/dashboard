@@ -1,6 +1,8 @@
 module Page.Imports exposing (view, update, Model, Msg, init)
 
 import Html exposing (..)
+import Data.Config exposing (Config)
+import Util exposing ((=>))
 
 
 ---- MODEL ----
@@ -12,9 +14,10 @@ type alias Model =
     }
 
 
-init : Model
-init =
+init : Config -> ( Model, Cmd Msg )
+init config =
     Model "Imports" "This is the list of Imports"
+        => Cmd.none
 
 
 
