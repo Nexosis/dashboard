@@ -4,9 +4,9 @@ Interact with the Nexosis API with a dashboard.
 
 ## Get It Running
 
-**1.** Install `elm` and `elm-live`:
+**1.** Run npm Install
 
-> npm install -g elm elm-live
+> npm install 
 
 **2.** Set url and api key:
 
@@ -15,10 +15,10 @@ Create a file, config.json.  Provide your api key.
 ``` JSON
 {
     "apiKey": "My Key",
-    "url": "https://ml.nexosis.com"
+    "url": "https://ml.nexosis.com/v1"
 }
 ```
 
 **3.** Build and run:
 
-> elm-live --output=elm.js src/Main.elm --pushstate --open --debug
+> npm run open-app
