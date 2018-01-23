@@ -1,6 +1,9 @@
 module Page.DataSets exposing (view, update, Model, Msg, init)
 
 import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (onInput, onClick)
+import Table exposing (defaultCustomizations)
 import RemoteData as Remote
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetList, DataSet)
@@ -18,6 +21,7 @@ type alias Model =
     , pageBody : String
     , errors : List String
     , dataSetList : Remote.WebData DataSetList
+    , tableState : Table.State
     }
 
 
@@ -29,7 +33,7 @@ init config =
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
     in
-        (Model "DataSets" "This is the list of DataSets" [] Remote.Loading)
+        (Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName"))
             => loadDataSetList
 
 
@@ -40,6 +44,8 @@ init config =
 type Msg
     = Todo
     | DataSetListResponse (Remote.WebData DataSetList)
+    | SetTableState Table.State
+    | DeleteDataSet DataSet
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -51,6 +57,13 @@ update msg model =
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
 
+        SetTableState newState ->
+            { model | tableState = newState }
+                => Cmd.none
+
+        DeleteDataSet dataSet ->
+            model => Cmd.none
+
 
 
 -- VIEW --
@@ -58,7 +71,70 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ h2 [] [ text model.pageTitle ]
-        , div [] [ text model.pageBody ]
+    let
+        filteredDataSets =
+            case model.dataSetList of
+                Remote.Success dsList ->
+                    dsList.items
+
+                _ ->
+                    []
+    in
+        div []
+            [ h2 [] [ text model.pageTitle ]
+            , div [] [ text model.pageBody ]
+            , div [ class "row" ]
+                [ div [ class "col-lg-9" ]
+                    [ div [ class "panel panel-default" ]
+                        [ div [ class "panel-heading" ]
+                            [ h3 [] [ text "Datasets" ]
+                            ]
+                        , div [ class "panel-body" ]
+                            [ div [ class "table-responsive" ]
+                                [ Table.view config model.tableState filteredDataSets ]
+                            ]
+                        , div [ class "panel-footer" ]
+                            []
+                        ]
+                    ]
+                ]
+            ]
+
+
+config : Table.Config DataSet Msg
+config =
+    Table.customConfig
+        { toId = .dataSetName
+        , toMsg = SetTableState
+        , columns =
+            [ Table.stringColumn "Name" .dataSetName
+            , Table.intColumn "Size" .dataSetSize
+            , Table.stringColumn "IsTimeSeries" (\a -> a.isTimeSeries |> toString)
+            , actionsColumn
+            ]
+        , customizations =
+            { defaultCustomizations
+                | tableAttrs = toTableAttrs
+            }
+        }
+
+
+actionsColumn : Table.Column DataSet Msg
+actionsColumn =
+    Table.veryCustomColumn
+        { name = ""
+        , viewData = dataSetDeleteButton
+        , sorter = Table.unsortable
+        }
+
+
+dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
+dataSetDeleteButton dataSet =
+    Table.HtmlDetails []
+        [ button [ onClick (DeleteDataSet dataSet) ] [ text "Delete" ]
         ]
+
+
+toTableAttrs : List (Attribute Msg)
+toTableAttrs =
+    [ class "table table-striped" ]
