@@ -3,6 +3,7 @@ module Main exposing (..)
 import Html exposing (..)
 import Navigation exposing (Location)
 import Json.Decode as Decode exposing (Value)
+import Data.Config exposing (Config, ApiKey)
 import Page.Error as Error exposing (PageLoadError)
 import Page.NotFound as NotFound
 import Page.Home as Home
@@ -20,6 +21,7 @@ import Util exposing ((=>))
 
 type alias Model =
     { page : Page
+    , config : Config
     }
 
 
@@ -58,7 +60,11 @@ setRoute route model =
             ( { model | page = Home Home.init }, Cmd.none )
 
         Just Route.DataSets ->
-            ( { model | page = DataSets DataSets.init }, Cmd.none )
+            let
+                ( pageModel, initCmd ) =
+                    DataSets.init model.config
+            in
+                { model | page = (DataSets pageModel) } => (Cmd.map DataSetsMsg initCmd)
 
         Just Route.Imports ->
             ( { model | page = Imports Imports.init }, Cmd.none )
@@ -175,14 +181,21 @@ initialPage =
     Blank
 
 
-init : Value -> Location -> ( Model, Cmd Msg )
-init val location =
+type alias Flags =
+    { apiKey : String
+    , url : String
+    }
+
+
+init : Flags -> Location -> ( Model, Cmd Msg )
+init flags location =
     setRoute (Route.fromLocation location)
         { page = initialPage
+        , config = (Config (Data.Config.ApiKey flags.apiKey) flags.url)
         }
 
 
-main : Program Value Model Msg
+main : Program Flags Model Msg
 main =
     Navigation.programWithFlags (Route.fromLocation >> SetRoute)
         { init = init

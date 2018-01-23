@@ -12,7 +12,11 @@
 
 <body id="page-body">
   <script>
-    var app = Elm.Main.fullscreen();
+    fetch('/config.json').then(function (response) {
+      response.json().then(function (result) {
+        var app = Elm.Main.fullscreen(result);
+      });
+    });
   </script>
 </body>
 
