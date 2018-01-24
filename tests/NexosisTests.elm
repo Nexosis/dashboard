@@ -10,5 +10,5 @@ tests =
     describe "Basic test"
         [ test "Placeholder" <|
             \() ->
-                Expect.equal (3 + 7) 10
+                Expect.equal (3 + 7) 11
         ]
