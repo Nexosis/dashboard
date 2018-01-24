@@ -8,6 +8,7 @@ import Util exposing ((=>))
 type alias Config =
     { apiKey : ApiKey
     , baseUrl : String
+    , pageSize : Int
     }
 
 

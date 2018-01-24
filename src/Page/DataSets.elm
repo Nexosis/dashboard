@@ -11,6 +11,7 @@ import Request.DataSet
 import Http
 import Task
 import Util exposing ((=>))
+import View.Pager as Pager
 
 
 ---- MODEL ----
@@ -22,6 +23,7 @@ type alias Model =
     , errors : List String
     , dataSetList : Remote.WebData DataSetList
     , tableState : Table.State
+    , config : Config
     }
 
 
@@ -29,11 +31,11 @@ init : Config -> ( Model, Cmd Msg )
 init config =
     let
         loadDataSetList =
-            Request.DataSet.get config
+            Request.DataSet.get config 0
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
     in
-        (Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName"))
+        (Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config)
             => loadDataSetList
 
 
@@ -45,6 +47,8 @@ type Msg
     = DataSetListResponse (Remote.WebData DataSetList)
     | SetTableState Table.State
     | DeleteDataSet DataSet
+    | NextPage Int
+    | PrevPage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -60,6 +64,19 @@ update msg model =
         DeleteDataSet dataSet ->
             model => Cmd.none
 
+        NextPage pgNum ->
+            { model | dataSetList = Remote.Loading }
+            => 
+                (Request.DataSet.get model.config pgNum
+                    |> Remote.sendRequest
+                    |> Cmd.map DataSetListResponse)
+
+        PrevPage pgNum ->
+            { model | dataSetList = Remote.Loading }
+            => 
+                (Request.DataSet.get model.config pgNum
+                    |> Remote.sendRequest
+                    |> Cmd.map DataSetListResponse)
 
 
 -- VIEW --
@@ -68,13 +85,13 @@ update msg model =
 view : Model -> Html Msg
 view model =
     let
-        filteredDataSets =
+        gridView =
             case model.dataSetList of
                 Remote.Success dsList ->
-                    dsList.items
+                    gridSection dsList model.tableState
 
                 _ ->
-                    []
+                    loadingGrid
     in
         div []
             [ h2 [] [ text model.pageTitle ]
@@ -85,16 +102,32 @@ view model =
                         [ div [ class "panel-heading" ]
                             [ h3 [] [ text "Datasets" ]
                             ]
-                        , div [ class "panel-body" ]
-                            [ div [ class "table-responsive" ]
-                                [ Table.view config model.tableState filteredDataSets ]
-                            ]
-                        , div [ class "panel-footer" ]
-                            []
+                        , div [] gridView
                         ]
                     ]
                 ]
             ]
+
+loadingGrid : List (Html Msg)
+loadingGrid =
+    [ div [class "panel-body"]
+        [ div [ class "table-responsive"] [
+            span [] [ text "No data found"]]
+        ]
+    , div [ class "panel-footer"]  [
+        ]
+    ]
+
+
+gridSection : DataSetList -> Table.State -> List (Html Msg)
+gridSection dataSetList tableState =
+    [ div [ class "panel-body" ]
+        [ div [ class "table-responsive" ]
+            [ Table.view config tableState dataSetList.items ]
+        ]
+    , div [ class "panel-footer" ]
+        [ Pager.view dataSetList NextPage PrevPage ]
+    ]
 
 
 config : Table.Config DataSet Msg

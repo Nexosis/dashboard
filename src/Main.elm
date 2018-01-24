@@ -203,7 +203,7 @@ init : Flags -> Location -> ( Model, Cmd Msg )
 init flags location =
     setRoute (Route.fromLocation location)
         { page = initialPage
-        , config = (Config (Data.Config.ApiKey flags.apiKey) flags.url)
+        , config = (Config (Data.Config.ApiKey flags.apiKey) flags.url 10)
         }
 
 
