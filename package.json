@@ -8,9 +8,9 @@
         "test": "node node_modules/elm-test/bin/elm-test",
         "test-watch": "node node_modules/elm-test/bin/elm-test --watch",
         "test-output": "node node_modules/elm-test/bin/elm-test --report=junit > junit.xml",
-        "prod-build": "elm make src/Main.elm --yes --output elm.js && uglifyjs -mc -o dist/elm.min.js elm.js",
-        "build": "elm make src/Main.elm --output elm.js --debug --warn --yes",
-        "open-app": "elm-live --output=elm.js src/Main.elm --pushstate --open --debug",
+        "prod-build": "elm make src/Main.elm --yes --output dist/elm.js && uglifyjs -mc -o dist/elm.min.js dist/elm.js",
+        "build": "elm make src/Main.elm --output dist/elm.js --debug --warn --yes",
+        "open-app": "elm-live --output=dist/elm.js src/Main.elm --pushstate --open --debug",
         "analyse": "node node_modules/elm-analyse/js/bin/index.js -s"
     },
     "dependencies": {},
