@@ -1,4 +1,4 @@
-module Data.Config exposing (Config, ApiKey(..), attempt, withAuthorization, decodeApiKey)
+module Data.Config exposing (ApiKey(..), Config, attempt, decodeApiKey, withAuthorization)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
 import Json.Decode as Decode exposing (Value)

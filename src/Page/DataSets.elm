@@ -47,8 +47,7 @@ type Msg
     = DataSetListResponse (Remote.WebData DataSetList)
     | SetTableState Table.State
     | DeleteDataSet DataSet
-    | NextPage Int
-    | PrevPage Int
+    | ChangePage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -64,19 +63,13 @@ update msg model =
         DeleteDataSet dataSet ->
             model => Cmd.none
 
-        NextPage pgNum ->
+        ChangePage pgNum ->
             { model | dataSetList = Remote.Loading }
             => 
                 (Request.DataSet.get model.config pgNum
                     |> Remote.sendRequest
                     |> Cmd.map DataSetListResponse)
 
-        PrevPage pgNum ->
-            { model | dataSetList = Remote.Loading }
-            => 
-                (Request.DataSet.get model.config pgNum
-                    |> Remote.sendRequest
-                    |> Cmd.map DataSetListResponse)
 
 
 -- VIEW --
@@ -126,7 +119,7 @@ gridSection dataSetList tableState =
             [ Table.view config tableState dataSetList.items ]
         ]
     , div [ class "panel-footer" ]
-        [ Pager.view dataSetList NextPage PrevPage ]
+        [ Pager.view dataSetList ChangePage ]
     ]
 
 

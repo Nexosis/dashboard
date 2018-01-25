@@ -13,14 +13,14 @@ type alias PagedValues a =
     , totalCount : Int
 }
 
-view : PagedValues a -> (Int -> msg) -> (Int -> msg) -> Html msg
-view pagedValues nextMsg prevMsg =
+view : PagedValues a -> (Int -> msg) -> Html msg
+view pagedValues changePageMsg =
     let
         next = pagedValues.pageNumber + 1
         prev = pagedValues.pageNumber - 1
     in
         div []
-        [ button [ onClick (prevMsg prev), disabled (pagedValues.pageNumber == 0) ] [ text "Prev" ]
-        , button [ onClick (nextMsg next), disabled (pagedValues.pageNumber >= (pagedValues.totalPages - 1)) ] [ text "Next" ]
+        [ button [ onClick (changePageMsg prev), disabled (pagedValues.pageNumber == 0) ] [ text "Prev" ]
+        , button [ onClick (changePageMsg next), disabled (pagedValues.pageNumber >= (pagedValues.totalPages - 1)) ] [ text "Next" ]
         ]
 

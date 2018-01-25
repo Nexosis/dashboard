@@ -1,12 +1,12 @@
 module Request.DataSet exposing (get)
 
-import Data.DataSet as DataSet exposing (DataSetList, DataSet, DataSetColumnsDate, DataSetColumnsQuantity)
 import Data.Config as Config exposing (Config, withAuthorization)
+import Data.DataSet as DataSet exposing (DataSet, DataSetColumnsDate, DataSetColumnsQuantity, DataSetList)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Decode as Decode
-import Json.Encode as Encode
 import Json.Decode.Pipeline
+import Json.Encode as Encode
 import Util exposing ((=>))
 
 
@@ -48,7 +48,6 @@ encodeDataSetColumnsQuantity record =
         ]
 
 
-
 get : Config -> Int -> Http.Request DataSetList
 get { baseUrl, apiKey, pageSize } page =
     let
@@ -60,13 +59,13 @@ get { baseUrl, apiKey, pageSize } page =
             baseUrl
 
         params =
-            [ ( "page", (page |> toString) )
-            , ( "pageSize", (pageSize |> toString) )
+            [ ( "page", page |> toString )
+            , ( "pageSize", pageSize |> toString )
             ]
     in
-        (baseUrl ++ "/data")
-            |> HttpBuilder.get
-            |> HttpBuilder.withExpect expect
-            |> HttpBuilder.withQueryParams params
-            |> withAuthorization (Just apiKey)
-            |> HttpBuilder.toRequest
+    (baseUrl ++ "/data")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization (Just apiKey)
+        |> HttpBuilder.toRequest
