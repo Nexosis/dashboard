@@ -1,19 +1,19 @@
 module Main exposing (..)
 
+import Data.Config exposing (ApiKey, Config)
 import Html exposing (..)
-import Navigation exposing (Location)
 import Json.Decode as Decode exposing (Value)
-import Data.Config exposing (Config, ApiKey)
-import Page.Error as Error exposing (PageLoadError)
-import Page.NotFound as NotFound
-import Page.Home as Home
+import Navigation exposing (Location)
 import Page.DataSets as DataSets
+import Page.Error as Error exposing (PageLoadError)
+import Page.Home as Home
 import Page.Imports as Imports
-import Page.Sessions as Sessions
 import Page.Models as Models
-import View.Page as Page exposing (ActivePage)
+import Page.NotFound as NotFound
+import Page.Sessions as Sessions
 import Route exposing (..)
 import Util exposing ((=>))
+import View.Page as Page exposing (ActivePage)
 
 
 ---- MODEL ----
@@ -64,28 +64,28 @@ setRoute route model =
                 ( pageModel, initCmd ) =
                     DataSets.init model.config
             in
-                { model | page = DataSets pageModel } => (Cmd.map DataSetsMsg initCmd)
+            { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
         Just Route.Imports ->
             let
                 ( pageModel, initCmd ) =
                     Imports.init model.config
             in
-                ( { model | page = Imports pageModel }, (Cmd.map ImportsMsg initCmd) )
+            ( { model | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
         Just Route.Sessions ->
             let
                 ( pageModel, initCmd ) =
                     Sessions.init model.config
             in
-                ( { model | page = Sessions pageModel }, (Cmd.map SessionsMsg initCmd) )
+            ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let
                 ( pageModel, initCmd ) =
                     Models.init model.config
             in
-                ( { model | page = Models pageModel }, (Cmd.map ModelsMsg initCmd) )
+            ( { model | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,28 +101,28 @@ updatePage page msg model =
                 ( newModel, newCmd ) =
                     subUpdate subMsg subModel
             in
-                ( { model | page = (toModel newModel) }, Cmd.map toMsg newCmd )
+            ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
-        case ( msg, page ) of
-            -- Update for page transitions
-            ( SetRoute route, _ ) ->
-                setRoute route model
+    case ( msg, page ) of
+        -- Update for page transitions
+        ( SetRoute route, _ ) ->
+            setRoute route model
 
-            -- Update for page specfic msgs
-            ( HomeMsg subMsg, Home subModel ) ->
-                toPage Home HomeMsg (Home.update) subMsg subModel
+        -- Update for page specfic msgs
+        ( HomeMsg subMsg, Home subModel ) ->
+            toPage Home HomeMsg Home.update subMsg subModel
 
-            ( DataSetsMsg subMsg, DataSets subModel ) ->
-                toPage DataSets DataSetsMsg (DataSets.update) subMsg subModel
+        ( DataSetsMsg subMsg, DataSets subModel ) ->
+            toPage DataSets DataSetsMsg DataSets.update subMsg subModel
 
-            ( _, NotFound ) ->
-                -- Disregard incoming messages when we're on the
-                -- NotFound page.
-                model => Cmd.none
+        ( _, NotFound ) ->
+            -- Disregard incoming messages when we're on the
+            -- NotFound page.
+            model => Cmd.none
 
-            ( _, _ ) ->
-                -- Disregard incoming messages that arrived for the wrong page
-                model => Cmd.none
+        ( _, _ ) ->
+            -- Disregard incoming messages that arrived for the wrong page
+            model => Cmd.none
 
 
 
@@ -135,44 +135,44 @@ view model =
         layout =
             Page.layout
     in
-        case model.page of
-            NotFound ->
-                layout Page.Other NotFound.view
+    case model.page of
+        NotFound ->
+            layout Page.Other NotFound.view
 
-            Blank ->
-                -- This is for the very intial page load, while we are loading
-                -- data via HTTP. We could also render a spinner here.
-                Html.text ""
-                    |> layout Page.Other
+        Blank ->
+            -- This is for the very intial page load, while we are loading
+            -- data via HTTP. We could also render a spinner here.
+            Html.text ""
+                |> layout Page.Other
 
-            Error subModel ->
-                Error.view subModel
-                    |> layout Page.Other
+        Error subModel ->
+            Error.view subModel
+                |> layout Page.Other
 
-            Home subModel ->
-                Home.view subModel
-                    |> layout Page.Home
-                    |> Html.map HomeMsg
+        Home subModel ->
+            Home.view subModel
+                |> layout Page.Home
+                |> Html.map HomeMsg
 
-            DataSets subModel ->
-                DataSets.view subModel
-                    |> layout Page.DataSets
-                    |> Html.map DataSetsMsg
+        DataSets subModel ->
+            DataSets.view subModel
+                |> layout Page.DataSets
+                |> Html.map DataSetsMsg
 
-            Imports subModel ->
-                Imports.view subModel
-                    |> layout Page.Imports
-                    |> Html.map ImportsMsg
+        Imports subModel ->
+            Imports.view subModel
+                |> layout Page.Imports
+                |> Html.map ImportsMsg
 
-            Sessions subModel ->
-                Sessions.view subModel
-                    |> layout Page.Sessions
-                    |> Html.map SessionsMsg
+        Sessions subModel ->
+            Sessions.view subModel
+                |> layout Page.Sessions
+                |> Html.map SessionsMsg
 
-            Models subModel ->
-                Models.view subModel
-                    |> layout Page.Models
-                    |> Html.map ModelsMsg
+        Models subModel ->
+            Models.view subModel
+                |> layout Page.Models
+                |> Html.map ModelsMsg
 
 
 
@@ -203,7 +203,7 @@ init : Flags -> Location -> ( Model, Cmd Msg )
 init flags location =
     setRoute (Route.fromLocation location)
         { page = initialPage
-        , config = (Config (Data.Config.ApiKey flags.apiKey) flags.url 10)
+        , config = Config (Data.Config.ApiKey flags.apiKey) flags.url
         }
 
 

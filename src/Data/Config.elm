@@ -1,4 +1,4 @@
-module Data.Config exposing (ApiKey(..), Config, attempt, decodeApiKey, withAuthorization)
+module Data.Config exposing (ApiKey(..), Config, attempt, decodeApiKey, pageSize, withAuthorization)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
 import Json.Decode as Decode exposing (Value)
@@ -8,7 +8,6 @@ import Util exposing ((=>))
 type alias Config =
     { apiKey : ApiKey
     , baseUrl : String
-    , pageSize : Int
     }
 
 
@@ -40,3 +39,8 @@ withAuthorization maybeKey builder =
 
         Nothing ->
             builder
+
+
+pageSize : Int
+pageSize =
+    10

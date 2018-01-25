@@ -49,7 +49,7 @@ encodeDataSetColumnsQuantity record =
 
 
 get : Config -> Int -> Http.Request DataSetList
-get { baseUrl, apiKey, pageSize } page =
+get { baseUrl, apiKey } page =
     let
         expect =
             DataSet.decodeDataSetList
@@ -60,7 +60,7 @@ get { baseUrl, apiKey, pageSize } page =
 
         params =
             [ ( "page", page |> toString )
-            , ( "pageSize", pageSize |> toString )
+            , ( "pageSize", Config.pageSize |> toString )
             ]
     in
     (baseUrl ++ "/data")
