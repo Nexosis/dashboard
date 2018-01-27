@@ -1,9 +1,9 @@
-module Route exposing (Route(..), href, modifyUrl, fromLocation)
+module Route exposing (Route(..), fromLocation, href, modifyUrl)
 
-import UrlParser as Url exposing (parseHash, s, (</>), string, oneOf, Parser)
-import Navigation exposing (Location)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
+import Navigation exposing (Location)
+import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
 
 
 -- ROUTING --
@@ -12,6 +12,7 @@ import Html.Attributes as Attr
 type Route
     = Home
     | DataSets
+    | DataSetData String
     | Imports
     | Sessions
     | Models
@@ -27,6 +28,7 @@ routeMatcher =
     oneOf
         [ Url.map Home (s "")
         , Url.map DataSets (s "datasets")
+        , Url.map DataSetData (s "datasetdata" </> string)
         , Url.map Imports (s "imports")
         , Url.map Sessions (s "sessions")
         , Url.map Models (s "models")
@@ -51,6 +53,9 @@ routeToString page =
                 DataSets ->
                     [ "datasets" ]
 
+                DataSetData name ->
+                    [ "datasetdata", name ]
+
                 Imports ->
                     [ "imports" ]
 
@@ -64,7 +69,7 @@ routeToString page =
         --                    Item id ->
         --                    [ "item",  id ]
     in
-        "#/" ++ (String.join "/" pagePath)
+    "#/" ++ String.join "/" pagePath
 
 
 

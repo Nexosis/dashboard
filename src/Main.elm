@@ -4,6 +4,7 @@ import Data.Config exposing (ApiKey, Config)
 import Html exposing (..)
 import Json.Decode as Decode exposing (Value)
 import Navigation exposing (Location)
+import Page.DataSetData as DataSetData
 import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
@@ -31,6 +32,7 @@ type Page
     | Error PageLoadError
     | Home Home.Model
     | DataSets DataSets.Model
+    | DataSetData DataSetData.Model
     | Imports Imports.Model
     | Sessions Sessions.Model
     | Models Models.Model
@@ -44,6 +46,7 @@ type Msg
     = SetRoute (Maybe Route)
     | HomeMsg Home.Msg
     | DataSetsMsg DataSets.Msg
+    | DataSetDataMsg DataSetData.Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
@@ -65,6 +68,13 @@ setRoute route model =
                     DataSets.init model.config
             in
             { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+
+        Just (Route.DataSetData name) ->
+            let
+                ( pageModel, initCmd ) =
+                    DataSetData.init model.config name
+            in
+            { model | page = DataSetData pageModel } => Cmd.map DataSetDataMsg initCmd
 
         Just Route.Imports ->
             let
@@ -115,6 +125,9 @@ updatePage page msg model =
         ( DataSetsMsg subMsg, DataSets subModel ) ->
             toPage DataSets DataSetsMsg DataSets.update subMsg subModel
 
+        ( DataSetDataMsg subMsg, DataSetData subModel ) ->
+            toPage DataSetData DataSetDataMsg DataSetData.update subMsg subModel
+
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -158,6 +171,11 @@ view model =
             DataSets.view subModel
                 |> layout Page.DataSets
                 |> Html.map DataSetsMsg
+
+        DataSetData subModel ->
+            DataSetData.view subModel
+                |> layout Page.DataSetData
+                |> Html.map DataSetDataMsg
 
         Imports subModel ->
             Imports.view subModel

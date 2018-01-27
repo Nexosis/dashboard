@@ -1,7 +1,7 @@
-module Request.DataSet exposing (get)
+module Request.DataSet exposing (get, getRetrieveData)
 
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.DataSet as DataSet exposing (DataSet, DataSetColumnsDate, DataSetColumnsQuantity, DataSetList)
+import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Decode as Decode
@@ -30,24 +30,6 @@ encodeDataSet record =
         ]
 
 
-encodeDataSetColumnsDate : DataSetColumnsDate -> Encode.Value
-encodeDataSetColumnsDate record =
-    Encode.object
-        [ ( "dataType", Encode.string <| record.dataType )
-        , ( "role", Encode.string <| record.role )
-        ]
-
-
-encodeDataSetColumnsQuantity : DataSetColumnsQuantity -> Encode.Value
-encodeDataSetColumnsQuantity record =
-    Encode.object
-        [ ( "dataType", Encode.string <| record.dataType )
-        , ( "role", Encode.string <| record.role )
-        , ( "imputation", Encode.string <| record.imputation )
-        , ( "aggregation", Encode.string <| record.aggregation )
-        ]
-
-
 get : Config -> Int -> Http.Request DataSetList
 get { baseUrl, apiKey } page =
     let
@@ -55,13 +37,8 @@ get { baseUrl, apiKey } page =
             DataSet.decodeDataSetList
                 |> Http.expectJson
 
-        url =
-            baseUrl
-
         params =
-            [ ( "page", page |> toString )
-            , ( "pageSize", Config.pageSize |> toString )
-            ]
+            pageParams page Config.pageSize
     in
     (baseUrl ++ "/data")
         |> HttpBuilder.get
@@ -69,3 +46,33 @@ get { baseUrl, apiKey } page =
         |> HttpBuilder.withQueryParams params
         |> withAuthorization (Just apiKey)
         |> HttpBuilder.toRequest
+
+
+
+--getRetrieveData : Config -> DataSetName -> Http.Request DataSetData
+
+
+getRetrieveData : Config -> String -> Http.Request DataSetData
+getRetrieveData { baseUrl, apiKey } name =
+    let
+        expect =
+            DataSet.decodeDataSetData
+                |> Http.expectJson
+
+        params =
+            pageParams 0 Config.pageSize
+    in
+    --(baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (baseUrl ++ "/data/" ++ name)
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization (Just apiKey)
+        |> HttpBuilder.toRequest
+
+
+pageParams : Int -> Int -> List ( String, String )
+pageParams page pageSize =
+    [ ( "page", page |> toString )
+    , ( "pageSize", pageSize |> toString )
+    ]

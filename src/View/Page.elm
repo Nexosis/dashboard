@@ -8,6 +8,7 @@ type ActivePage
     = Other
     | Home
     | DataSets
+    | DataSetData
     | Imports
     | Sessions
     | Models
