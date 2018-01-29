@@ -50,11 +50,11 @@ type alias DataSet =
 
 
 type alias DataSetColumnsMetadata =
-    { name : String
-    , dataType : String
+    { dataType : String
     , role : String
     , imputation : String
     , aggregation : String
+    , name : String
     }
 
 
@@ -99,7 +99,7 @@ decodeDataSetData : Decode.Decoder DataSetData
 decodeDataSetData =
     Json.Decode.Pipeline.decode DataSetData
         |> Json.Decode.Pipeline.required "dataSetName" dataSetNameDecoder
-        |> Json.Decode.Pipeline.required "dataSetSize" Decode.int
+        |> Json.Decode.Pipeline.optional "dataSetSize" Decode.int 0
         |> Json.Decode.Pipeline.required "isTimeSeries" Decode.bool
         |> Json.Decode.Pipeline.required "columns" decodeDataSetColumnsMetadata
         |> Json.Decode.Pipeline.required "data" decodeData
@@ -111,24 +111,13 @@ decodeDataSetData =
 
 decodeDataSetColumnsMetadata : Decode.Decoder (List DataSetColumnsMetadata)
 decodeDataSetColumnsMetadata =
-    Decode.map4 DataSetColumnsMetadata
-        (Decode.field "dataType" Decode.string)
-        (Decode.field "role" Decode.string)
-        (Decode.field "imputation" Decode.string)
-        (Decode.field "aggregation" Decode.string)
+    Json.Decode.Pipeline.decode DataSetColumnsMetadata
+        |> Json.Decode.Pipeline.required "dataType" Decode.string
+        |> Json.Decode.Pipeline.required "role" Decode.string
+        |> Json.Decode.Pipeline.optional "imputation" Decode.string ""
+        |> Json.Decode.Pipeline.optional "aggregation" Decode.string ""
         |> Decode.keyValuePairs
         |> Decode.map (\a -> List.map (uncurry (|>)) a)
-
-
-
--- decodeDataSetColumnsMetadata : Decode.Decoder DataSetColumnsMetadata
--- decodeDataSetColumnsMetadata =
---     Json.Decode.Pipeline.decode DataSetColumnsMetadata
---         |> Json.Decode.Pipeline.custom (Decode.key "")
---         |> Json.Decode.Pipeline.required "dataType" Decode.string
---         |> Json.Decode.Pipeline.required "role" Decode.string
---         |> Json.Decode.Pipeline.required "imputation" Decode.string
---         |> Json.Decode.Pipeline.required "aggregation" Decode.string
 
 
 decodeData : Decode.Decoder Data
