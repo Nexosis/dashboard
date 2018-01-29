@@ -28,7 +28,7 @@ type alias Model =
     }
 
 
-init : Config -> String -> ( Model, Cmd Msg )
+init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
         loadDataSetList =

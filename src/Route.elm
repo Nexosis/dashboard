@@ -1,5 +1,6 @@
 module Route exposing (Route(..), fromLocation, href, modifyUrl)
 
+import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
@@ -12,7 +13,7 @@ import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
 type Route
     = Home
     | DataSets
-    | DataSetData String
+    | DataSetData DataSet.DataSetName
     | Imports
     | Sessions
     | Models
@@ -28,7 +29,7 @@ routeMatcher =
     oneOf
         [ Url.map Home (s "")
         , Url.map DataSets (s "datasets")
-        , Url.map DataSetData (s "datasetdata" </> string)
+        , Url.map DataSetData (s "datasetdata" </> DataSet.dataSetNameParser)
         , Url.map Imports (s "imports")
         , Url.map Sessions (s "sessions")
         , Url.map Models (s "models")
@@ -54,7 +55,7 @@ routeToString page =
                     [ "datasets" ]
 
                 DataSetData name ->
-                    [ "datasetdata", name ]
+                    [ "datasetdata", DataSet.dataSetNameToString name ]
 
                 Imports ->
                     [ "imports" ]

@@ -7,6 +7,7 @@ module Data.DataSet
         , DataSetList
         , DataSetName
         , dataSetNameDecoder
+        , dataSetNameParser
         , dataSetNameToString
         , decodeDataSetData
         , decodeDataSetList
@@ -15,6 +16,7 @@ module Data.DataSet
 import Dict exposing (Dict)
 import Json.Decode as Decode
 import Json.Decode.Pipeline
+import UrlParser
 
 
 {-| Returned from /data/{dataSetName}
@@ -69,6 +71,11 @@ type DataSetName
 dataSetNameToString : DataSetName -> String
 dataSetNameToString (DataSetName name) =
     name
+
+
+dataSetNameParser : UrlParser.Parser (DataSetName -> a) a
+dataSetNameParser =
+    UrlParser.custom "DATASETNAME" (Ok << DataSetName)
 
 
 dataSetNameDecoder : Decode.Decoder DataSetName

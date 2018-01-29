@@ -48,11 +48,7 @@ get { baseUrl, apiKey } page =
         |> HttpBuilder.toRequest
 
 
-
---getRetrieveData : Config -> DataSetName -> Http.Request DataSetData
-
-
-getRetrieveData : Config -> String -> Http.Request DataSetData
+getRetrieveData : Config -> DataSetName -> Http.Request DataSetData
 getRetrieveData { baseUrl, apiKey } name =
     let
         expect =
@@ -62,8 +58,7 @@ getRetrieveData { baseUrl, apiKey } name =
         params =
             pageParams 0 Config.pageSize
     in
-    --(baseUrl ++ "/data/" ++ dataSetNameToString name)
-    (baseUrl ++ "/data/" ++ name)
+    (baseUrl ++ "/data/" ++ dataSetNameToString name)
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
