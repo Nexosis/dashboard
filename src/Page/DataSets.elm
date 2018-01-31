@@ -1,14 +1,15 @@
-module Page.DataSets exposing (view, update, Model, Msg, init)
+module Page.DataSets exposing (Model, Msg, init, update, view)
 
+import Common
+import Data.Config exposing (Config)
+import Data.DataSet exposing (DataSet, DataSetList)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput, onClick)
-import Table exposing (defaultCustomizations)
-import RemoteData as Remote
-import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSetList, DataSet)
-import Request.DataSet
+import Html.Events exposing (onClick, onInput)
 import Http
+import RemoteData as Remote
+import Request.DataSet
+import Table exposing (defaultCustomizations)
 import Task
 import Util exposing ((=>))
 import View.Pager as Pager
@@ -27,16 +28,24 @@ type alias Model =
     }
 
 
-init : Config -> ( Model, Cmd Msg )
+init : Config -> ( Model, Cmd Msg, Cmd Common.Msg )
 init config =
     let
-        loadDataSetList =
+        req =
             Request.DataSet.get config 0
+
+        loadDataSetList =
+            req
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
+
+        recordRequest =
+            Common.logRequest req
     in
-        (Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config)
-            => loadDataSetList
+    ( Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config
+    , loadDataSetList
+    , recordRequest
+    )
 
 
 
@@ -65,10 +74,10 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading }
-            => 
-                (Request.DataSet.get model.config pgNum
-                    |> Remote.sendRequest
-                    |> Cmd.map DataSetListResponse)
+                => (Request.DataSet.get model.config pgNum
+                        |> Remote.sendRequest
+                        |> Cmd.map DataSetListResponse
+                   )
 
 
 
@@ -86,29 +95,31 @@ view model =
                 _ ->
                     loadingGrid
     in
-        div []
-            [ h2 [] [ text model.pageTitle ]
-            , div [] [ text model.pageBody ]
-            , div [ class "row" ]
-                [ div [ class "col-lg-9" ]
-                    [ div [ class "panel panel-default" ]
-                        [ div [ class "panel-heading" ]
-                            [ h3 [] [ text "Datasets" ]
-                            ]
-                        , div [] gridView
+    div []
+        [ h2 [] [ text model.pageTitle ]
+        , div [] [ text model.pageBody ]
+        , div [ class "row" ]
+            [ div [ class "col-lg-9" ]
+                [ div [ class "panel panel-default" ]
+                    [ div [ class "panel-heading" ]
+                        [ h3 [] [ text "Datasets" ]
                         ]
+                    , div [] gridView
                     ]
                 ]
             ]
+        ]
+
 
 loadingGrid : List (Html Msg)
 loadingGrid =
-    [ div [class "panel-body"]
-        [ div [ class "table-responsive"] [
-            span [] [ text "No data found"]]
+    [ div [ class "panel-body" ]
+        [ div [ class "table-responsive" ]
+            [ span [] [ text "No data found" ]
+            ]
         ]
-    , div [ class "panel-footer"]  [
-        ]
+    , div [ class "panel-footer" ]
+        []
     ]
 
 

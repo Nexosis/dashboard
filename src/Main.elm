@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Common
 import Data.Config exposing (ApiKey, Config)
 import Html exposing (..)
 import Http
@@ -25,6 +26,7 @@ type alias Model =
     { page : Page
     , config : Config
     , error : Maybe Http.Error
+    , lastRequest : String
     }
 
 
@@ -52,6 +54,15 @@ type Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
+    | CommonMsg Common.Msg
+
+
+bubble : (a -> Msg) -> Cmd a -> Cmd Common.Msg -> Cmd Msg
+bubble lifter cmd ev =
+    Cmd.batch
+        [ Cmd.map lifter cmd
+        , Cmd.map CommonMsg ev
+        ]
 
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -66,10 +77,10 @@ setRoute route model =
 
         Just Route.DataSets ->
             let
-                ( pageModel, initCmd ) =
+                ( pageModel, initCmd, commonCmd ) =
                     DataSets.init model.config
             in
-            { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+            { model | page = DataSets pageModel } => bubble DataSetsMsg initCmd commonCmd
 
         Just (Route.DataSetData name) ->
             let
@@ -102,7 +113,18 @@ setRoute route model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    updatePage model.page msg model
+    let
+        updatedModel =
+            case msg of
+                CommonMsg event ->
+                    case event of
+                        Common.Request req ->
+                            { model | lastRequest = req }
+
+                _ ->
+                    model
+    in
+    updatePage model.page msg updatedModel
 
 
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
@@ -152,46 +174,46 @@ view model =
     in
     case model.page of
         NotFound ->
-            layout Page.Other model.error NotFound.view
+            layout Page.Other model.error model.lastRequest NotFound.view
 
         Blank ->
             -- This is for the very initial page load, while we are loading
             -- data via HTTP. We could also render a spinner here.
             Html.text ""
-                |> layout Page.Other model.error
+                |> layout Page.Other model.error model.lastRequest
 
         Error subModel ->
             Error.view subModel
-                |> layout Page.Other model.error
+                |> layout Page.Other model.error model.lastRequest
 
         Home subModel ->
             Home.view subModel
-                |> layout Page.Home model.error
+                |> layout Page.Home model.error model.lastRequest
                 |> Html.map HomeMsg
 
         DataSets subModel ->
             DataSets.view subModel
-                |> layout Page.DataSets model.error
+                |> layout Page.DataSets model.error model.lastRequest
                 |> Html.map DataSetsMsg
 
         DataSetData subModel ->
             DataSetData.view subModel
-                |> layout Page.DataSetData model.error
+                |> layout Page.DataSetData model.error model.lastRequest
                 |> Html.map DataSetDataMsg
 
         Imports subModel ->
             Imports.view subModel
-                |> layout Page.Imports model.error
+                |> layout Page.Imports model.error model.lastRequest
                 |> Html.map ImportsMsg
 
         Sessions subModel ->
             Sessions.view subModel
-                |> layout Page.Sessions model.error
+                |> layout Page.Sessions model.error model.lastRequest
                 |> Html.map SessionsMsg
 
         Models subModel ->
             Models.view subModel
-                |> layout Page.Models model.error
+                |> layout Page.Models model.error model.lastRequest
                 |> Html.map ModelsMsg
 
 
@@ -225,6 +247,7 @@ init flags location =
         { page = initialPage
         , config = Config (Data.Config.ApiKey flags.apiKey) flags.url
         , error = Nothing
+        , lastRequest = ""
         }
 
 

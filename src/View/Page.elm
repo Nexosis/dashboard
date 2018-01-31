@@ -20,12 +20,12 @@ type ActivePage
 isLoading can be used to show loading during slow transitions
 
 -}
-layout : ActivePage -> Maybe Http.Error -> Html msg -> Html msg
-layout page error content =
+layout : ActivePage -> Maybe Http.Error -> String -> Html msg -> Html msg
+layout page error lastRequest content =
     div []
         [ viewHeader page
         , div [] [ content ]
-        , viewFooter error
+        , viewFooter error lastRequest
         ]
 
 
@@ -52,8 +52,8 @@ viewHeader page =
         ]
 
 
-viewFooter : Maybe Http.Error -> Html msg
-viewFooter error =
+viewFooter : Maybe Http.Error -> String -> Html msg
+viewFooter error lastRequest =
     footer []
-        [ div [] []
+        [ div [] [ text lastRequest ]
         ]
