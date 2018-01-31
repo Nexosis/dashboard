@@ -22,7 +22,7 @@ type alias Model =
     { pageTitle : String
     , pageBody : String
     , errors : List String
-    , dataSetList : Remote.WebData DataSetData
+    , dataSetResponse : Remote.WebData DataSetData
     , tableState : Table.State
     , config : Config
     }
@@ -58,7 +58,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetDataResponse resp ->
-            { model | dataSetList = resp } => Cmd.none
+            { model | dataSetResponse = resp } => Cmd.none
 
         SetTableState newState ->
             { model | tableState = newState }
@@ -82,9 +82,17 @@ view : Model -> Html Msg
 view model =
     let
         gridView =
-            case model.dataSetList of
+            case model.dataSetResponse of
                 Remote.Success dsList ->
                     gridSection dsList model.tableState
+
+                Remote.Failure error ->
+                    case error of
+                        Http.BadStatus response ->
+                            errorDisplay response
+
+                        _ ->
+                            [ div [] [] ]
 
                 _ ->
                     loadingGrid
@@ -103,6 +111,11 @@ view model =
                 ]
             ]
         ]
+
+
+errorDisplay : Http.Response String -> List (Html Msg)
+errorDisplay error =
+    [ div [] [ text (error.body |> toString) ] ]
 
 
 loadingGrid : List (Html Msg)

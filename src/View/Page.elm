@@ -1,6 +1,7 @@
 module View.Page exposing (ActivePage(..), layout)
 
 import Html exposing (..)
+import Http
 import Route exposing (Route)
 
 
@@ -16,15 +17,15 @@ type ActivePage
 
 {-| Take a page's Html and layout it with a header and footer.
 
-isLoading can be used to slow loading during slow transitions
+isLoading can be used to show loading during slow transitions
 
 -}
-layout : ActivePage -> Html msg -> Html msg
-layout page content =
+layout : ActivePage -> Maybe Http.Error -> Html msg -> Html msg
+layout page error content =
     div []
         [ viewHeader page
         , div [] [ content ]
-        , viewFooter
+        , viewFooter error
         ]
 
 
@@ -51,8 +52,8 @@ viewHeader page =
         ]
 
 
-viewFooter : Html msg
-viewFooter =
+viewFooter : Maybe Http.Error -> Html msg
+viewFooter error =
     footer []
         [ div [] []
         ]

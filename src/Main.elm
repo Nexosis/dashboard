@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Data.Config exposing (ApiKey, Config)
 import Html exposing (..)
+import Http
 import Json.Decode as Decode exposing (Value)
 import Navigation exposing (Location)
 import Page.DataSetData as DataSetData
@@ -23,6 +24,7 @@ import View.Page as Page exposing (ActivePage)
 type alias Model =
     { page : Page
     , config : Config
+    , error : Maybe Http.Error
     }
 
 
@@ -118,7 +120,7 @@ updatePage page msg model =
         ( SetRoute route, _ ) ->
             setRoute route model
 
-        -- Update for page specfic msgs
+        -- Update for page specific msgs
         ( HomeMsg subMsg, Home subModel ) ->
             toPage Home HomeMsg Home.update subMsg subModel
 
@@ -150,46 +152,46 @@ view model =
     in
     case model.page of
         NotFound ->
-            layout Page.Other NotFound.view
+            layout Page.Other model.error NotFound.view
 
         Blank ->
-            -- This is for the very intial page load, while we are loading
+            -- This is for the very initial page load, while we are loading
             -- data via HTTP. We could also render a spinner here.
             Html.text ""
-                |> layout Page.Other
+                |> layout Page.Other model.error
 
         Error subModel ->
             Error.view subModel
-                |> layout Page.Other
+                |> layout Page.Other model.error
 
         Home subModel ->
             Home.view subModel
-                |> layout Page.Home
+                |> layout Page.Home model.error
                 |> Html.map HomeMsg
 
         DataSets subModel ->
             DataSets.view subModel
-                |> layout Page.DataSets
+                |> layout Page.DataSets model.error
                 |> Html.map DataSetsMsg
 
         DataSetData subModel ->
             DataSetData.view subModel
-                |> layout Page.DataSetData
+                |> layout Page.DataSetData model.error
                 |> Html.map DataSetDataMsg
 
         Imports subModel ->
             Imports.view subModel
-                |> layout Page.Imports
+                |> layout Page.Imports model.error
                 |> Html.map ImportsMsg
 
         Sessions subModel ->
             Sessions.view subModel
-                |> layout Page.Sessions
+                |> layout Page.Sessions model.error
                 |> Html.map SessionsMsg
 
         Models subModel ->
             Models.view subModel
-                |> layout Page.Models
+                |> layout Page.Models model.error
                 |> Html.map ModelsMsg
 
 
@@ -222,6 +224,7 @@ init flags location =
     setRoute (Route.fromLocation location)
         { page = initialPage
         , config = Config (Data.Config.ApiKey flags.apiKey) flags.url
+        , error = Nothing
         }
 
 
