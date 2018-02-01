@@ -1,5 +1,6 @@
 module View.Page exposing (ActivePage(..), layout)
 
+import Data.Response as Response
 import Html exposing (..)
 import Http
 import Route exposing (Route)
@@ -15,17 +16,24 @@ type ActivePage
     | Models
 
 
+type alias PageValues a =
+    { a
+        | lastRequest : String
+        , lastResponse : Maybe Response.Response
+    }
+
+
 {-| Take a page's Html and layout it with a header and footer.
 
 isLoading can be used to show loading during slow transitions
 
 -}
-layout : ActivePage -> Maybe Http.Error -> String -> Html msg -> Html msg
-layout page error lastRequest content =
+layout : ActivePage -> PageValues a -> Html msg -> Html msg
+layout page pageValues content =
     div []
         [ viewHeader page
         , div [] [ content ]
-        , viewFooter error lastRequest
+        , viewFooter pageValues
         ]
 
 
@@ -52,8 +60,17 @@ viewHeader page =
         ]
 
 
-viewFooter : Maybe Http.Error -> String -> Html msg
-viewFooter error lastRequest =
+viewFooter : PageValues a -> Html msg
+viewFooter pageValues =
+    let
+        responseText =
+            case pageValues.lastResponse of
+                Just response ->
+                    toString response
+
+                Nothing ->
+                    ""
+    in
     footer []
-        [ div [] [ text lastRequest ]
+        [ div [] [ text responseText ]
         ]

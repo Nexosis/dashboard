@@ -14,12 +14,31 @@
 </head>
 
 <body id="page-body">
+  <script src="/js/intercept.js"></script>
   <script>
     fetch('/config.json').then(function (response) {
       response.json().then(function (result) {
         var app = Elm.Main.fullscreen(result);
+
+        addRequestCallback(function (xhr, params) {
+          console.log("request", JSON.stringify(xhr));
+        });
+        addResponseCallback(function (xhr) {
+
+          var xhrInfo = {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            response: xhr.response
+          };
+
+          app.ports.responseReceived.send(xhrInfo);
+        });
       });
     });
+
+
+    wire();
+
   </script>
 </body>
 

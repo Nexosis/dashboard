@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Common
 import Data.Config exposing (ApiKey, Config)
+import Data.Response as Response
 import Html exposing (..)
 import Http
 import Json.Decode as Decode exposing (Value)
@@ -14,6 +15,7 @@ import Page.Imports as Imports
 import Page.Models as Models
 import Page.NotFound as NotFound
 import Page.Sessions as Sessions
+import Ports
 import Route exposing (..)
 import Util exposing ((=>))
 import View.Page as Page exposing (ActivePage)
@@ -27,6 +29,7 @@ type alias Model =
     , config : Config
     , error : Maybe Http.Error
     , lastRequest : String
+    , lastResponse : Maybe Response.Response
     }
 
 
@@ -55,6 +58,7 @@ type Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
     | CommonMsg Common.Msg
+    | ResponseReceived (Result String Response.Response)
 
 
 bubble : (a -> Msg) -> Cmd a -> Cmd Common.Msg -> Cmd Msg
@@ -152,6 +156,13 @@ updatePage page msg model =
         ( DataSetDataMsg subMsg, DataSetData subModel ) ->
             toPage DataSetData DataSetDataMsg DataSetData.update subMsg subModel
 
+        ( ResponseReceived (Ok response), _ ) ->
+            { model | lastResponse = Just response } => Cmd.none
+
+        ( ResponseReceived (Err err), _ ) ->
+            -- To Do
+            { model | lastResponse = Nothing } => Cmd.none
+
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -174,46 +185,46 @@ view model =
     in
     case model.page of
         NotFound ->
-            layout Page.Other model.error model.lastRequest NotFound.view
+            layout Page.Other model NotFound.view
 
         Blank ->
             -- This is for the very initial page load, while we are loading
             -- data via HTTP. We could also render a spinner here.
             Html.text ""
-                |> layout Page.Other model.error model.lastRequest
+                |> layout Page.Other model
 
         Error subModel ->
             Error.view subModel
-                |> layout Page.Other model.error model.lastRequest
+                |> layout Page.Other model
 
         Home subModel ->
             Home.view subModel
-                |> layout Page.Home model.error model.lastRequest
+                |> layout Page.Home model
                 |> Html.map HomeMsg
 
         DataSets subModel ->
             DataSets.view subModel
-                |> layout Page.DataSets model.error model.lastRequest
+                |> layout Page.DataSets model
                 |> Html.map DataSetsMsg
 
         DataSetData subModel ->
             DataSetData.view subModel
-                |> layout Page.DataSetData model.error model.lastRequest
+                |> layout Page.DataSetData model
                 |> Html.map DataSetDataMsg
 
         Imports subModel ->
             Imports.view subModel
-                |> layout Page.Imports model.error model.lastRequest
+                |> layout Page.Imports model
                 |> Html.map ImportsMsg
 
         Sessions subModel ->
             Sessions.view subModel
-                |> layout Page.Sessions model.error model.lastRequest
+                |> layout Page.Sessions model
                 |> Html.map SessionsMsg
 
         Models subModel ->
             Models.view subModel
-                |> layout Page.Models model.error model.lastRequest
+                |> layout Page.Models model
                 |> Html.map ModelsMsg
 
 
@@ -223,7 +234,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
 
 
 
@@ -248,6 +259,7 @@ init flags location =
         , config = Config (Data.Config.ApiKey flags.apiKey) flags.url
         , error = Nothing
         , lastRequest = ""
+        , lastResponse = Nothing
         }
 
 

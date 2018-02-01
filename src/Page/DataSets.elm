@@ -1,4 +1,4 @@
-module Page.DataSets exposing (Model, Msg, init, update, view)
+module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, view)
 
 import Common
 import Data.Config exposing (Config)
