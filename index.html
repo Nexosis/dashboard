@@ -11,24 +11,32 @@
   />
   <link rel="stylesheet" href="https://apimgmtstknjvqlupeuywl8a.blob.core.windows.net/content/MediaLibrary/css/nexosis.css"
   />
+  <link rel="stylesheet" type="text/css" href="http://docs.nexosis.com/assets/css/prism.css">
 </head>
 
 <body id="page-body">
   <script src="/js/intercept.js"></script>
+  <script src="http://docs.nexosis.com/assets/js/prism/clipboard.min.js"></script>
+  <script src="http://docs.nexosis.com/assets/js/prism/prism.js" data-default-languague="json"></script>
   <script>
     fetch('/config.json').then(function (response) {
       response.json().then(function (result) {
         var app = Elm.Main.fullscreen(result);
 
-        addRequestCallback(function (xhr, params) {
-          console.log("request", JSON.stringify(xhr));
+        app.ports.prismHighlight.subscribe(function () {
+          requestAnimationFrame(() => {
+            Prism.highlightAll();
+          });
         });
+
         addResponseCallback(function (xhr) {
 
           var xhrInfo = {
             status: xhr.status,
             statusText: xhr.statusText,
-            response: xhr.response
+            response: JSON.stringify(JSON.parse(xhr.response), null, 2),
+            method: xhr.method,
+            url: xhr.url
           };
 
           app.ports.responseReceived.send(xhrInfo);

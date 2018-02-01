@@ -1,6 +1,5 @@
 module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, view)
 
-import Common
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList)
 import Html exposing (..)
@@ -28,7 +27,7 @@ type alias Model =
     }
 
 
-init : Config -> ( Model, Cmd Msg, Cmd Common.Msg )
+init : Config -> ( Model, Cmd Msg )
 init config =
     let
         req =
@@ -38,14 +37,9 @@ init config =
             req
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-
-        recordRequest =
-            Common.logRequest req
     in
-    ( Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config
-    , loadDataSetList
-    , recordRequest
-    )
+    Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config
+        => loadDataSetList
 
 
 

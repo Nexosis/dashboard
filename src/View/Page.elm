@@ -2,6 +2,8 @@ module View.Page exposing (ActivePage(..), layout)
 
 import Data.Response as Response
 import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Keyed
 import Http
 import Route exposing (Route)
 
@@ -63,14 +65,54 @@ viewHeader page =
 viewFooter : PageValues a -> Html msg
 viewFooter pageValues =
     let
-        responseText =
+        responseView =
             case pageValues.lastResponse of
                 Just response ->
-                    toString response
+                    viewRequestResponse response
 
                 Nothing ->
-                    ""
+                    div [] []
     in
     footer []
-        [ div [] [ text responseText ]
+        [ responseView
+        ]
+
+
+viewRequestResponse : Response.Response -> Html msg
+viewRequestResponse response =
+    div []
+        [ div [ class "row" ]
+            [ div [ class "col" ]
+                [ div [ class "panel" ]
+                    [ div [ class "panel-body" ]
+                        [ h3 [] [ text (response.method ++ " " ++ response.url) ]
+                        ]
+                    ]
+                ]
+            ]
+        , div [ class "row" ]
+            [ div [ class "col" ]
+                [ div [ class "panel" ]
+                    [ div [ class "panel-header" ]
+                        [ h4 [] [ text "Response Body" ]
+                        ]
+                    , div [ class "panel-body" ]
+                        [ div [] [ viewJsonSyntaxHighlightedView response.response ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+
+viewJsonSyntaxHighlightedView : String -> Html msg
+viewJsonSyntaxHighlightedView content =
+    Html.Keyed.node
+        "div"
+        []
+        [ ( "responseBody"
+          , pre []
+                [ code [ class "language-json" ] [ text content ]
+                ]
+          )
         ]

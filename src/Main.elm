@@ -1,6 +1,5 @@
 module Main exposing (..)
 
-import Common
 import Data.Config exposing (ApiKey, Config)
 import Data.Response as Response
 import Html exposing (..)
@@ -57,16 +56,7 @@ type Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
-    | CommonMsg Common.Msg
     | ResponseReceived (Result String Response.Response)
-
-
-bubble : (a -> Msg) -> Cmd a -> Cmd Common.Msg -> Cmd Msg
-bubble lifter cmd ev =
-    Cmd.batch
-        [ Cmd.map lifter cmd
-        , Cmd.map CommonMsg ev
-        ]
 
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -81,10 +71,10 @@ setRoute route model =
 
         Just Route.DataSets ->
             let
-                ( pageModel, initCmd, commonCmd ) =
+                ( pageModel, initCmd ) =
                     DataSets.init model.config
             in
-            { model | page = DataSets pageModel } => bubble DataSetsMsg initCmd commonCmd
+            { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
         Just (Route.DataSetData name) ->
             let
@@ -117,18 +107,7 @@ setRoute route model =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    let
-        updatedModel =
-            case msg of
-                CommonMsg event ->
-                    case event of
-                        Common.Request req ->
-                            { model | lastRequest = req }
-
-                _ ->
-                    model
-    in
-    updatePage model.page msg updatedModel
+    updatePage model.page msg model
 
 
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
@@ -157,7 +136,7 @@ updatePage page msg model =
             toPage DataSetData DataSetDataMsg DataSetData.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
-            { model | lastResponse = Just response } => Cmd.none
+            { model | lastResponse = Just response } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
             -- To Do
