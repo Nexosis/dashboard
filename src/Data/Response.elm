@@ -10,6 +10,7 @@ type alias Response =
     , response : String
     , method : String
     , url : String
+    , timestamp : String
     }
 
 
@@ -26,3 +27,4 @@ decodeResponse =
         |> Json.Decode.Pipeline.required "response" Json.Decode.string
         |> Json.Decode.Pipeline.required "method" Json.Decode.string
         |> Json.Decode.Pipeline.required "url" Json.Decode.string
+        |> Json.Decode.Pipeline.required "timestamp" Json.Decode.string

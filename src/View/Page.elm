@@ -97,7 +97,7 @@ viewRequestResponse response =
                         [ h4 [] [ text "Response Body" ]
                         ]
                     , div [ class "panel-body" ]
-                        [ div [] [ viewJsonSyntaxHighlightedView response.response ]
+                        [ div [] [ viewJsonSyntaxHighlightedView response ]
                         ]
                     ]
                 ]
@@ -105,14 +105,14 @@ viewRequestResponse response =
         ]
 
 
-viewJsonSyntaxHighlightedView : String -> Html msg
-viewJsonSyntaxHighlightedView content =
+viewJsonSyntaxHighlightedView : Response.Response -> Html msg
+viewJsonSyntaxHighlightedView response =
     Html.Keyed.node
         "div"
         []
-        [ ( "responseBody"
+        [ ( response.timestamp
           , pre []
-                [ code [ class "language-json" ] [ text content ]
+                [ code [ class "language-json" ] [ text response.response ]
                 ]
           )
         ]

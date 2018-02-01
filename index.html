@@ -36,7 +36,8 @@
             statusText: xhr.statusText,
             response: JSON.stringify(JSON.parse(xhr.response), null, 2),
             method: xhr.method,
-            url: xhr.url
+            url: xhr.url,
+            timestamp: new Date().toISOString()
           };
 
           app.ports.responseReceived.send(xhrInfo);
