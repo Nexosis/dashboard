@@ -94,7 +94,7 @@ viewRequestResponse response =
             [ div [ class "col" ]
                 [ div [ class "panel" ]
                     [ div [ class "panel-header" ]
-                        [ h4 [] [ text "Response Body" ]
+                        [ h4 (balloonTooltip "Raw response body") [ text "Response Body" ]
                         ]
                     , div [ class "panel-body" ]
                         [ div [] [ viewJsonSyntaxHighlightedView response ]
@@ -105,8 +105,25 @@ viewRequestResponse response =
         ]
 
 
+balloonTooltip : String -> List (Attribute msg)
+balloonTooltip text =
+    [ attribute "data-balloon" text, attribute "data-balloon-pos" "up" ]
+
+
 viewJsonSyntaxHighlightedView : Response.Response -> Html msg
 viewJsonSyntaxHighlightedView response =
+    {-
+        HACK:
+
+       This uses a Keyed node.  In Elm we aren't supposed to modify the DOM after Elm has rendered it.
+       It uses a ShadowDom to track diffs between state changes, so messing with the DOM will break that process.
+
+       However, we want to use the Prism lib to do syntax highlighting on code, which will change the DOM within this node.
+
+       But, if we use a Keyed note, we can flag this node with an ID.  When the ID changes, Elm will
+       just throw away the old contents of this node and replace it with a new version.  It doesn't
+       bother with calculating a diff of the children to see if anything needs to be redrawn.
+    -}
     Html.Keyed.node
         "div"
         []
