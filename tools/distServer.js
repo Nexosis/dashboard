@@ -18,8 +18,14 @@ browserSync({
         baseDir: ['dist', 'config']
     },
 
+    rewriteRules: [
+        {
+            match: /\/dashboard/g,
+            replace: ''
+        }
+    ],
+
     files: [
-        'src/*.html',
-        '/src/config.json'
+        'src/*.html'
     ],
 });

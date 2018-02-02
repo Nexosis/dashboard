@@ -11,8 +11,8 @@ export default {
     target: 'web',
     output: {
         path: path.resolve(__dirname, "dist"),
-        publicPath: '/',
-        filename: 'dashboard.js'
+        publicPath: '/dashboard/',
+        filename: '[name].[chunkhash].js'
     },
     resolve: {
         extensions: ['*', '.js', '.elm']
