@@ -11,14 +11,31 @@
         "prod-build": "elm make src/Main.elm --yes --output dist/elm.js && uglifyjs -mc -o dist/elm.min.js dist/elm.js",
         "build": "elm make src/Main.elm --output dist/elm.js --debug --warn --yes",
         "open-app": "elm-live --output=dist/elm.js src/Main.elm --pushstate --open --debug",
-        "analyse": "node node_modules/elm-analyse/js/bin/index.js -s"
+        "analyse": "node node_modules/elm-analyse/js/bin/index.js -s",
+        "analyse-bundle": "babel-node ./tools/analyseBundle.js"
     },
-    "dependencies": {},
+    "dependencies": {
+        "prismjs": "^1.10.0"
+    },
     "devDependencies": {
+        "babel-cli": "^6.26.0",
+        "babel-core": "^6.26.0",
+        "babel-loader": "^7.1.2",
+        "babel-preset-latest": "^6.24.1",
+        "browser-sync": "^2.23.6",
+        "chalk": "^2.3.0",
         "elm": "0.18.0",
         "elm-analyse": "0.13.3",
+        "elm-hot-loader": "^0.5.4",
         "elm-live": "2.7.5",
         "elm-test": "0.18.12",
-        "uglify-js": "3.3.8"
+        "elm-webpack-loader": "^4.4.0",
+        "html-webpack-plugin": "^2.30.1",
+        "uglify-js": "3.3.8",
+        "webpack": "^3.10.0",
+        "webpack-bundle-analyzer": "^2.10.0",
+        "webpack-combine-loaders": "^2.0.3",
+        "webpack-dev-middleware": "^2.0.4",
+        "webpack-hot-middleware": "^2.21.0"
     }
 }
