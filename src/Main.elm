@@ -5,6 +5,8 @@ import Data.Response as Response
 import Html exposing (..)
 import Http
 import Json.Decode as Decode exposing (Value)
+import Jwt
+import Jwt.Decoders
 import Navigation exposing (Location)
 import Page.DataSetData as DataSetData
 import Page.DataSets as DataSets
@@ -16,6 +18,7 @@ import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
 import Route exposing (..)
+import Time
 import Util exposing ((=>))
 import View.Page as Page exposing (ActivePage)
 
@@ -57,6 +60,7 @@ type Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
     | ResponseReceived (Result String Response.Response)
+    | CheckToken Time.Time
 
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -142,6 +146,17 @@ updatePage page msg model =
             -- To Do
             { model | lastResponse = Nothing } => Cmd.none
 
+        ( CheckToken time, _ ) ->
+            if Jwt.isExpired time model.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
+                let
+                    s =
+                        Debug.log "Token is expired" time
+                in
+                model => Cmd.none
+                -- TODO: renew the token somehow
+            else
+                model => Cmd.none
+
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -213,7 +228,10 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
+    Sub.batch
+        [ Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
+        , Time.every Time.minute CheckToken
+        ]
 
 
 
@@ -228,6 +246,7 @@ initialPage =
 type alias Flags =
     { apiKey : String
     , url : String
+    , token : String
     }
 
 
@@ -235,7 +254,12 @@ init : Flags -> Location -> ( Model, Cmd Msg )
 init flags location =
     setRoute (Route.fromLocation location)
         { page = initialPage
-        , config = Config (Data.Config.ApiKey flags.apiKey) flags.url
+        , config =
+            { apiKey = Data.Config.decodeApiKey flags.apiKey
+            , baseUrl = flags.url
+            , token = Data.Config.decodeToken flags.token
+            , rawToken = flags.token
+            }
         , error = Nothing
         , lastRequest = ""
         , lastResponse = Nothing

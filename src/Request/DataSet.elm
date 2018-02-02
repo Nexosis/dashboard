@@ -44,7 +44,7 @@ get { baseUrl, apiKey } page =
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization (Just apiKey)
+        |> withAuthorization apiKey
         |> HttpBuilder.toRequest
 
 
@@ -62,7 +62,7 @@ getRetrieveData { baseUrl, apiKey } name =
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization (Just apiKey)
+        |> withAuthorization apiKey
         |> HttpBuilder.toRequest
 
 
