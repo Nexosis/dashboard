@@ -4,9 +4,9 @@ Interact with the Nexosis API with a dashboard.
 
 ## Get It Running
 
-**1.** Run npm Install
+**1.** Run Yarn to Install
 
-> npm install 
+> yarn
 
 **2.** Set url and api key:
 
@@ -15,10 +15,11 @@ Create a file, config.json.  Provide your api key.
 ``` JSON
 {
     "apiKey": "My Key",
-    "url": "https://ml.nexosis.com/v1"
+    "url": "https://ml.nexosis.com/v1",
+    "token": ""  // You will need to generate a token for now.
 }
 ```
 
 **3.** Build and run:
 
-> npm run open-app
+> yarn open-app

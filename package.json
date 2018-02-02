@@ -19,6 +19,6 @@
         "elm-analyse": "0.13.3",
         "elm-live": "2.7.5",
         "elm-test": "0.18.12",
-        "uglify-js": "^3.3.8"
+        "uglify-js": "3.3.8"
     }
 }
