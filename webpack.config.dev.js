@@ -1,11 +1,16 @@
 import path from 'path';
 import webpack from 'webpack';
 import combineLoaders from 'webpack-combine-loaders';
+import HtmlWebpackPlugin from 'html-webpack-plugin';
 
 export default {
     devtool: 'eval-source-map',
     cache: true,
-    entry: entry,
+    entry: [
+        './src/webpack-public-path',
+        'webpack-hot-middleware/client?reload=true',
+        path.resolve(__dirname, './src/index.js')
+    ],
     target: 'web',
     output: {
         path: path.join(__dirname, "dist"),
@@ -22,6 +27,14 @@ export default {
         }),
         new webpack.HotModuleReplacementPlugin(),
         new webpack.NoEmitOnErrorsPlugin(),
+        new HtmlWebpackPlugin({
+            template: 'src/index.ejs',
+            minify: {
+                removeComments: true,
+                collapseWhitespace: true
+            },
+            inject: true
+        })
     ],
     module: {
         rules: [

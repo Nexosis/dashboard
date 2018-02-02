@@ -2,19 +2,11 @@
 // Allowing console calls below since this is a build file.
 /* eslint-disable no-console */
 import webpack from 'webpack';
-import prodConfig from '../webpack.config.prod';
-import devConfig from '../webpack.config.dev';
+import config from '../webpack.config.prod';
 import { chalkError, chalkSuccess, chalkWarning, chalkProcessing } from './chalkConfig';
 
-let config;
-if (process.env.ENV === 'production') {
-    config = prodConfig;
-    process.env.NODE_ENV = 'production'; // this assures React is built in prod mode and that the Babel dev config doesn't apply.
-    console.log(chalkProcessing('Generating minified bundle. This will take a moment...'));
-} else {
-    config = devConfig;
-    console.log(chalkProcessing('Generating dev bundle. This will take a moment...'));
-}
+process.env.NODE_ENV = 'production'; // this assures React is built in prod mode and that the Babel dev config doesn't apply.
+console.log(chalkProcessing('Generating minified bundle. This will take a moment...'));
 
 webpack(config).run((error, stats) => {
     if (error) { // so a fatal error occurred. Stop here.
@@ -39,12 +31,8 @@ webpack(config).run((error, stats) => {
 
     console.log(`Webpack stats: ${stats}`);
 
-    var mode = 'dev';
-    if (process.env.ENV === 'production') {
-        mode = 'production';
-    }
     // if we got this far, the build succeeded.
-    console.log(chalkSuccess(`Your app is compiled in ${mode} mode in /js/_webpacked. It\'s ready to roll!`));
+    console.log(chalkSuccess(`Your app is compiled in /dist. It\'s ready to roll!`));
 
     return 0;
 });

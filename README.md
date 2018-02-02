@@ -10,7 +10,7 @@ Interact with the Nexosis API with a dashboard.
 
 **2.** Set url and api key:
 
-Create a file, config.json.  Provide your api key.
+Create a file, config/config.json.  Provide your api key.
 
 ``` JSON
 {

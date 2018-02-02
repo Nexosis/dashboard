@@ -3,7 +3,7 @@ elm-stuff/
 # elm-repl generated files
 repl-temp-*
 
-config.json
+config/config.json
 junit.xml
 node_modules/
 dist/
