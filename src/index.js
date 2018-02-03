@@ -1,8 +1,10 @@
 import Intercept from './js/intercept';
-import Prism from 'prismjs'
+import Prism from 'prismjs';
+import 'prismjs/components/prism-json.min.js';
+import 'prismjs/themes/prism-okaidia.css';
 import Elm from './Main.elm';
 
-if (!Intercept.isWired) {
+if (!Intercept.isWired()) {
     Intercept.wire();
 }
 
@@ -19,16 +21,18 @@ fetch('./config.json').then(function (response) {
 
         Intercept.addResponseCallback(function (xhr) {
 
-            var xhrInfo = {
-                status: xhr.status,
-                statusText: xhr.statusText,
-                response: JSON.stringify(JSON.parse(xhr.response), null, 2),
-                method: xhr.method,
-                url: xhr.url,
-                timestamp: new Date().toISOString()
-            };
+            if (xhr.url.startsWith(result.url)) {
+                var xhrInfo = {
+                    status: xhr.status,
+                    statusText: xhr.statusText,
+                    response: JSON.stringify(JSON.parse(xhr.response), null, 2),
+                    method: xhr.method,
+                    url: xhr.url,
+                    timestamp: new Date().toISOString()
+                };
 
-            app.ports.responseReceived.send(xhrInfo);
+                app.ports.responseReceived.send(xhrInfo);
+            }
         });
     });
 });

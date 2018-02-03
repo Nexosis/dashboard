@@ -3,9 +3,18 @@ import webpack from 'webpack';
 import WebpackMd5Hash from 'webpack-md5-hash'
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import UglifyJsPlugin from 'uglifyjs-webpack-plugin';
+import ExtractTextPlugin from 'extract-text-webpack-plugin';
+
+const GLOBALS = {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    __DEV__: false
+};
 
 export default {
     cache: true,
+    performance: {
+        hints: "error"
+    },
     devtool: 'source-map',
     entry: path.resolve(__dirname, 'src/index.js'),
     target: 'web',
@@ -19,11 +28,10 @@ export default {
     },
     plugins: [
         new WebpackMd5Hash(),
-        new webpack.DefinePlugin({
-            'process.env.NODE_ENV': JSON.stringify('production'),
-            __DEV__: false
-        }),
-        new webpack.NoEmitOnErrorsPlugin(),
+        new webpack.DefinePlugin(GLOBALS),
+
+        new ExtractTextPlugin('[name].[contenthash].css'),
+
         new HtmlWebpackPlugin({
             template: 'src/index.ejs',
             favicon: 'src/favicon.ico',
@@ -36,6 +44,7 @@ export default {
                 removeStyleLinkTypeAttributes: true,
                 keepClosingSlash: true,
                 minifyJS: true,
+                minifyCSS: true,
                 minifyURLs: true
             },
             inject: true
@@ -56,6 +65,28 @@ export default {
                 test: /\.elm$/,
                 exclude: [/elm-stuff/, /node_modules/],
                 loader: 'elm-webpack-loader?verbose=true&warn=true&debug=false&pathToMake=' + __dirname + '\\node_modules\\.bin\\elm-make&cwd=' + __dirname + '&forceWatch=false'
+            },
+            {
+                test: /(\.css)$/,
+                use: ExtractTextPlugin.extract({
+                    use: [
+                        {
+                            loader: 'css-loader',
+                            options: {
+                                minimize: true,
+                                sourceMap: true
+                            }
+                        }, {
+                            loader: 'postcss-loader',
+                            options: {
+                                plugins: () => [
+                                    require('autoprefixer')
+                                ],
+                                souceMap: true
+                            }
+                        }
+                    ]
+                })
             }
         ]
     }

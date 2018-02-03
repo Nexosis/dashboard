@@ -1,29 +1,16 @@
 {
     "presets": [
-        "latest"
-    ],
-    "env": {
-        "development": {
-            "presets": [
-                "latest"
-            ]
-        },
-        "production": {
-            "presets": [
-                [
-                    "latest",
-                    {
-                        "es2015": {
-                            "modules": false
-                        }
-                    }
-                ]
-            ]
-        },
-        "test": {
-            "presets": [
-                "latest"
-            ]
-        }
-    }
+        [
+            "env",
+            {
+                "es2015": {
+                    "modules": false
+                },
+                "targets": {
+                    "uglify": true
+                }
+            }
+        ],
+        "stage-1"
+    ]
 }
