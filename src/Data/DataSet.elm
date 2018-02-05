@@ -45,7 +45,7 @@ type alias DataSetList =
 
 
 type alias DataSet =
-    { dataSetName : String
+    { dataSetName : DataSetName
     , dataSetSize : Int
     , isTimeSeries : Bool
     }
@@ -97,7 +97,7 @@ decodeDataSetList =
 decodeDataSet : Decode.Decoder DataSet
 decodeDataSet =
     Json.Decode.Pipeline.decode DataSet
-        |> Json.Decode.Pipeline.required "dataSetName" Decode.string
+        |> Json.Decode.Pipeline.required "dataSetName" dataSetNameDecoder
         |> Json.Decode.Pipeline.optional "dataSetSize" Decode.int 0
         |> Json.Decode.Pipeline.required "isTimeSeries" Decode.bool
 

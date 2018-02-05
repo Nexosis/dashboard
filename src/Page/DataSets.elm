@@ -1,13 +1,14 @@
 module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, view)
 
 import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSet, DataSetList)
+import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import Http
 import RemoteData as Remote
 import Request.DataSet
+import Route exposing (Route)
 import Table exposing (defaultCustomizations)
 import Task
 import Util exposing ((=>))
@@ -131,10 +132,10 @@ gridSection dataSetList tableState =
 config : Table.Config DataSet Msg
 config =
     Table.customConfig
-        { toId = .dataSetName
+        { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
         , columns =
-            [ Table.stringColumn "Name" .dataSetName
+            [ nameColumn
             , Table.intColumn "Size" .dataSetSize
             , Table.stringColumn "IsTimeSeries" (\a -> a.isTimeSeries |> toString)
             , actionsColumn
@@ -153,6 +154,21 @@ actionsColumn =
         , viewData = dataSetDeleteButton
         , sorter = Table.unsortable
         }
+
+
+nameColumn : Table.Column DataSet Msg
+nameColumn =
+    Table.veryCustomColumn
+        { name = "Name"
+        , viewData = dataSetNameCell
+        , sorter = Table.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
+        }
+
+
+dataSetNameCell : DataSet -> Table.HtmlDetails Msg
+dataSetNameCell dataSet =
+    Table.HtmlDetails []
+        [ a [ Route.href (Route.DataSetData dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
