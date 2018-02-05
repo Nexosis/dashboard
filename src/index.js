@@ -6,17 +6,18 @@ import Elm from './Main.elm';
 import 'loggly-jslogger';
 import config from '../config.json';
 
-_LTracker.push({
-    'logglyKey': config.loggly.key,
-    'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
-    'tag': 'dashboard'
-});
-
 if (!Intercept.isWired()) {
     Intercept.wire();
 }
 
 fetch('./config.json').then(function (response) {
+
+    _LTracker.push({
+        'logglyKey': config.loggly.key,
+        'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
+        'tag': 'dashboard'
+    });
+
     response.json().then(function (result) {
         var mountNode = document.getElementById('main');
         var app = Elm.Main.embed(main, result);
