@@ -5,7 +5,6 @@ import Data.DataSet exposing (Data, DataSet, DataSetColumnsMetadata, DataSetData
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
 import Http
 import RemoteData as Remote
 import Request.DataSet

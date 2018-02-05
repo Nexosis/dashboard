@@ -8,17 +8,11 @@ Interact with the Nexosis API with a dashboard.
 
 > yarn
 
-**2.** Set url and api key:
+**2.** Set api key:
 
-Create a file, config/config.json.  Provide your api key.
+`./config.json` contains the url that will be used.
 
-``` JSON
-{
-    "apiKey": "My Key",
-    "url": "https://ml.nexosis.com/v1",
-    "token": ""  // You will need to generate a token for now.
-}
-```
+The Nexosis API key will be pulled from the `NEXOSIS_API_KEY` environment variable at build time.
 
 **3.** Build and run:
 

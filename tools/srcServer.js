@@ -17,7 +17,7 @@ browserSync({
         port: 3001
     },
     server: {
-        baseDir: ['src', 'config'],
+        baseDir: ['src'],
 
         middleware: [
             webpackDevMiddleware(bundler, {

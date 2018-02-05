@@ -20,6 +20,9 @@ export default {
     resolve: {
         extensions: ['*', '.js', '.elm']
     },
+    resolveLoader: {
+        modules: [path.resolve(__dirname, 'tools'), 'node_modules']
+    },
     plugins: [
         new webpack.DefinePlugin({
             'process.env.NODE_ENV': JSON.stringify('development'),
@@ -65,6 +68,16 @@ export default {
                             sourceMap: true
                         }
                     }
+                ]
+            },
+            {
+                test: /config\.json$/,
+                use: [
+                    {
+                        loader: 'file-loader',
+                        options: { name: '[name].[ext]' }
+                    },
+                    'config-loader'
                 ]
             }
         ]

@@ -3,6 +3,14 @@ import Prism from 'prismjs';
 import 'prismjs/components/prism-json.min.js';
 import 'prismjs/themes/prism-okaidia.css';
 import Elm from './Main.elm';
+import 'loggly-jslogger';
+import config from '../config.json';
+
+_LTracker.push({
+    'logglyKey': config.logglyKey,
+    'sendConsoleErrors': true,
+    'tag': 'javascript-logs'
+});
 
 if (!Intercept.isWired()) {
     Intercept.wire();

@@ -26,6 +26,9 @@ export default {
     resolve: {
         extensions: ['*', '.js', '.elm']
     },
+    resolveLoader: {
+        modules: [path.resolve(__dirname, 'tools'), 'node_modules']
+    },
     plugins: [
         new WebpackMd5Hash(),
         new webpack.DefinePlugin(GLOBALS),
@@ -87,6 +90,16 @@ export default {
                         }
                     ]
                 })
+            },
+            {
+                test: /config\.json$/,
+                use: [
+                    {
+                        loader: 'file-loader',
+                        options: { name: '[name].[ext]' }
+                    },
+                    'config-loader',
+                ]
             }
         ]
     }
