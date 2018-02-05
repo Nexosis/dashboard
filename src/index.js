@@ -4,23 +4,23 @@ import 'prismjs/components/prism-json.min.js';
 import 'prismjs/themes/prism-okaidia.css';
 import Elm from './Main.elm';
 import 'loggly-jslogger';
-import config from '../config.json';
+import '../config.json';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
 }
 
 fetch('./config.json').then(function (response) {
+    response.json().then(function (config) {
 
-    _LTracker.push({
-        'logglyKey': config.loggly.key,
-        'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
-        'tag': 'dashboard'
-    });
+        _LTracker.push({
+            'logglyKey': config.loggly.key,
+            'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
+            'tag': 'dashboard'
+        });
 
-    response.json().then(function (result) {
         var mountNode = document.getElementById('main');
-        var app = Elm.Main.embed(main, result);
+        var app = Elm.Main.embed(main, config);
 
         app.ports.prismHighlight.subscribe(function () {
             requestAnimationFrame(() => {
@@ -30,7 +30,7 @@ fetch('./config.json').then(function (response) {
 
         Intercept.addResponseCallback(function (xhr) {
 
-            if (xhr.url.startsWith(result.url)) {
+            if (xhr.url.startsWith(config.url)) {
                 var xhrInfo = {
                     status: xhr.status,
                     statusText: xhr.statusText,
