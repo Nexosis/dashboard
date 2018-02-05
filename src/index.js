@@ -7,9 +7,9 @@ import 'loggly-jslogger';
 import config from '../config.json';
 
 _LTracker.push({
-    'logglyKey': config.logglyKey,
-    'sendConsoleErrors': true,
-    'tag': 'javascript-logs'
+    'logglyKey': config.loggly.key,
+    'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
+    'tag': 'dashboard'
 });
 
 if (!Intercept.isWired()) {
