@@ -7,7 +7,7 @@ module.exports = function (source) {
     const config = JSON.parse(fs.readFileSync('./config.json'));
 
     const merged = Object.assign({}, JSON.parse(source), {
-        'apiKey': process.env.NEXOSIS_API_KEY
+        'apiKey': process.env.NEXOSIS_API_KEY || ''
     });
 
     let indentation = this.minimize ? null : 2
