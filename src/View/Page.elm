@@ -4,7 +4,6 @@ import Data.Response as Response
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
-import Http
 import Route exposing (Route)
 
 

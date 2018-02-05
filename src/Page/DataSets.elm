@@ -5,12 +5,10 @@ import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import Http
 import RemoteData as Remote
 import Request.DataSet
 import Route exposing (Route)
 import Table exposing (defaultCustomizations)
-import Task
 import Util exposing ((=>))
 import View.Pager as Pager
 
@@ -168,7 +166,7 @@ nameColumn =
 dataSetNameCell : DataSet -> Table.HtmlDetails Msg
 dataSetNameCell dataSet =
     Table.HtmlDetails []
-        [ a [ Route.href (Route.DataSetData dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+        [ a [ Route.href (Route.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg

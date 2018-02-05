@@ -13,7 +13,7 @@ import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
 type Route
     = Home
     | DataSets
-    | DataSetData DataSet.DataSetName
+    | DataSetDetail DataSet.DataSetName
     | Imports
     | Sessions
     | Models
@@ -29,7 +29,7 @@ routeMatcher =
     oneOf
         [ Url.map Home (s "")
         , Url.map DataSets (s "datasets")
-        , Url.map DataSetData (s "datasetdata" </> DataSet.dataSetNameParser)
+        , Url.map DataSetDetail (s "datasetdetail" </> DataSet.dataSetNameParser)
         , Url.map Imports (s "imports")
         , Url.map Sessions (s "sessions")
         , Url.map Models (s "models")
@@ -54,8 +54,8 @@ routeToString page =
                 DataSets ->
                     [ "datasets" ]
 
-                DataSetData name ->
-                    [ "datasetdata", DataSet.dataSetNameToString name ]
+                DataSetDetail name ->
+                    [ "datasetdetail", DataSet.dataSetNameToString name ]
 
                 Imports ->
                     [ "imports" ]

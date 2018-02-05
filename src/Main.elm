@@ -4,11 +4,9 @@ import Data.Config exposing (ApiKey, Config)
 import Data.Response as Response
 import Html exposing (..)
 import Http
-import Json.Decode as Decode exposing (Value)
 import Jwt
-import Jwt.Decoders
 import Navigation exposing (Location)
-import Page.DataSetData as DataSetData
+import Page.DataSetDetail as DataSetDetail
 import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
@@ -41,7 +39,7 @@ type Page
     | Error PageLoadError
     | Home Home.Model
     | DataSets DataSets.Model
-    | DataSetData DataSetData.Model
+    | DataSetDetail DataSetDetail.Model
     | Imports Imports.Model
     | Sessions Sessions.Model
     | Models Models.Model
@@ -55,7 +53,7 @@ type Msg
     = SetRoute (Maybe Route)
     | HomeMsg Home.Msg
     | DataSetsMsg DataSets.Msg
-    | DataSetDataMsg DataSetData.Msg
+    | DataSetDetailMsg DataSetDetail.Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
@@ -80,12 +78,12 @@ setRoute route model =
             in
             { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
-        Just (Route.DataSetData name) ->
+        Just (Route.DataSetDetail name) ->
             let
                 ( pageModel, initCmd ) =
-                    DataSetData.init model.config name
+                    DataSetDetail.init model.config name
             in
-            { model | page = DataSetData pageModel } => Cmd.map DataSetDataMsg initCmd
+            { model | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
         Just Route.Imports ->
             let
@@ -136,8 +134,8 @@ updatePage page msg model =
         ( DataSetsMsg subMsg, DataSets subModel ) ->
             toPage DataSets DataSetsMsg DataSets.update subMsg subModel
 
-        ( DataSetDataMsg subMsg, DataSetData subModel ) ->
-            toPage DataSetData DataSetDataMsg DataSetData.update subMsg subModel
+        ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
+            toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             { model | lastResponse = Just response } => Ports.prismHighlight ()
@@ -201,10 +199,10 @@ view model =
                 |> layout Page.DataSets model
                 |> Html.map DataSetsMsg
 
-        DataSetData subModel ->
-            DataSetData.view subModel
+        DataSetDetail subModel ->
+            DataSetDetail.view subModel
                 |> layout Page.DataSetData model
-                |> Html.map DataSetDataMsg
+                |> Html.map DataSetDetailMsg
 
         Imports subModel ->
             Imports.view subModel

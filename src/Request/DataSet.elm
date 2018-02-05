@@ -1,4 +1,4 @@
-module Request.DataSet exposing (get, getRetrieveData)
+module Request.DataSet exposing (get, getRetrieveDetail)
 
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, dataSetNameToString)
@@ -24,8 +24,8 @@ get { baseUrl, apiKey } page =
         |> HttpBuilder.toRequest
 
 
-getRetrieveData : Config -> DataSetName -> Http.Request DataSetData
-getRetrieveData { baseUrl, apiKey } name =
+getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
+getRetrieveDetail { baseUrl, apiKey } name =
     let
         expect =
             DataSet.decodeDataSetData
