@@ -19,8 +19,16 @@ fetch('./config.json').then(function (response) {
             'tag': 'dashboard'
         });
 
-        var mountNode = document.getElementById('main');
-        var app = Elm.Main.embed(main, config);
+        const logger = function (logMessage, level = 'Information') {
+            _LTracker.push({
+                'Environment': config.loggly.environment,
+                'Message': logMessage,
+                'Level': level
+            });
+        };
+
+        const mountNode = document.getElementById('main');
+        const app = Elm.Main.embed(main, config);
 
         app.ports.prismHighlight.subscribe(function () {
             requestAnimationFrame(() => {
@@ -28,10 +36,15 @@ fetch('./config.json').then(function (response) {
             });
         });
 
+        app.ports.log.subscribe(function (logString) {
+            const logMessage = JSON.parse(logString);
+            logger(logMessage.message, logMessage.level);
+        });
+
         Intercept.addResponseCallback(function (xhr) {
 
             if (xhr.url.startsWith(config.url)) {
-                var xhrInfo = {
+                let xhrInfo = {
                     status: xhr.status,
                     statusText: xhr.statusText,
                     response: JSON.stringify(JSON.parse(xhr.response), null, 2),
@@ -45,4 +58,3 @@ fetch('./config.json').then(function (response) {
         });
     });
 });
-

@@ -1,4 +1,4 @@
-port module Ports exposing (prismHighlight, requestSent, responseReceived)
+port module Ports exposing (log, prismHighlight, requestSent, responseReceived)
 
 import Json.Encode
 
@@ -10,3 +10,6 @@ port responseReceived : (Json.Encode.Value -> msg) -> Sub msg
 
 
 port prismHighlight : () -> Cmd msg
+
+
+port log : String -> Cmd msg

@@ -1,7 +1,8 @@
-module Page.Imports exposing (view, update, Model, Msg, init)
+module Page.Imports exposing (Model, Msg, init, update, view)
 
-import Html exposing (..)
 import Data.Config exposing (Config)
+import Html exposing (..)
+import Request.Log exposing (Level(..), LogMessage)
 import Util exposing ((=>))
 
 
@@ -16,8 +17,12 @@ type alias Model =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
+    let
+        message =
+            LogMessage "Imports don't exist yet" Warning
+    in
     Model "Imports" "This is the list of Imports"
-        => Cmd.none
+        => Request.Log.logMessage message
 
 
 
