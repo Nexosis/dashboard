@@ -4,7 +4,7 @@ import Data.Response as Response
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
-import Route exposing (Route)
+import Route
 
 
 type ActivePage

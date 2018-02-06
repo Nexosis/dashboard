@@ -1,7 +1,7 @@
-module Page.Sessions exposing (view, update, Model, Msg, init)
+module Page.Sessions exposing (Model, Msg, init, update, view)
 
-import Html exposing (..)
 import Data.Config exposing (Config)
+import Html exposing (..)
 import Util exposing ((=>))
 
 
