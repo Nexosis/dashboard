@@ -97,7 +97,8 @@ setRoute route model =
                 ( pageModel, initCmd ) =
                     Sessions.init model.config
             in
-            ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+            Debug.crash "Sessions aren't working yet."
+                ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let

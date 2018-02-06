@@ -19,7 +19,7 @@ fetch('./config.json').then(function (response) {
         _LTracker.push({
             'logglyKey': config.loggly.key,
             'sendConsoleErrors': false,
-            'tag': 'dashboard'
+            'tag': 'dashboard',
         });
 
         if (config.loggly.sendConsoleErrors === 'true') {
@@ -28,10 +28,9 @@ fetch('./config.json').then(function (response) {
                     _LTracker.push({
                         msg,
                         file,
-                        line,
-                        col,
-                        error,
-                        stack
+                        stack,
+                        'Level': 'Error',
+                        userAgent: navigator['userAgent']
                     });
                 }).catch(console.log);
             }
@@ -72,8 +71,6 @@ fetch('./config.json').then(function (response) {
                 };
 
                 app.ports.responseReceived.send(xhrInfo);
-
-                arstarst
 
                 if (xhr.status >= 300) {
                     logger(xhr.response, 'Warning');
