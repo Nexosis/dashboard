@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Data.Config exposing (ApiKey, Config)
 import Data.Response as Response
+import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
 import Jwt
@@ -30,6 +31,7 @@ type alias Model =
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
+    , enabledFeatures : List Feature
     }
 
 
@@ -63,13 +65,21 @@ type Msg
 
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute route model =
+    let
+        enabled =
+            isEnabled model.enabledFeatures
+    in
     case route of
         Nothing ->
             -- TODO Load 404 page not found
             ( model, Cmd.none )
 
         Just Route.Home ->
-            ( { model | page = Home Home.init }, Cmd.none )
+            let
+                pageModel =
+                    Home (Home.init enabled)
+            in
+            ( { model | page = pageModel }, Cmd.none )
 
         Just Route.DataSets ->
             let
@@ -97,8 +107,7 @@ setRoute route model =
                 ( pageModel, initCmd ) =
                     Sessions.init model.config
             in
-            Debug.crash "Sessions aren't working yet."
-                ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+            ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let
@@ -246,6 +255,7 @@ type alias Flags =
     { apiKey : String
     , url : String
     , token : String
+    , enabledFeatures : List String
     }
 
 
@@ -262,6 +272,7 @@ init flags location =
         , error = Nothing
         , lastRequest = ""
         , lastResponse = Nothing
+        , enabledFeatures = []
         }
 
 

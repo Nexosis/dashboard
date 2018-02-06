@@ -1,6 +1,9 @@
-module Page.Home exposing (view, update, Model, Msg, init)
+module Page.Home exposing (Model, Msg, init, update, view)
 
+import Feature exposing (Feature(..))
 import Html exposing (..)
+import Route
+import View.Extra exposing (viewIf)
 
 
 ---- MODEL ----
@@ -9,12 +12,22 @@ import Html exposing (..)
 type alias Model =
     { pageTitle : String
     , pageBody : String
+    , showModels : Bool
+    , showImports : Bool
+    , showSessions : Bool
+    , showDataSets : Bool
     }
 
 
-init : Model
-init =
-    Model "Home" "This is the homepage"
+init : (Feature -> Bool) -> Model
+init isEnabled =
+    Model
+        "Home"
+        "This is the homepage"
+        (isEnabled Models)
+        (isEnabled Imports)
+        (isEnabled Sessions)
+        (isEnabled DataSets)
 
 
 
@@ -41,4 +54,38 @@ view model =
     div []
         [ h2 [] [ text model.pageTitle ]
         , div [] [ text model.pageBody ]
+        , ul []
+            [ viewIf
+                (\() ->
+                    li []
+                        [ a [ Route.href Route.DataSets ]
+                            [ text "DataSets" ]
+                        ]
+                )
+                model.showDataSets
+            , viewIf
+                (\() ->
+                    li []
+                        [ a [ Route.href Route.Imports ]
+                            [ text "Imports" ]
+                        ]
+                )
+                model.showImports
+            , viewIf
+                (\() ->
+                    li []
+                        [ a [ Route.href Route.Sessions ]
+                            [ text "Sessions" ]
+                        ]
+                )
+                model.showSessions
+            , viewIf
+                (\() ->
+                    li []
+                        [ a [ Route.href Route.Models ]
+                            [ text "Models" ]
+                        ]
+                )
+                model.showModels
+            ]
         ]
