@@ -29,8 +29,8 @@ type alias PageValues a =
 isLoading can be used to show loading during slow transitions
 
 -}
-layout : ActivePage -> PageValues a -> Html msg -> Html msg
-layout page pageValues content =
+layout : PageValues a -> ActivePage -> Html msg -> Html msg
+layout pageValues page content =
     div []
         [ viewHeader page
         , div [] [ content ]
