@@ -1,7 +1,7 @@
 module Data.Config exposing (ApiKey, Config, attempt, configDecoder, pageSize, withAuthorization)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
-import Json.Decode as Decode exposing (Value)
+import Json.Decode as Decode
 import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Jwt.Decoders

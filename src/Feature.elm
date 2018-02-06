@@ -1,6 +1,6 @@
 module Feature exposing (Feature(..), featureDecoder, isEnabled)
 
-import Json.Decode as Decode exposing (Decoder, andThen, fail, string, succeed)
+import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
 
 
 type Feature

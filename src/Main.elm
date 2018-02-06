@@ -1,6 +1,6 @@
 module Main exposing (..)
 
-import Data.Config exposing (ApiKey, Config)
+import Data.Config exposing (Config)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -19,10 +19,10 @@ import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
-import Route exposing (..)
+import Route exposing (Route)
 import Time
 import Util exposing ((=>))
-import View.Page as Page exposing (ActivePage)
+import View.Page as Page
 
 
 ---- MODEL ----

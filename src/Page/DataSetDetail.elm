@@ -1,7 +1,7 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
-import Data.DataSet exposing (Data, DataSet, DataSetColumnsMetadata, DataSetData, DataSetName, dataSetNameDecoder, dataSetNameToString)
+import Data.DataSet exposing (DataSet, DataSetColumnsMetadata, DataSetData, DataSetName)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
