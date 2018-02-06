@@ -21,6 +21,7 @@
     "dependencies": {
         "loggly-jslogger": "^2.2.2",
         "prismjs": "^1.10.0",
+        "stacktrace-js": "^2.0.0",
         "uglifyjs-webpack-plugin": "^1.0.0-rc.0",
         "webpack-md5-hash": "^0.0.6"
     },

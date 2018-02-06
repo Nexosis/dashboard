@@ -4,7 +4,10 @@ import 'prismjs/components/prism-json.min.js';
 import 'prismjs/themes/prism-okaidia.css';
 import Elm from './Main.elm';
 import 'loggly-jslogger';
+import StackTrace from 'stacktrace-js';
 import '../config.json';
+import { _LTracker } from 'loggly-jslogger';
+
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -15,9 +18,24 @@ fetch('./config.json').then(function (response) {
 
         _LTracker.push({
             'logglyKey': config.loggly.key,
-            'sendConsoleErrors': (config.loggly.sendConsoleErrors === 'true'),
+            'sendConsoleErrors': false,
             'tag': 'dashboard'
         });
+
+        if (config.loggly.sendConsoleErrors === 'true') {
+            window.onerror = function (msg, file, line, col, error) {
+                StackTrace.fromError(error).then(stack => {
+                    _LTracker.push({
+                        msg,
+                        file,
+                        line,
+                        col,
+                        error,
+                        stack
+                    });
+                }).catch(console.log);
+            }
+        }
 
         const logger = function (logMessage, level = 'Information') {
             _LTracker.push({
@@ -54,6 +72,12 @@ fetch('./config.json').then(function (response) {
                 };
 
                 app.ports.responseReceived.send(xhrInfo);
+
+                arstarst
+
+                if (xhr.status >= 300) {
+                    logger(xhr.response, 'Warning');
+                }
             }
         });
     });
