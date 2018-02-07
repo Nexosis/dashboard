@@ -195,14 +195,19 @@ updatePage page msg app =
 view : Model -> Html Msg
 view model =
     case model of
-        --Todo: make this not look terrible
-        InitializationError error ->
-            div [] [ text <| toString error ]
+        InitializationError _ ->
+            Error.pageLoadError Page.Home
+                """
+            Sorry, it seems we are having an issues starting the application.
+            Try checking your internet connection and refreshing the page.
+            """
+                |> Error.view
+                |> Page.basicLayout Page.Other
 
         Initialized app ->
             let
                 layout =
-                    Page.layout app
+                    Page.layoutShowingResponses app
             in
             case app.page of
                 NotFound ->

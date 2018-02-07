@@ -1,4 +1,4 @@
-module View.Page exposing (ActivePage(..), layout)
+module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
 import Data.Response as Response
 import Html exposing (..)
@@ -29,12 +29,20 @@ type alias PageValues a =
 isLoading can be used to show loading during slow transitions
 
 -}
-layout : PageValues a -> ActivePage -> Html msg -> Html msg
-layout pageValues page content =
+layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
+layoutShowingResponses pageValues page content =
     div []
         [ viewHeader page
         , div [] [ content ]
         , viewFooter pageValues
+        ]
+
+
+basicLayout : ActivePage -> Html msg -> Html msg
+basicLayout page content =
+    div []
+        [ viewHeader page
+        , div [] [ content ]
         ]
 
 
