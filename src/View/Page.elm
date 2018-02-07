@@ -44,18 +44,6 @@ viewHeader page =
         [ div []
             [ a [ Route.href Route.Home ]
                 [ text "Home" ]
-            , text " | "
-            , a [ Route.href Route.DataSets ]
-                [ text "DataSets" ]
-            , text " | "
-            , a [ Route.href Route.Imports ]
-                [ text "Imports" ]
-            , text " | "
-            , a [ Route.href Route.Sessions ]
-                [ text "Sessions" ]
-            , text " | "
-            , a [ Route.href Route.Models ]
-                [ text "Models" ]
             ]
         , hr [] []
         ]
