@@ -1,9 +1,10 @@
-module Route exposing (DataSetRoute(..), Route(..), fromLocation, href, modifyUrl)
+module Route exposing (DataSetRoute(..), Route(..), SessionsRoute(..), fromApiUrl, fromLocation, href, modifyUrl)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
+import String.Extra exposing (replace)
 import UrlParser as Url exposing (Parser, apply, follow, oneOf, parseLocation, parseUrl, path, return, string)
 
 
@@ -14,7 +15,7 @@ type Route
     = Home
     | DataSetRoute DataSetRoute
     | Imports
-    | Sessions
+    | SessionsRoute SessionsRoute
     | Models
 
 
@@ -23,13 +24,28 @@ type DataSetRoute
     | DataSetDetail DataSet.DataSetName
 
 
+type SessionsRoute
+    = Sessions
+    | SessionDetail String
+
+
+
+{-
+   These routes should match up with the actual API urls that will be called when interacting with the API.
+   Not only is this a kind of nice thing for the user, we are going to use this mechanism for our own purposes.
+   So, given a link to something in the API, "ml.nexosis.com/v2/data/datasetName", we can easily turn it into a url
+   in the dashboard, "account.nexosis.com/dashboard/#/data/dataSetName".
+
+-}
+
+
 routeMatcher : Parser Route
 routeMatcher =
     oneOf
         [ return Home
         , return DataSetRoute |> follow (path "data") |> apply dataRoutes
         , return Imports |> follow (path "imports")
-        , return Sessions |> follow (path "sessions")
+        , return SessionsRoute |> follow (path "sessions") |> apply sessionRoutes
         , return Models |> follow (path "models")
         ]
 
@@ -39,6 +55,14 @@ dataRoutes =
     oneOf
         [ return DataSets
         , return DataSetDetail |> apply DataSet.dataSetNameParser
+        ]
+
+
+sessionRoutes : Parser SessionsRoute
+sessionRoutes =
+    oneOf
+        [ return Sessions
+        , return SessionDetail |> apply string
         ]
 
 
@@ -65,8 +89,13 @@ routeToString page =
                 Imports ->
                     [ "imports" ]
 
-                Sessions ->
-                    [ "sessions" ]
+                SessionsRoute sessionsRoute ->
+                    case sessionsRoute of
+                        Sessions ->
+                            [ "sessions" ]
+
+                        SessionDetail id ->
+                            [ "sessions", id ]
 
                 Models ->
                     [ "models" ]
@@ -98,3 +127,12 @@ fromLocation location =
         Just Home
     else
         parseUrl routeMatcher (String.dropLeft 1 location.hash)
+
+
+fromApiUrl : String -> String -> Maybe Route
+fromApiUrl baseUrl apiUrl =
+    let
+        urlPart =
+            replace baseUrl "" apiUrl
+    in
+    parseUrl routeMatcher urlPart

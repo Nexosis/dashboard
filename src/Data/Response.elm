@@ -54,20 +54,30 @@ decodeResponse baseUrl =
         |> required "method" string
         |> required "url" string
         |> required "timestamp" string
-        |> required "response" (nestedMessagesDecoder baseUrl)
+        |> Json.Decode.Pipeline.custom
+            (field "url" string
+                |> andThen
+                    (\url ->
+                        let
+                            route =
+                                Route.fromApiUrl baseUrl url
+                        in
+                        field "response" (nestedMessagesDecoder route)
+                    )
+            )
 
 
-nestedMessagesDecoder : String -> Decoder (List Message)
-nestedMessagesDecoder baseUrl =
-    doubleEncoded (field "messages" (list (decodeMessage baseUrl)) |> withDefault [])
+nestedMessagesDecoder : Maybe Route -> Decoder (List Message)
+nestedMessagesDecoder route =
+    doubleEncoded (field "messages" (list (decodeMessage route)) |> withDefault [])
 
 
-decodeMessage : String -> Decoder Message
-decodeMessage baseUrl =
+decodeMessage : Maybe Route -> Decoder Message
+decodeMessage route =
     decode Message
         |> required "severity" decodeSeverity
         |> required "message" string
-        |> hardcoded Nothing
+        |> hardcoded route
 
 
 decodeSeverity : Decoder Severity

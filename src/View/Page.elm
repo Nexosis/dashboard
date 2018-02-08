@@ -5,7 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
 import Route
-import View.Extra exposing (viewIfElements)
+import View.Extra exposing (viewIfElements, viewJust)
 
 
 type ActivePage
@@ -78,7 +78,7 @@ viewMessage message =
             --todo - will probably want to translate these into icons of some kind.
             [ text (toString message.severity)
             ]
-        , a [ href "" ] [ text message.message ]
+        , viewJust (\route -> a [ Route.href route ] [ text message.message ]) message.routeToResource
         ]
 
 

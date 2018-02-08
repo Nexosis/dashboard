@@ -113,12 +113,22 @@ setRoute route app =
             in
             ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
-        Just Route.Sessions ->
-            let
-                ( pageModel, initCmd ) =
-                    Sessions.init app.config
-            in
-            ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+        Just (Route.SessionsRoute sessionRoute) ->
+            case sessionRoute of
+                Route.Sessions ->
+                    let
+                        ( pageModel, initCmd ) =
+                            Sessions.init app.config
+                    in
+                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+
+                Route.SessionDetail id ->
+                    --todo: change this route to point to an individual session.
+                    let
+                        ( pageModel, initCmd ) =
+                            Sessions.init app.config
+                    in
+                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let
