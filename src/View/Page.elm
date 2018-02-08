@@ -1,10 +1,11 @@
 module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
-import Data.Response as Response
+import Data.Response as Response exposing (Message, Response)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
 import Route
+import View.Extra exposing (viewIfElements)
 
 
 type ActivePage
@@ -20,7 +21,8 @@ type ActivePage
 type alias PageValues a =
     { a
         | lastRequest : String
-        , lastResponse : Maybe Response.Response
+        , lastResponse : Maybe Response
+        , messages : List Message
     }
 
 
@@ -33,6 +35,7 @@ layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
 layoutShowingResponses pageValues page content =
     div []
         [ viewHeader page
+        , div [] [ viewMessages pageValues.messages ]
         , div [] [ content ]
         , viewFooter pageValues
         ]
@@ -54,6 +57,28 @@ viewHeader page =
                 [ text "Home" ]
             ]
         , hr [] []
+        ]
+
+
+viewMessages : List Message -> Html msg
+viewMessages messages =
+    div []
+        [ viewIfElements
+            (\() ->
+                ul [] (messages |> List.map viewMessage)
+            )
+            messages
+        ]
+
+
+viewMessage : Message -> Html msg
+viewMessage message =
+    li []
+        [ div []
+            --todo - will probably want to translate these into icons of some kind.
+            [ text (toString message.severity)
+            ]
+        , text message.message
         ]
 
 

@@ -39,6 +39,7 @@ type alias App =
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
+    , messages : List Response.Message
     , enabledFeatures : List Feature
     }
 
@@ -161,11 +162,15 @@ updatePage page msg app =
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
-            { app | lastResponse = Just response } => Ports.prismHighlight ()
+            { app
+                | lastResponse = Just response
+                , messages = app.messages ++ response.messages
+            }
+                => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
-            -- To Do
-            { app | lastResponse = Nothing } => Cmd.none
+            { app | lastResponse = Nothing }
+                => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
 
         ( CheckToken time, _ ) ->
             if Jwt.isExpired time app.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
@@ -260,10 +265,15 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
-        , Time.every Time.minute CheckToken
-        ]
+    case model of
+        Initialized app ->
+            Sub.batch
+                [ Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
+                , Time.every Time.minute CheckToken
+                ]
+
+        InitializationError _ ->
+            Sub.none
 
 
 
@@ -299,6 +309,7 @@ flagsDecoder =
         |> Pipeline.hardcoded Nothing
         |> Pipeline.hardcoded ""
         |> Pipeline.hardcoded Nothing
+        |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
 
 
