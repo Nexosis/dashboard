@@ -58,7 +58,7 @@ view model =
             [ viewIf
                 (\() ->
                     li []
-                        [ a [ Route.href Route.DataSets ]
+                        [ a [ Route.href (Route.DataSetRoute Route.DataSets) ]
                             [ text "DataSets" ]
                         ]
                 )

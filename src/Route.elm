@@ -1,10 +1,10 @@
-module Route exposing (Route(..), fromLocation, href, modifyUrl)
+module Route exposing (DataSetRoute(..), Route(..), fromLocation, href, modifyUrl)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
-import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s)
+import UrlParser as Url exposing (Parser, apply, follow, oneOf, parseLocation, parseUrl, path, return, string)
 
 
 -- ROUTING --
@@ -12,30 +12,33 @@ import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s)
 
 type Route
     = Home
-    | DataSets
-    | DataSetDetail DataSet.DataSetName
+    | DataSetRoute DataSetRoute
     | Imports
     | Sessions
     | Models
 
 
+type DataSetRoute
+    = DataSets
+    | DataSetDetail DataSet.DataSetName
 
---    When needing parameters on the form base/item/id
---   | Item String
 
-
-routeMatcher : Parser (Route -> a) a
+routeMatcher : Parser Route
 routeMatcher =
     oneOf
-        [ Url.map Home (s "")
-        , Url.map DataSets (s "datasets")
-        , Url.map DataSetDetail (s "datasetdetail" </> DataSet.dataSetNameParser)
-        , Url.map Imports (s "imports")
-        , Url.map Sessions (s "sessions")
-        , Url.map Models (s "models")
+        [ return Home
+        , return DataSetRoute |> follow (path "data") |> apply dataRoutes
+        , return Imports |> follow (path "imports")
+        , return Sessions |> follow (path "sessions")
+        , return Models |> follow (path "models")
+        ]
 
-        --    When needing parameters on the form base/item/3
-        --    , Url.map Item (s "item" </> string)
+
+dataRoutes : Parser DataSetRoute
+dataRoutes =
+    oneOf
+        [ return DataSets
+        , return DataSetDetail |> apply DataSet.dataSetNameParser
         ]
 
 
@@ -51,11 +54,13 @@ routeToString page =
                 Home ->
                     []
 
-                DataSets ->
-                    [ "datasets" ]
+                DataSetRoute dataSetRoute ->
+                    case dataSetRoute of
+                        DataSets ->
+                            [ "data" ]
 
-                DataSetDetail name ->
-                    [ "datasetdetail", DataSet.dataSetNameToString name ]
+                        DataSetDetail name ->
+                            [ "data", DataSet.dataSetNameToString name ]
 
                 Imports ->
                     [ "imports" ]
@@ -92,4 +97,4 @@ fromLocation location =
     if String.isEmpty location.hash then
         Just Home
     else
-        parseHash routeMatcher location
+        parseUrl routeMatcher (String.dropLeft 1 location.hash)

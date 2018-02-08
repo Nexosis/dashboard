@@ -14,7 +14,7 @@ xhrResponseTests =
                 let
                     decodedOutput =
                         Json.Decode.decodeString
-                            decodeResponse
+                            (decodeResponse "")
                             xhrResponseJson
                 in
                 case decodedOutput of
@@ -22,12 +22,15 @@ xhrResponseTests =
                         Expect.equal
                             [ { message = "Nexosis could not execute any algorithms to model this dataset. The most common cause of this error is that the dataset does not contain enough rows prior to the forecast start date to adequately train and test a model. Please make sure that the dataset contains at least 150 records prior to the forecast start date and try the request again."
                               , severity = Response.Informational
+                              , routeToResource = Nothing
                               }
                             , { message = "Nexosis could not execute any algorithms to model this dataset. The most common cause of this error is that the dataset does not contain enough rows prior to the forecast start date to adequately train and test a model. Please make sure that the dataset contains at least 150 records prior to the forecast start date and try the request again."
                               , severity = Response.Error
+                              , routeToResource = Nothing
                               }
                             , { message = "Usage Alert - You have 0 Predictions left for this cycle."
                               , severity = Response.Error
+                              , routeToResource = Nothing
                               }
                             ]
                             result.messages
@@ -39,7 +42,7 @@ xhrResponseTests =
                 let
                     decodedOutput =
                         Json.Decode.decodeString
-                            decodeResponse
+                            (decodeResponse "")
                             xhrNoMessages
                 in
                 case decodedOutput of

@@ -78,7 +78,7 @@ viewMessage message =
             --todo - will probably want to translate these into icons of some kind.
             [ text (toString message.severity)
             ]
-        , text message.message
+        , a [ href "" ] [ text message.message ]
         ]
 
 

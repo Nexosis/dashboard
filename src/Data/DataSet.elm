@@ -73,9 +73,9 @@ dataSetNameToString (DataSetName name) =
     name
 
 
-dataSetNameParser : UrlParser.Parser (DataSetName -> a) a
+dataSetNameParser : UrlParser.Parser DataSetName
 dataSetNameParser =
-    UrlParser.custom "DATASETNAME" (Ok << DataSetName)
+    UrlParser.string |> UrlParser.map DataSetName
 
 
 dataSetNameDecoder : Decode.Decoder DataSetName

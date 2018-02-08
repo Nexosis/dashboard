@@ -90,19 +90,21 @@ setRoute route app =
             in
             ( { app | page = pageModel }, Cmd.none )
 
-        Just Route.DataSets ->
-            let
-                ( pageModel, initCmd ) =
-                    DataSets.init app.config
-            in
-            { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+        Just (Route.DataSetRoute dataSetRoute) ->
+            case dataSetRoute of
+                Route.DataSets ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSets.init app.config
+                    in
+                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
-        Just (Route.DataSetDetail name) ->
-            let
-                ( pageModel, initCmd ) =
-                    DataSetDetail.init app.config name
-            in
-            { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+                Route.DataSetDetail name ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSetDetail.init app.config name
+                    in
+                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
         Just Route.Imports ->
             let
@@ -268,7 +270,7 @@ subscriptions model =
     case model of
         Initialized app ->
             Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
+                [ Ports.responseReceived (Response.decodeXhrResponse app.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 ]
 

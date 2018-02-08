@@ -29,6 +29,7 @@ type alias ResponseError =
 type alias Message =
     { severity : Severity
     , message : String
+    , routeToResource : Maybe Route
     }
 
 
@@ -39,13 +40,13 @@ type Severity
     | Error
 
 
-decodeXhrResponse : Value -> Result String Response
-decodeXhrResponse value =
-    decodeValue decodeResponse value
+decodeXhrResponse : String -> Value -> Result String Response
+decodeXhrResponse baseUrl value =
+    decodeValue (decodeResponse baseUrl) value
 
 
-decodeResponse : Decoder Response
-decodeResponse =
+decodeResponse : String -> Decoder Response
+decodeResponse baseUrl =
     decode Response
         |> required "status" int
         |> required "statusText" string
@@ -53,19 +54,20 @@ decodeResponse =
         |> required "method" string
         |> required "url" string
         |> required "timestamp" string
-        |> required "response" nestedMessagesDecoder
+        |> required "response" (nestedMessagesDecoder baseUrl)
 
 
-nestedMessagesDecoder : Decoder (List Message)
-nestedMessagesDecoder =
-    doubleEncoded (field "messages" (list decodeMessage) |> withDefault [])
+nestedMessagesDecoder : String -> Decoder (List Message)
+nestedMessagesDecoder baseUrl =
+    doubleEncoded (field "messages" (list (decodeMessage baseUrl)) |> withDefault [])
 
 
-decodeMessage : Decoder Message
-decodeMessage =
+decodeMessage : String -> Decoder Message
+decodeMessage baseUrl =
     decode Message
         |> required "severity" decodeSeverity
         |> required "message" string
+        |> hardcoded Nothing
 
 
 decodeSeverity : Decoder Severity
