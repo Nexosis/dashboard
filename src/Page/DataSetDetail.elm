@@ -5,6 +5,7 @@ import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
+import Json.Encode
 import Ports
 import RemoteData as Remote
 import Request.DataSet
@@ -56,7 +57,9 @@ update msg model =
                 Remote.Success dataSetDetail ->
                     let
                         vegaSpec =
-                            generateVegaSpec dataSetDetail.columns
+                            dataSetDetail.columns
+                                |> List.map generateVegaSpec
+                                |> Json.Encode.object
                     in
                     { model | dataSetResponse = resp } => Ports.drawVegaChart vegaSpec
 
@@ -71,14 +74,15 @@ update msg model =
             model => Cmd.none
 
 
-generateVegaSpec : List ColumnMetadata -> Spec
-generateVegaSpec columns =
-    VegaLite.toVegaLite
-        [ VegaLite.title "Hello, World!"
-        , VegaLite.dataFromColumns [] <| VegaLite.dataColumn "x" (VegaLite.Numbers [ 10, 20, 30 ]) []
-        , VegaLite.mark VegaLite.Circle []
-        , VegaLite.encoding <| VegaLite.position VegaLite.X [ VegaLite.PName "x", VegaLite.PmType VegaLite.Quantitative ] []
-        ]
+generateVegaSpec : ColumnMetadata -> ( String, Spec )
+generateVegaSpec column =
+    column.name
+        => VegaLite.toVegaLite
+            [ VegaLite.title column.name
+            , VegaLite.dataFromColumns [] <| VegaLite.dataColumn "x" (VegaLite.Numbers [ 10, 20, 30 ]) []
+            , VegaLite.mark VegaLite.Circle []
+            , VegaLite.encoding <| VegaLite.position VegaLite.X [ VegaLite.PName "x", VegaLite.PmType VegaLite.Quantitative ] []
+            ]
 
 
 
