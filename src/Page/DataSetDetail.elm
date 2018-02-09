@@ -1,8 +1,7 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSet, DataSetColumnsMetadata, DataSetData, DataSetName)
-import Dict
+import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
@@ -47,10 +46,6 @@ type Msg
     | DeleteDataSet DataSet
 
 
-
--- | ChangePage Int
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -66,12 +61,6 @@ update msg model =
 
 
 
--- ChangePage pgNum ->
---     { model | dataSetList = Remote.Loading }
---         => (Request.DataSet.getRetrieveData model.config ""
---                 |> Remote.sendRequest
---                 |> Cmd.map DataSetDataResponse
---            )
 -- VIEW --
 
 
@@ -131,7 +120,7 @@ gridSection : DataSetData -> Table.State -> List (Html Msg)
 gridSection dataSetData tableState =
     [ div [ class "panel-body" ]
         [ div [ class "table-responsive" ]
-            [ Table.view (config dataSetData.columns) tableState dataSetData.data ]
+            [ Table.view config tableState dataSetData.columns ]
         ]
     , div [ class "panel-footer" ]
         []
@@ -140,14 +129,26 @@ gridSection dataSetData tableState =
     ]
 
 
-config : List DataSetColumnsMetadata -> Table.Config (Dict.Dict String String) Msg
-config columns =
+
+-- { dataType : String
+-- , role : String
+-- , imputation : String
+-- , aggregation : String
+-- , name : String
+-- }
+
+
+config : Table.Config ColumnMetadata Msg
+config =
     Table.customConfig
-        { toId = \a -> ""
+        { toId = .name
         , toMsg = SetTableState
         , columns =
-            columns
-                |> List.map (\c -> Table.stringColumn c.name (\r -> Dict.get c.name r |> Maybe.withDefault ""))
+            [ Table.stringColumn "Name" .name
+            , Table.stringColumn "Type" .dataType
+            , Table.stringColumn "Role" .role
+            , Table.stringColumn "Imputation" .imputation
+            ]
         , customizations =
             { defaultCustomizations
                 | tableAttrs = toTableAttrs
