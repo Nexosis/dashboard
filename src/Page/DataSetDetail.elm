@@ -178,6 +178,7 @@ config =
             , Table.stringColumn "Role" .role
             , Table.stringColumn "Imputation" .imputation
             , Table.stringColumn "Stats" (\_ -> "")
+            , histogramColumn
             ]
         , customizations =
             { defaultCustomizations
@@ -189,3 +190,18 @@ config =
 toTableAttrs : List (Attribute Msg)
 toTableAttrs =
     [ class "table table-striped" ]
+
+
+histogramColumn : Table.Column ColumnMetadata Msg
+histogramColumn =
+    Table.veryCustomColumn
+        { name = ""
+        , viewData = histogram
+        , sorter = Table.unsortable
+        }
+
+
+histogram : ColumnMetadata -> Table.HtmlDetails Msg
+histogram column =
+    Table.HtmlDetails []
+        [ div [ id ("histogram_" ++ column.name) ] [] ]
