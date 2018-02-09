@@ -5,10 +5,12 @@ import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
+import VegaLite exposing (Spec)
 
 
 ---- MODEL ----
@@ -50,7 +52,16 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetDataResponse resp ->
-            { model | dataSetResponse = resp } => Cmd.none
+            case resp of
+                Remote.Success dataSetDetail ->
+                    let
+                        vegaSpec =
+                            generateVegaSpec dataSetDetail.columns
+                    in
+                    { model | dataSetResponse = resp } => Ports.drawVegaChart vegaSpec
+
+                _ ->
+                    { model | dataSetResponse = resp } => Cmd.none
 
         SetTableState newState ->
             { model | tableState = newState }
@@ -58,6 +69,16 @@ update msg model =
 
         DeleteDataSet dataSet ->
             model => Cmd.none
+
+
+generateVegaSpec : List ColumnMetadata -> Spec
+generateVegaSpec columns =
+    VegaLite.toVegaLite
+        [ VegaLite.title "Hello, World!"
+        , VegaLite.dataFromColumns [] <| VegaLite.dataColumn "x" (VegaLite.Numbers [ 10, 20, 30 ]) []
+        , VegaLite.mark VegaLite.Circle []
+        , VegaLite.encoding <| VegaLite.position VegaLite.X [ VegaLite.PName "x", VegaLite.PmType VegaLite.Quantitative ] []
+        ]
 
 
 

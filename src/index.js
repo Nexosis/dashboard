@@ -62,6 +62,15 @@ fetch('./config.json').then(function (response) {
             });
         });
 
+
+        app.ports.drawVegaChart.subscribe(function (specObject) {
+            requestAnimationFrame(() => {
+                vegaEmbed(`#histogram_SaleConditionPartial`, specObject, {
+                    actions: false, logLevel: vega.Warn
+                }).catch(console.warn);
+            });
+        });
+
         Intercept.addResponseCallback(function (xhr) {
 
             if (xhr.url.startsWith(config.url)) {

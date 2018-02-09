@@ -1,4 +1,4 @@
-port module Ports exposing (log, prismHighlight, requestSent, responseReceived)
+port module Ports exposing (drawVegaChart, log, prismHighlight, requestSent, responseReceived)
 
 import Json.Encode
 import VegaLite exposing (Spec)
