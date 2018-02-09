@@ -181,15 +181,20 @@ updatePage page msg app =
                 => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
 
         ( CheckToken time, _ ) ->
-            if Jwt.isExpired time app.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
-                let
-                    s =
-                        Debug.log "Token is expired" time
-                in
-                app => Cmd.none
-                -- TODO: renew the token somehow
-            else
-                app => Cmd.none
+            case app.config.token of
+                Just nexosisToken ->
+                    if Jwt.isExpired time nexosisToken.rawToken |> Result.toMaybe |> Maybe.withDefault True then
+                        let
+                            s =
+                                Debug.log "Token is expired" time
+                        in
+                        app => Cmd.none
+                        -- TODO: renew the token somehow
+                    else
+                        app => Cmd.none
+
+                _ ->
+                    app => Cmd.none
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
