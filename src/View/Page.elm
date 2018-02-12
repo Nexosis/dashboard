@@ -1,10 +1,10 @@
 module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
+import AppRoutes
 import Data.Response as Response exposing (Message, Response)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
-import Route
 import View.Extra exposing (viewIfElements, viewJust)
 
 
@@ -53,7 +53,7 @@ viewHeader : ActivePage -> Html msg
 viewHeader page =
     nav []
         [ div []
-            [ a [ Route.href Route.Home ]
+            [ a [ AppRoutes.href AppRoutes.Home ]
                 [ text "Home" ]
             ]
         , hr [] []
@@ -78,7 +78,7 @@ viewMessage message =
             --todo - will probably want to translate these into icons of some kind.
             [ text (toString message.severity)
             ]
-        , viewJust (\route -> a [ Route.href route ] [ text message.message ]) message.routeToResource
+        , viewJust (\route -> a [ AppRoutes.href route ] [ text message.message ]) message.routeToResource
         ]
 
 

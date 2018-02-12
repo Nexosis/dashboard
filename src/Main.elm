@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
@@ -19,7 +20,6 @@ import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
-import Route exposing (Route)
 import Time
 import Util exposing ((=>))
 import View.Page as Page
@@ -83,54 +83,50 @@ setRoute route app =
             -- TODO Load 404 page not found
             ( app, Cmd.none )
 
-        Just Route.Home ->
+        Just AppRoutes.Home ->
             let
                 pageModel =
                     Home (Home.init enabled)
             in
             ( { app | page = pageModel }, Cmd.none )
 
-        Just (Route.DataSetRoute dataSetRoute) ->
-            case dataSetRoute of
-                Route.DataSets ->
-                    let
-                        ( pageModel, initCmd ) =
-                            DataSets.init app.config
-                    in
-                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+        Just AppRoutes.DataSets ->
+            let
+                ( pageModel, initCmd ) =
+                    DataSets.init app.config
+            in
+            { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
-                Route.DataSetDetail name ->
-                    let
-                        ( pageModel, initCmd ) =
-                            DataSetDetail.init app.config name
-                    in
-                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+        Just (AppRoutes.DataSetDetail name) ->
+            let
+                ( pageModel, initCmd ) =
+                    DataSetDetail.init app.config name
+            in
+            { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
-        Just Route.Imports ->
+        Just AppRoutes.Imports ->
             let
                 ( pageModel, initCmd ) =
                     Imports.init app.config
             in
             ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
-        Just (Route.SessionsRoute sessionRoute) ->
-            case sessionRoute of
-                Route.Sessions ->
-                    let
-                        ( pageModel, initCmd ) =
-                            Sessions.init app.config
-                    in
-                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+        Just AppRoutes.Sessions ->
+            let
+                ( pageModel, initCmd ) =
+                    Sessions.init app.config
+            in
+            ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
-                Route.SessionDetail id ->
-                    --todo: change this route to point to an individual session.
-                    let
-                        ( pageModel, initCmd ) =
-                            Sessions.init app.config
-                    in
-                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+        Just (AppRoutes.SessionDetail id) ->
+            --todo: change this route to point to an individual session.
+            let
+                ( pageModel, initCmd ) =
+                    Sessions.init app.config
+            in
+            ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
-        Just Route.Models ->
+        Just AppRoutes.Models ->
             let
                 ( pageModel, initCmd ) =
                     Models.init app.config
@@ -306,7 +302,7 @@ init flags location =
     case flagDecodeResult of
         Ok appContext ->
             Tuple.mapFirst Initialized <|
-                setRoute (Route.fromLocation location)
+                setRoute (AppRoutes.fromLocation location)
                     appContext
 
         Err error ->
@@ -327,7 +323,7 @@ flagsDecoder =
 
 main : Program Value Model Msg
 main =
-    Navigation.programWithFlags (Route.fromLocation >> SetRoute)
+    Navigation.programWithFlags (AppRoutes.fromLocation >> SetRoute)
         { init = init
         , view = view
         , update = update

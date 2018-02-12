@@ -1,10 +1,10 @@
 module Data.Response exposing (Message, Response, Severity(..), decodeResponse, decodeXhrResponse)
 
+import AppRoutes exposing (Route)
 import Dict exposing (Dict)
 import Json.Decode exposing (Decoder, Value, andThen, decodeValue, fail, field, int, list, string, succeed)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (decode, hardcoded, required)
-import Route exposing (Route)
 
 
 type alias Response =
@@ -60,7 +60,7 @@ decodeResponse baseUrl =
                     (\url ->
                         let
                             route =
-                                Route.fromApiUrl baseUrl url
+                                AppRoutes.fromApiUrl baseUrl url
                         in
                         field "response" (nestedMessagesDecoder route)
                     )
