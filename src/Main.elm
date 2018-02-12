@@ -39,6 +39,7 @@ type alias App =
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
+    , messages : List Response.Message
     , enabledFeatures : List Feature
     }
 
@@ -89,19 +90,21 @@ setRoute route app =
             in
             ( { app | page = pageModel }, Cmd.none )
 
-        Just Route.DataSets ->
-            let
-                ( pageModel, initCmd ) =
-                    DataSets.init app.config
-            in
-            { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+        Just (Route.DataSetRoute dataSetRoute) ->
+            case dataSetRoute of
+                Route.DataSets ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSets.init app.config
+                    in
+                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
-        Just (Route.DataSetDetail name) ->
-            let
-                ( pageModel, initCmd ) =
-                    DataSetDetail.init app.config name
-            in
-            { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+                Route.DataSetDetail name ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSetDetail.init app.config name
+                    in
+                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
         Just Route.Imports ->
             let
@@ -110,12 +113,22 @@ setRoute route app =
             in
             ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
-        Just Route.Sessions ->
-            let
-                ( pageModel, initCmd ) =
-                    Sessions.init app.config
-            in
-            ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+        Just (Route.SessionsRoute sessionRoute) ->
+            case sessionRoute of
+                Route.Sessions ->
+                    let
+                        ( pageModel, initCmd ) =
+                            Sessions.init app.config
+                    in
+                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+
+                Route.SessionDetail id ->
+                    --todo: change this route to point to an individual session.
+                    let
+                        ( pageModel, initCmd ) =
+                            Sessions.init app.config
+                    in
+                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let
@@ -161,11 +174,15 @@ updatePage page msg app =
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
-            { app | lastResponse = Just response } => Ports.prismHighlight ()
+            { app
+                | lastResponse = Just response
+                , messages = app.messages ++ response.messages
+            }
+                => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
-            -- To Do
-            { app | lastResponse = Nothing } => Cmd.none
+            { app | lastResponse = Nothing }
+                => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
 
         ( CheckToken time, _ ) ->
             if Jwt.isExpired time app.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
@@ -260,10 +277,15 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Ports.responseReceived (Response.decodeXhrResponse >> ResponseReceived)
-        , Time.every Time.minute CheckToken
-        ]
+    case model of
+        Initialized app ->
+            Sub.batch
+                [ Ports.responseReceived (Response.decodeXhrResponse app.config.baseUrl >> ResponseReceived)
+                , Time.every Time.minute CheckToken
+                ]
+
+        InitializationError _ ->
+            Sub.none
 
 
 
@@ -299,6 +321,7 @@ flagsDecoder =
         |> Pipeline.hardcoded Nothing
         |> Pipeline.hardcoded ""
         |> Pipeline.hardcoded Nothing
+        |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
 
 

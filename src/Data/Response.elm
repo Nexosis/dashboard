@@ -1,7 +1,10 @@
-module Data.Response exposing (Response, decodeXhrResponse)
+module Data.Response exposing (Message, Response, Severity(..), decodeResponse, decodeXhrResponse)
 
-import Json.Decode
-import Json.Decode.Pipeline
+import Dict exposing (Dict)
+import Json.Decode exposing (Decoder, Value, andThen, decodeValue, fail, field, int, list, string, succeed)
+import Json.Decode.Extra exposing (doubleEncoded, withDefault)
+import Json.Decode.Pipeline exposing (decode, hardcoded, required)
+import Route exposing (Route)
 
 
 type alias Response =
@@ -11,20 +14,90 @@ type alias Response =
     , method : String
     , url : String
     , timestamp : String
+    , messages : List Message
     }
 
 
-decodeXhrResponse : Json.Decode.Value -> Result String Response
-decodeXhrResponse value =
-    Json.Decode.decodeValue decodeResponse value
+type alias ResponseError =
+    { statusCode : String
+    , message : String
+    , errorType : String
+    , errorDetails : Maybe (Dict String String)
+    }
 
 
-decodeResponse : Json.Decode.Decoder Response
-decodeResponse =
-    Json.Decode.Pipeline.decode Response
-        |> Json.Decode.Pipeline.required "status" Json.Decode.int
-        |> Json.Decode.Pipeline.required "statusText" Json.Decode.string
-        |> Json.Decode.Pipeline.required "response" Json.Decode.string
-        |> Json.Decode.Pipeline.required "method" Json.Decode.string
-        |> Json.Decode.Pipeline.required "url" Json.Decode.string
-        |> Json.Decode.Pipeline.required "timestamp" Json.Decode.string
+type alias Message =
+    { severity : Severity
+    , message : String
+    , routeToResource : Maybe Route
+    }
+
+
+type Severity
+    = Debug
+    | Informational
+    | Warning
+    | Error
+
+
+decodeXhrResponse : String -> Value -> Result String Response
+decodeXhrResponse baseUrl value =
+    decodeValue (decodeResponse baseUrl) value
+
+
+decodeResponse : String -> Decoder Response
+decodeResponse baseUrl =
+    decode Response
+        |> required "status" int
+        |> required "statusText" string
+        |> required "response" string
+        |> required "method" string
+        |> required "url" string
+        |> required "timestamp" string
+        |> Json.Decode.Pipeline.custom
+            (field "url" string
+                |> andThen
+                    (\url ->
+                        let
+                            route =
+                                Route.fromApiUrl baseUrl url
+                        in
+                        field "response" (nestedMessagesDecoder route)
+                    )
+            )
+
+
+nestedMessagesDecoder : Maybe Route -> Decoder (List Message)
+nestedMessagesDecoder route =
+    doubleEncoded (field "messages" (list (decodeMessage route)) |> withDefault [])
+
+
+decodeMessage : Maybe Route -> Decoder Message
+decodeMessage route =
+    decode Message
+        |> required "severity" decodeSeverity
+        |> required "message" string
+        |> hardcoded route
+
+
+decodeSeverity : Decoder Severity
+decodeSeverity =
+    string
+        |> andThen
+            (\severity ->
+                case severity of
+                    "debug" ->
+                        succeed Debug
+
+                    "informational" ->
+                        succeed Informational
+
+                    "warning" ->
+                        succeed Warning
+
+                    "error" ->
+                        succeed Error
+
+                    unknown ->
+                        fail <| "Unknown message severity: " ++ unknown
+            )

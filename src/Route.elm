@@ -1,10 +1,11 @@
-module Route exposing (Route(..), fromLocation, href, modifyUrl)
+module Route exposing (DataSetRoute(..), Route(..), SessionsRoute(..), fromApiUrl, fromLocation, href, modifyUrl)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
-import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s)
+import String.Extra exposing (replace)
+import UrlParser as Url exposing (Parser, apply, follow, oneOf, parseLocation, parseUrl, path, return, string)
 
 
 -- ROUTING --
@@ -12,30 +13,56 @@ import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s)
 
 type Route
     = Home
-    | DataSets
-    | DataSetDetail DataSet.DataSetName
+    | DataSetRoute DataSetRoute
     | Imports
-    | Sessions
+    | SessionsRoute SessionsRoute
     | Models
 
 
+type DataSetRoute
+    = DataSets
+    | DataSetDetail DataSet.DataSetName
 
---    When needing parameters on the form base/item/id
---   | Item String
+
+type SessionsRoute
+    = Sessions
+    | SessionDetail String
 
 
-routeMatcher : Parser (Route -> a) a
+
+{-
+   These routes should match up with the actual API urls that will be called when interacting with the API.
+   Not only is this a kind of nice thing for the user, we are going to use this mechanism for our own purposes.
+   So, given a link to something in the API, "ml.nexosis.com/v2/data/datasetName", we can easily turn it into a url
+   in the dashboard, "account.nexosis.com/dashboard/#/data/dataSetName".
+
+-}
+
+
+routeMatcher : Parser Route
 routeMatcher =
     oneOf
-        [ Url.map Home (s "")
-        , Url.map DataSets (s "datasets")
-        , Url.map DataSetDetail (s "datasetdetail" </> DataSet.dataSetNameParser)
-        , Url.map Imports (s "imports")
-        , Url.map Sessions (s "sessions")
-        , Url.map Models (s "models")
+        [ return Home
+        , return DataSetRoute |> follow (path "data") |> apply dataRoutes
+        , return Imports |> follow (path "imports")
+        , return SessionsRoute |> follow (path "sessions") |> apply sessionRoutes
+        , return Models |> follow (path "models")
+        ]
 
-        --    When needing parameters on the form base/item/3
-        --    , Url.map Item (s "item" </> string)
+
+dataRoutes : Parser DataSetRoute
+dataRoutes =
+    oneOf
+        [ return DataSets
+        , return DataSetDetail |> apply DataSet.dataSetNameParser
+        ]
+
+
+sessionRoutes : Parser SessionsRoute
+sessionRoutes =
+    oneOf
+        [ return Sessions
+        , return SessionDetail |> apply string
         ]
 
 
@@ -51,17 +78,24 @@ routeToString page =
                 Home ->
                     []
 
-                DataSets ->
-                    [ "datasets" ]
+                DataSetRoute dataSetRoute ->
+                    case dataSetRoute of
+                        DataSets ->
+                            [ "data" ]
 
-                DataSetDetail name ->
-                    [ "datasetdetail", DataSet.dataSetNameToString name ]
+                        DataSetDetail name ->
+                            [ "data", DataSet.dataSetNameToString name ]
 
                 Imports ->
                     [ "imports" ]
 
-                Sessions ->
-                    [ "sessions" ]
+                SessionsRoute sessionsRoute ->
+                    case sessionsRoute of
+                        Sessions ->
+                            [ "sessions" ]
+
+                        SessionDetail id ->
+                            [ "sessions", id ]
 
                 Models ->
                     [ "models" ]
@@ -92,4 +126,13 @@ fromLocation location =
     if String.isEmpty location.hash then
         Just Home
     else
-        parseHash routeMatcher location
+        parseUrl routeMatcher (String.dropLeft 1 location.hash)
+
+
+fromApiUrl : String -> String -> Maybe Route
+fromApiUrl baseUrl apiUrl =
+    let
+        urlPart =
+            replace baseUrl "" apiUrl
+    in
+    parseUrl routeMatcher urlPart

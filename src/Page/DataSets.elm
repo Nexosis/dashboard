@@ -166,7 +166,7 @@ nameColumn =
 dataSetNameCell : DataSet -> Table.HtmlDetails Msg
 dataSetNameCell dataSet =
     Table.HtmlDetails []
-        [ a [ Route.href (Route.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+        [ a [ Route.href (Route.DataSetRoute (Route.DataSetDetail dataSet.dataSetName)) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
