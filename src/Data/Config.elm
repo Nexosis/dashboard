@@ -1,14 +1,16 @@
-module Data.Config exposing (Config, configDecoder, pageSize, withAuthorization)
+module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, withAuthorization, tokenDecoder)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
-import Json.Decode as Decode exposing (andThen, string)
-import Json.Decode.Pipeline as Pipeline
+import Json.Decode as Decode exposing (Decoder, andThen, field, int, maybe, nullable, string)
+import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
 
 
 type alias Config =
     { baseUrl : String
     , token : Maybe NexosisToken
+    , loginUrl : String
+    , renewalUrl : String
     }
 
 
@@ -21,33 +23,32 @@ type alias NexosisToken =
     }
 
 
-configDecoder : Decode.Decoder Config
+configDecoder : Decoder Config
 configDecoder =
     Pipeline.decode Config
-        |> Pipeline.required "url" Decode.string
-        |> Pipeline.custom
-            (Decode.nullable
-                (Decode.field "token"
-                    string
-                    |> andThen (\t -> Jwt.tokenDecoder (nexosisTokenDecoder t))
-                )
+        |> required "apiUrl" string
+        |> custom
+            (maybe
+                tokenDecoder
             )
+        |> required "loginUrl" string
+        |> required "renewalUrl" string
+
+tokenDecoder : Decoder NexosisToken
+tokenDecoder =
+    field "token"
+        string
+        |> andThen (\t -> field "token" (Jwt.tokenDecoder (nexosisTokenDecoder t)))
 
 
-nexosisTokenDecoder : String -> Decode.Decoder NexosisToken
+nexosisTokenDecoder : String -> Decoder NexosisToken
 nexosisTokenDecoder rawToken =
-    Pipeline.decode NexosisToken
-        |> Pipeline.required "iat" Decode.int
-        |> Pipeline.required "exp" Decode.int
-        |> Pipeline.optional "GivenName" (Decode.nullable Decode.string) Nothing
-        |> Pipeline.optional "Email" (Decode.nullable Decode.string) Nothing
-        |> Pipeline.hardcoded rawToken
-
-
-
--- attempt : String -> (String -> Cmd msg) -> Config -> ( List String, Cmd msg )
--- attempt attemptedAction toCmd config =
---     [] => toCmd config.rawToken
+    decode NexosisToken
+        |> required "iat" int
+        |> required "exp" int
+        |> optional "givenName" (nullable string) Nothing
+        |> optional "email" (nullable string) Nothing
+        |> hardcoded rawToken
 
 
 withAuthorization : Maybe NexosisToken -> RequestBuilder a -> RequestBuilder a
