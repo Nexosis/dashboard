@@ -1,9 +1,12 @@
 module Main exposing (..)
 
-import Data.Config exposing (ApiKey, Config)
+import Data.Config exposing (Config)
 import Data.Response as Response
+import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
+import Json.Decode as Decode exposing (Value, decodeValue)
+import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Navigation exposing (Location)
 import Page.DataSetDetail as DataSetDetail
@@ -15,21 +18,28 @@ import Page.Models as Models
 import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
-import Route exposing (..)
+import Request.Log as Log
+import Route exposing (Route)
 import Time
 import Util exposing ((=>))
-import View.Page as Page exposing (ActivePage)
+import View.Page as Page
 
 
 ---- MODEL ----
 
 
-type alias Model =
+type Model
+    = Initialized App
+    | InitializationError String
+
+
+type alias App =
     { page : Page
     , config : Config
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
+    , enabledFeatures : List Feature
     }
 
 
@@ -61,72 +71,84 @@ type Msg
     | CheckToken Time.Time
 
 
-setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
-setRoute route model =
+setRoute : Maybe Route -> App -> ( App, Cmd Msg )
+setRoute route app =
+    let
+        enabled =
+            isEnabled app.enabledFeatures
+    in
     case route of
         Nothing ->
             -- TODO Load 404 page not found
-            ( model, Cmd.none )
+            ( app, Cmd.none )
 
         Just Route.Home ->
-            ( { model | page = Home Home.init }, Cmd.none )
+            let
+                pageModel =
+                    Home (Home.init enabled)
+            in
+            ( { app | page = pageModel }, Cmd.none )
 
         Just Route.DataSets ->
             let
                 ( pageModel, initCmd ) =
-                    DataSets.init model.config
+                    DataSets.init app.config
             in
-            { model | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+            { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
         Just (Route.DataSetDetail name) ->
             let
                 ( pageModel, initCmd ) =
-                    DataSetDetail.init model.config name
+                    DataSetDetail.init app.config name
             in
-            { model | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+            { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
         Just Route.Imports ->
             let
                 ( pageModel, initCmd ) =
-                    Imports.init model.config
+                    Imports.init app.config
             in
-            ( { model | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
+            ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
         Just Route.Sessions ->
             let
                 ( pageModel, initCmd ) =
-                    Sessions.init model.config
+                    Sessions.init app.config
             in
-            Debug.crash "Sessions aren't working yet."
-                ( { model | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+            ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
         Just Route.Models ->
             let
                 ( pageModel, initCmd ) =
-                    Models.init model.config
+                    Models.init app.config
             in
-            ( { model | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
+            ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    updatePage model.page msg model
+    case model of
+        Initialized app ->
+            Tuple.mapFirst Initialized <| updatePage app.page msg app
+
+        InitializationError err ->
+            model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ err) Log.Error)
 
 
-updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
-updatePage page msg model =
+updatePage : Page -> Msg -> App -> ( App, Cmd Msg )
+updatePage page msg app =
     let
         toPage toModel toMsg subUpdate subMsg subModel =
             let
                 ( newModel, newCmd ) =
                     subUpdate subMsg subModel
             in
-            ( { model | page = toModel newModel }, Cmd.map toMsg newCmd )
+            ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
         -- Update for page transitions
         ( SetRoute route, _ ) ->
-            setRoute route model
+            setRoute route app
 
         -- Update for page specific msgs
         ( HomeMsg subMsg, Home subModel ) ->
@@ -139,31 +161,31 @@ updatePage page msg model =
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
-            { model | lastResponse = Just response } => Ports.prismHighlight ()
+            { app | lastResponse = Just response } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
             -- To Do
-            { model | lastResponse = Nothing } => Cmd.none
+            { app | lastResponse = Nothing } => Cmd.none
 
         ( CheckToken time, _ ) ->
-            if Jwt.isExpired time model.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
+            if Jwt.isExpired time app.config.rawToken |> Result.toMaybe |> Maybe.withDefault True then
                 let
                     s =
                         Debug.log "Token is expired" time
                 in
-                model => Cmd.none
+                app => Cmd.none
                 -- TODO: renew the token somehow
             else
-                model => Cmd.none
+                app => Cmd.none
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
-            model => Cmd.none
+            app => Cmd.none
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
-            model => Cmd.none
+            app => Cmd.none
 
 
 
@@ -172,53 +194,64 @@ updatePage page msg model =
 
 view : Model -> Html Msg
 view model =
-    let
-        layout =
-            Page.layout
-    in
-    case model.page of
-        NotFound ->
-            layout Page.Other model NotFound.view
+    case model of
+        InitializationError _ ->
+            Error.pageLoadError Page.Home
+                """
+            Sorry, it seems we are having an issues starting the application.
+            Try checking your internet connection and refreshing the page.
+            """
+                |> Error.view
+                |> Page.basicLayout Page.Other
 
-        Blank ->
-            -- This is for the very initial page load, while we are loading
-            -- data via HTTP. We could also render a spinner here.
-            Html.text ""
-                |> layout Page.Other model
+        Initialized app ->
+            let
+                layout =
+                    Page.layoutShowingResponses app
+            in
+            case app.page of
+                NotFound ->
+                    layout Page.Other NotFound.view
 
-        Error subModel ->
-            Error.view subModel
-                |> layout Page.Other model
+                Blank ->
+                    -- This is for the very initial page load, while we are loading
+                    -- data via HTTP. We could also render a spinner here.
+                    Html.text ""
+                        |> layout Page.Other
 
-        Home subModel ->
-            Home.view subModel
-                |> layout Page.Home model
-                |> Html.map HomeMsg
+                Error subModel ->
+                    Error.view subModel
+                        |> layout Page.Other
 
-        DataSets subModel ->
-            DataSets.view subModel
-                |> layout Page.DataSets model
-                |> Html.map DataSetsMsg
+                Home subModel ->
+                    Home.view subModel
+                        |> layout Page.Home
+                        |> Html.map HomeMsg
 
-        DataSetDetail subModel ->
-            DataSetDetail.view subModel
-                |> layout Page.DataSetData model
-                |> Html.map DataSetDetailMsg
+                DataSets subModel ->
+                    DataSets.view subModel
+                        |> layout Page.DataSets
+                        |> Html.map DataSetsMsg
 
-        Imports subModel ->
-            Imports.view subModel
-                |> layout Page.Imports model
-                |> Html.map ImportsMsg
+                DataSetDetail subModel ->
+                    DataSetDetail.view subModel
+                        |> layout Page.DataSetData
+                        |> Html.map DataSetDetailMsg
 
-        Sessions subModel ->
-            Sessions.view subModel
-                |> layout Page.Sessions model
-                |> Html.map SessionsMsg
+                Imports subModel ->
+                    Imports.view subModel
+                        |> layout Page.Imports
+                        |> Html.map ImportsMsg
 
-        Models subModel ->
-            Models.view subModel
-                |> layout Page.Models model
-                |> Html.map ModelsMsg
+                Sessions subModel ->
+                    Sessions.view subModel
+                        |> layout Page.Sessions
+                        |> Html.map SessionsMsg
+
+                Models subModel ->
+                    Models.view subModel
+                        |> layout Page.Models
+                        |> Html.map ModelsMsg
 
 
 
@@ -242,30 +275,34 @@ initialPage =
     Blank
 
 
-type alias Flags =
-    { apiKey : String
-    , url : String
-    , token : String
-    }
-
-
-init : Flags -> Location -> ( Model, Cmd Msg )
+init : Value -> Location -> ( Model, Cmd Msg )
 init flags location =
-    setRoute (Route.fromLocation location)
-        { page = initialPage
-        , config =
-            { apiKey = Data.Config.decodeApiKey flags.apiKey
-            , baseUrl = flags.url
-            , token = Data.Config.decodeToken flags.token
-            , rawToken = flags.token
-            }
-        , error = Nothing
-        , lastRequest = ""
-        , lastResponse = Nothing
-        }
+    let
+        flagDecodeResult =
+            decodeValue flagsDecoder flags
+    in
+    case flagDecodeResult of
+        Ok appContext ->
+            Tuple.mapFirst Initialized <|
+                setRoute (Route.fromLocation location)
+                    appContext
+
+        Err error ->
+            ( InitializationError error, Cmd.none )
 
 
-main : Program Flags Model Msg
+flagsDecoder : Decode.Decoder App
+flagsDecoder =
+    Pipeline.decode App
+        |> Pipeline.hardcoded initialPage
+        |> Pipeline.custom Data.Config.configDecoder
+        |> Pipeline.hardcoded Nothing
+        |> Pipeline.hardcoded ""
+        |> Pipeline.hardcoded Nothing
+        |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
+
+
+main : Program Value Model Msg
 main =
     Navigation.programWithFlags (Route.fromLocation >> SetRoute)
         { init = init

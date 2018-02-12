@@ -1,10 +1,10 @@
-module View.Page exposing (ActivePage(..), layout)
+module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
 import Data.Response as Response
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
-import Route exposing (Route)
+import Route
 
 
 type ActivePage
@@ -29,12 +29,20 @@ type alias PageValues a =
 isLoading can be used to show loading during slow transitions
 
 -}
-layout : ActivePage -> PageValues a -> Html msg -> Html msg
-layout page pageValues content =
+layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
+layoutShowingResponses pageValues page content =
     div []
         [ viewHeader page
         , div [] [ content ]
         , viewFooter pageValues
+        ]
+
+
+basicLayout : ActivePage -> Html msg -> Html msg
+basicLayout page content =
+    div []
+        [ viewHeader page
+        , div [] [ content ]
         ]
 
 
@@ -44,18 +52,6 @@ viewHeader page =
         [ div []
             [ a [ Route.href Route.Home ]
                 [ text "Home" ]
-            , text " | "
-            , a [ Route.href Route.DataSets ]
-                [ text "DataSets" ]
-            , text " | "
-            , a [ Route.href Route.Imports ]
-                [ text "Imports" ]
-            , text " | "
-            , a [ Route.href Route.Sessions ]
-                [ text "Sessions" ]
-            , text " | "
-            , a [ Route.href Route.Models ]
-                [ text "Models" ]
             ]
         , hr [] []
         ]

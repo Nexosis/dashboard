@@ -1,7 +1,7 @@
-module Data.Config exposing (ApiKey, Config, attempt, decodeApiKey, decodeToken, pageSize, withAuthorization)
+module Data.Config exposing (ApiKey, Config, attempt, configDecoder, pageSize, withAuthorization)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
-import Json.Decode as Decode exposing (Value)
+import Json.Decode as Decode
 import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Jwt.Decoders
@@ -9,7 +9,7 @@ import Util exposing ((=>))
 
 
 type alias Config =
-    { apiKey : Maybe ApiKey
+    { apiKey : ApiKey
     , baseUrl : String
     , token : Maybe Jwt.Decoders.JwtToken
     , rawToken : String
@@ -20,9 +20,13 @@ type ApiKey
     = ApiKey String
 
 
-decodeApiKey : String -> Maybe ApiKey
-decodeApiKey string =
-    Just (ApiKey string)
+configDecoder : Decode.Decoder Config
+configDecoder =
+    Pipeline.decode Config
+        |> Pipeline.required "apiKey" apiKeyDecoder
+        |> Pipeline.required "url" Decode.string
+        |> Pipeline.custom (Decode.nullable (Decode.field "token" (Jwt.tokenDecoder nexosisTokenDecoder)))
+        |> Pipeline.required "token" Decode.string
 
 
 apiKeyDecoder : Decode.Decoder ApiKey
@@ -50,23 +54,13 @@ nexosisTokenDecoder =
 
 attempt : String -> (ApiKey -> Cmd msg) -> Config -> ( List String, Cmd msg )
 attempt attemptedAction toCmd config =
-    case config.apiKey of
-        Nothing ->
-            [ "You are signed out." ] => Cmd.none
-
-        Just key ->
-            [] => toCmd key
+    [] => toCmd config.apiKey
 
 
-withAuthorization : Maybe ApiKey -> RequestBuilder a -> RequestBuilder a
-withAuthorization maybeKey builder =
-    case maybeKey of
-        Just (ApiKey key) ->
-            builder
-                |> withHeader "api-key" key
-
-        Nothing ->
-            builder
+withAuthorization : ApiKey -> RequestBuilder a -> RequestBuilder a
+withAuthorization (ApiKey key) builder =
+    builder
+        |> withHeader "api-key" key
 
 
 pageSize : Int
