@@ -13,7 +13,7 @@ module Data.DataSet
         , decodeDataSetList
         )
 
-import Combine exposing ((<$), (<$>))
+import Combine exposing ((<$>))
 import Dict exposing (Dict)
 import Json.Decode as Decode
 import Json.Decode.Pipeline
