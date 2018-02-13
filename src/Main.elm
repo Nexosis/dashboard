@@ -21,7 +21,6 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
-import Route exposing (Route)
 import Task
 import Time
 import Time.DateTime as DateTime

@@ -89,16 +89,36 @@ view model =
                     loadingGrid
     in
     div []
-        [ h2 [] [ text model.pageTitle ]
-        , div [] [ text model.pageBody ]
+        --todo - breadcrumbs ?
+        [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
         , div [ class "row" ]
-            [ div [ class "col-lg-9" ]
-                [ div [ class "panel panel-default" ]
-                    [ div [ class "panel-heading" ]
-                        [ h3 [] [ text "Datasets" ]
+            [ div [ class "col-sm-6" ]
+                [ h2 [ class "mt10" ] [ text "Datasets" ]
+                ]
+            , div [ class "col-sm-6 right" ]
+                [ -- todo - link somewhere
+                  a [ href "#", class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add dataset" ]
+                ]
+            ]
+        , hr [] []
+        , div [ class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ div [ class "row mb25" ]
+                    [ div [ class "col-sm-6" ]
+                        [ h3 [] [ text "Dataset explainer" ]
                         ]
-                    , div [] gridView
+                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
+                        [ div [ class "mr5" ]
+                            -- change items per page
+                            [ label [] [ text "View" ]
+                            , select []
+                                [ option [] [ text "10" ]
+                                , option [] [ text "25" ]
+                                ]
+                            ]
+                        ]
                     ]
+                , div [ class "table-responsive" ] gridView
                 ]
             ]
         ]
@@ -106,22 +126,17 @@ view model =
 
 loadingGrid : List (Html Msg)
 loadingGrid =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ span [] [ text "No data found" ]
-            ]
+    [ div [ class "table table-striped" ]
+        [ span [] [ text "No data found" ]
         ]
-    , div [ class "panel-footer" ]
-        []
+    , hr [] []
     ]
 
 
 gridSection : DataSetList -> Table.State -> List (Html Msg)
 gridSection dataSetList tableState =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ Table.view config tableState dataSetList.items ]
-        ]
+    [ Table.view config tableState dataSetList.items
+    , hr [] []
     , div [ class "panel-footer" ]
         [ Pager.view dataSetList ChangePage ]
     ]
