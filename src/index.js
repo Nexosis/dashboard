@@ -7,6 +7,7 @@ import 'loggly-jslogger';
 import StackTrace from 'stacktrace-js';
 import '../config.json';
 import { _LTracker } from 'loggly-jslogger';
+import { getCookie } from './js/cookies';
 
 
 if (!Intercept.isWired()) {
@@ -37,6 +38,7 @@ fetch('./config.json').then(function (response) {
         }
 
         const logger = function (logMessage, level = 'Information') {
+            console.log(logMessage);
             _LTracker.push({
                 'Environment': config.loggly.environment,
                 'Message': logMessage,
@@ -44,18 +46,20 @@ fetch('./config.json').then(function (response) {
             });
         };
 
+        config.token = getCookie('accessToken');
+
         const mountNode = document.getElementById('main');
         const app = Elm.Main.embed(main, config);
+
+        app.ports.log.subscribe(function (logString) {
+            const logMessage = JSON.parse(logString);
+            logger(logMessage.message, logMessage.level);
+        });
 
         app.ports.prismHighlight.subscribe(function () {
             requestAnimationFrame(() => {
                 Prism.highlightAll();
             });
-        });
-
-        app.ports.log.subscribe(function (logString) {
-            const logMessage = JSON.parse(logString);
-            logger(logMessage.message, logMessage.level);
         });
 
         Intercept.addResponseCallback(function (xhr) {

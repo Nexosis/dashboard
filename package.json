@@ -37,6 +37,7 @@
         "css-loader": "^0.28.9",
         "elm": "0.18.0",
         "elm-analyse": "0.13.3",
+        "elm-format": "^0.7.0-exp",
         "elm-hot-loader": "^0.5.4",
         "elm-live": "2.7.5",
         "elm-test": "0.18.12",

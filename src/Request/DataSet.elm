@@ -7,7 +7,7 @@ import HttpBuilder exposing (RequestBuilder, withExpect)
 
 
 get : Config -> Int -> Http.Request DataSetList
-get { baseUrl, apiKey } page =
+get { baseUrl, token } page =
     let
         expect =
             DataSet.decodeDataSetList
@@ -20,12 +20,12 @@ get { baseUrl, apiKey } page =
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization apiKey
+        |> withAuthorization token
         |> HttpBuilder.toRequest
 
 
 getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
-getRetrieveDetail { baseUrl, apiKey } name =
+getRetrieveDetail { baseUrl, token } name =
     let
         expect =
             DataSet.decodeDataSetData
@@ -38,7 +38,7 @@ getRetrieveDetail { baseUrl, apiKey } name =
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization apiKey
+        |> withAuthorization token
         |> HttpBuilder.toRequest
 
 

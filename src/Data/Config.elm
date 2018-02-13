@@ -1,66 +1,65 @@
-module Data.Config exposing (ApiKey, Config, attempt, configDecoder, pageSize, withAuthorization)
+module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, withAuthorization, tokenDecoder)
 
 import HttpBuilder exposing (RequestBuilder, withHeader)
-import Json.Decode as Decode
-import Json.Decode.Pipeline as Pipeline
+import Json.Decode as Decode exposing (Decoder, andThen, field, int, maybe, nullable, string)
+import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
-import Jwt.Decoders
-import Util exposing ((=>))
 
 
 type alias Config =
-    { apiKey : ApiKey
-    , baseUrl : String
-    , token : Maybe Jwt.Decoders.JwtToken
+    { baseUrl : String
+    , token : Maybe NexosisToken
+    , loginUrl : String
+    , renewalUrl : String
+    }
+
+
+type alias NexosisToken =
+    { iat : Int
+    , exp : Int
+    , userId : Maybe String
+    , email : Maybe String
     , rawToken : String
     }
 
 
-type ApiKey
-    = ApiKey String
-
-
-configDecoder : Decode.Decoder Config
+configDecoder : Decoder Config
 configDecoder =
     Pipeline.decode Config
-        |> Pipeline.required "apiKey" apiKeyDecoder
-        |> Pipeline.required "url" Decode.string
-        |> Pipeline.custom (Decode.nullable (Decode.field "token" (Jwt.tokenDecoder nexosisTokenDecoder)))
-        |> Pipeline.required "token" Decode.string
+        |> required "apiUrl" string
+        |> custom
+            (maybe
+                tokenDecoder
+            )
+        |> required "loginUrl" string
+        |> required "renewalUrl" string
+
+tokenDecoder : Decoder NexosisToken
+tokenDecoder =
+    field "token"
+        string
+        |> andThen (\t -> field "token" (Jwt.tokenDecoder (nexosisTokenDecoder t)))
 
 
-apiKeyDecoder : Decode.Decoder ApiKey
-apiKeyDecoder =
-    Decode.string
-        |> Decode.map ApiKey
+nexosisTokenDecoder : String -> Decoder NexosisToken
+nexosisTokenDecoder rawToken =
+    decode NexosisToken
+        |> required "iat" int
+        |> required "exp" int
+        |> optional "givenName" (nullable string) Nothing
+        |> optional "email" (nullable string) Nothing
+        |> hardcoded rawToken
 
 
-decodeToken : String -> Maybe Jwt.Decoders.JwtToken
-decodeToken stringToken =
-    Jwt.decodeToken
-        nexosisTokenDecoder
-        stringToken
-        |> Result.toMaybe
+withAuthorization : Maybe NexosisToken -> RequestBuilder a -> RequestBuilder a
+withAuthorization token builder =
+    case token of
+        Just nexosisToken ->
+            builder
+                |> withHeader "Authorization" ("Bearer " ++ nexosisToken.rawToken)
 
-
-nexosisTokenDecoder : Decode.Decoder Jwt.Decoders.JwtToken
-nexosisTokenDecoder =
-    Pipeline.decode Jwt.Decoders.JwtToken
-        |> Pipeline.required "iat" Decode.int
-        |> Pipeline.required "exp" Decode.int
-        |> Pipeline.optional "GivenName" (Decode.nullable Decode.string) Nothing
-        |> Pipeline.optional "Email" (Decode.nullable Decode.string) Nothing
-
-
-attempt : String -> (ApiKey -> Cmd msg) -> Config -> ( List String, Cmd msg )
-attempt attemptedAction toCmd config =
-    [] => toCmd config.apiKey
-
-
-withAuthorization : ApiKey -> RequestBuilder a -> RequestBuilder a
-withAuthorization (ApiKey key) builder =
-    builder
-        |> withHeader "api-key" key
+        _ ->
+            builder
 
 
 pageSize : Int
