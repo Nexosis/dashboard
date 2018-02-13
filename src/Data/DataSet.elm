@@ -13,10 +13,10 @@ module Data.DataSet
         , decodeDataSetList
         )
 
+import Combine exposing ((<$>))
 import Dict exposing (Dict)
 import Json.Decode as Decode
 import Json.Decode.Pipeline
-import UrlParser
 
 
 {-| Returned from /data/{dataSetName}
@@ -73,9 +73,9 @@ dataSetNameToString (DataSetName name) =
     name
 
 
-dataSetNameParser : UrlParser.Parser DataSetName
+dataSetNameParser : Combine.Parser s DataSetName
 dataSetNameParser =
-    UrlParser.string |> UrlParser.map DataSetName
+    DataSetName <$> Combine.regex "[^/]+"
 
 
 dataSetNameDecoder : Decode.Decoder DataSetName

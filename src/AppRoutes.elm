@@ -1,11 +1,11 @@
-module Route exposing (DataSetRoute(..), Route(..), SessionsRoute(..), fromApiUrl, fromLocation, href, modifyUrl)
+module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
+import Route exposing ((</>), Route, Router, custom, int, match, route, router, static, string)
 import String.Extra exposing (replace)
-import UrlParser as Url exposing (Parser, apply, follow, oneOf, parseLocation, parseUrl, path, return, string)
 
 
 -- ROUTING --
@@ -13,20 +13,12 @@ import UrlParser as Url exposing (Parser, apply, follow, oneOf, parseLocation, p
 
 type Route
     = Home
-    | DataSetRoute DataSetRoute
-    | Imports
-    | SessionsRoute SessionsRoute
-    | Models
-
-
-type DataSetRoute
-    = DataSets
+    | DataSets
     | DataSetDetail DataSet.DataSetName
-
-
-type SessionsRoute
-    = Sessions
+    | Imports
+    | Sessions
     | SessionDetail String
+    | Models
 
 
 
@@ -39,30 +31,16 @@ type SessionsRoute
 -}
 
 
-routeMatcher : Parser Route
+routeMatcher : Router Route
 routeMatcher =
-    oneOf
-        [ return Home
-        , return DataSetRoute |> follow (path "data") |> apply dataRoutes
-        , return Imports |> follow (path "imports")
-        , return SessionsRoute |> follow (path "sessions") |> apply sessionRoutes
-        , return Models |> follow (path "models")
-        ]
-
-
-dataRoutes : Parser DataSetRoute
-dataRoutes =
-    oneOf
-        [ return DataSets
-        , return DataSetDetail |> apply DataSet.dataSetNameParser
-        ]
-
-
-sessionRoutes : Parser SessionsRoute
-sessionRoutes =
-    oneOf
-        [ return Sessions
-        , return SessionDetail |> apply string
+    router
+        [ route Home (static "")
+        , route DataSets (static "data")
+        , route DataSetDetail (static "data" </> custom DataSet.dataSetNameParser)
+        , route Imports (static "imports")
+        , route Sessions (static "sessions")
+        , route SessionDetail (static "sessions" </> string)
+        , route Models (static "models")
         ]
 
 
@@ -78,24 +56,20 @@ routeToString page =
                 Home ->
                     []
 
-                DataSetRoute dataSetRoute ->
-                    case dataSetRoute of
-                        DataSets ->
-                            [ "data" ]
+                DataSets ->
+                    [ "data" ]
 
-                        DataSetDetail name ->
-                            [ "data", DataSet.dataSetNameToString name ]
+                DataSetDetail name ->
+                    [ "data", DataSet.dataSetNameToString name ]
 
                 Imports ->
                     [ "imports" ]
 
-                SessionsRoute sessionsRoute ->
-                    case sessionsRoute of
-                        Sessions ->
-                            [ "sessions" ]
+                Sessions ->
+                    [ "sessions" ]
 
-                        SessionDetail id ->
-                            [ "sessions", id ]
+                SessionDetail id ->
+                    [ "sessions", id ]
 
                 Models ->
                     [ "models" ]
@@ -126,7 +100,7 @@ fromLocation location =
     if String.isEmpty location.hash then
         Just Home
     else
-        parseUrl routeMatcher (String.dropLeft 1 location.hash)
+        match routeMatcher (String.dropLeft 1 location.hash)
 
 
 fromApiUrl : String -> String -> Maybe Route
@@ -135,4 +109,4 @@ fromApiUrl baseUrl apiUrl =
         urlPart =
             replace baseUrl "" apiUrl
     in
-    parseUrl routeMatcher urlPart
+    match routeMatcher urlPart

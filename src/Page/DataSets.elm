@@ -1,5 +1,6 @@
 module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, view)
 
+import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
 import Html exposing (..)
@@ -7,7 +8,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Route exposing (Route)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import View.Pager as Pager
@@ -166,7 +166,7 @@ nameColumn =
 dataSetNameCell : DataSet -> Table.HtmlDetails Msg
 dataSetNameCell dataSet =
     Table.HtmlDetails []
-        [ a [ Route.href (Route.DataSetRoute (Route.DataSetDetail dataSet.dataSetName)) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg

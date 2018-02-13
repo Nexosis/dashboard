@@ -1,8 +1,8 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
+import AppRoutes
 import Feature exposing (Feature(..))
 import Html exposing (..)
-import Route
 import View.Extra exposing (viewIf)
 
 
@@ -58,7 +58,7 @@ view model =
             [ viewIf
                 (\() ->
                     li []
-                        [ a [ Route.href (Route.DataSetRoute Route.DataSets) ]
+                        [ a [ AppRoutes.href AppRoutes.DataSets ]
                             [ text "DataSets" ]
                         ]
                 )
@@ -66,7 +66,7 @@ view model =
             , viewIf
                 (\() ->
                     li []
-                        [ a [ Route.href Route.Imports ]
+                        [ a [ AppRoutes.href AppRoutes.Imports ]
                             [ text "Imports" ]
                         ]
                 )
@@ -74,7 +74,7 @@ view model =
             , viewIf
                 (\() ->
                     li []
-                        [ a [ Route.href (Route.SessionsRoute Route.Sessions) ]
+                        [ a [ AppRoutes.href AppRoutes.Sessions ]
                             [ text "Sessions" ]
                         ]
                 )
@@ -82,7 +82,7 @@ view model =
             , viewIf
                 (\() ->
                     li []
-                        [ a [ Route.href Route.Models ]
+                        [ a [ AppRoutes.href AppRoutes.Models ]
                             [ text "Models" ]
                         ]
                 )
