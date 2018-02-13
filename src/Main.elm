@@ -228,6 +228,7 @@ updatePage page msg app =
 
         ( RenewToken (Err err), _ ) ->
             app
+                --todo - Log needs to finish first, try re-writing with tasks.
                 => Cmd.batch
                     [ Navigation.load app.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
 

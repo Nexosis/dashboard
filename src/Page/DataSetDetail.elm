@@ -69,8 +69,8 @@ view model =
     let
         gridView =
             case model.dataSetResponse of
-                Remote.Success dsList ->
-                    gridSection dsList model.tableState
+                Remote.Success dataSet ->
+                    gridSection dataSet model.tableState
 
                 Remote.Failure error ->
                     case error of
@@ -84,15 +84,53 @@ view model =
                     loadingGrid
     in
     div []
-        [ h2 [] [ text model.pageTitle ]
-        , div [] [ text model.pageBody ]
+        --todo breadcrumb
+        [ p [ class "breadcrumb" ]
+            [ span []
+                [ a [ href "#" ] [ text "API Dashboard" ]
+                , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
+                , a [ href "#" ] [ text "Datasets" ]
+                ]
+            ]
         , div [ class "row" ]
-            [ div [ class "col-lg-9" ]
-                [ div [ class "panel panel-default" ]
-                    [ div [ class "panel-heading" ]
-                        [ h3 [] [ text "Datasets" ]
+            [ div [ class "col-sm-6" ]
+                --todo - fill name
+                [ h2 [ class "mt10" ] [ text "{DatasetName}" ] ]
+            , div [ class "col-sm-6 right" ]
+                [ a [ href "#", class "btn mt10" ] [ text "Start Session" ]
+                ]
+            , div [ class "row" ]
+                [ div [ class "col-sm-8" ]
+                    [ p [ class "small" ]
+                        [ strong [] [ text "Dataset ID:" ]
+
+                        --todo - DS id here
+                        , text "1234"
+
+                        -- todo - Copy id
+                        , a [ href "#" ] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
                         ]
-                    , div [] gridView
+                    ]
+                , div [ class "col-sm-4 right" ]
+                    [ button [ class "btn btn-xs secondary" ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
+                    ]
+                ]
+            , hr [] []
+            , div [ class "row" ]
+                [-- ds details here
+                ]
+            , hr [] []
+            , div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row mb25" ]
+                        [ div [ class "col-sm-3" ]
+                            [ h3 [] [ text "Columns" ]
+                            ]
+                        , div [ class "col-sm-2 col-sm-offset-7 right" ]
+                            [--todo : page number changer
+                            ]
+                        ]
+                    , div [ class "table-responsive" ] gridView
                     ]
                 ]
             ]
@@ -129,25 +167,17 @@ gridSection dataSetData tableState =
     ]
 
 
-
--- { dataType : String
--- , role : String
--- , imputation : String
--- , aggregation : String
--- , name : String
--- }
-
-
 config : Table.Config ColumnMetadata Msg
 config =
     Table.customConfig
         { toId = .name
         , toMsg = SetTableState
         , columns =
-            [ Table.stringColumn "Name" .name
+            [ Table.stringColumn "Column Name" .name
             , Table.stringColumn "Type" .dataType
             , Table.stringColumn "Role" .role
             , Table.stringColumn "Imputation" .imputation
+            , Table.stringColumn "Stats" (\_ -> "")
             ]
         , customizations =
             { defaultCustomizations
