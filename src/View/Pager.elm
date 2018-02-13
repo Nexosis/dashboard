@@ -86,9 +86,3 @@ nextButton : Bool -> msg -> Html msg
 nextButton isEnabled msg =
     button [ class "btn other", disabled (not isEnabled), onClick msg ]
         [ i [ class "fa fa-angle-right" ] [] ]
-
-
-
--- [ button [ class "btn other btn-link", onClick (changePageMsg prev), disabled (pagedValues.pageNumber == 0) ] [ text "Prev" ]
--- , button [ class "btn other btn-link", onClick (changePageMsg next), disabled (pagedValues.pageNumber >= (pagedValues.totalPages - 1)) ] [ text "Next" ]
--- ]

@@ -98,7 +98,7 @@ view model =
                 ]
             , div [ class "col-sm-6 right" ]
                 [ -- todo - link somewhere
-                  a [ href "#", class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add dataset" ]
+                  a [ href "#", class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
                 ]
             ]
         , hr [] []
