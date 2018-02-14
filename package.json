@@ -21,9 +21,7 @@
     "dependencies": {
         "loggly-jslogger": "^2.2.2",
         "prismjs": "^1.10.0",
-        "stacktrace-js": "^2.0.0",
-        "uglifyjs-webpack-plugin": "^1.0.0-rc.0",
-        "webpack-md5-hash": "^0.0.6"
+        "stacktrace-js": "^2.0.0"
     },
     "devDependencies": {
         "autoprefixer": "^7.2.5",
@@ -42,6 +40,7 @@
         "elm-live": "2.7.5",
         "elm-test": "0.18.12",
         "elm-webpack-loader": "^4.4.0",
+        "exports-loader": "^0.7.0",
         "extract-text-webpack-plugin": "^3.0.2",
         "file-loader": "^1.1.6",
         "html-webpack-plugin": "^2.30.1",
@@ -49,10 +48,12 @@
         "rimraf": "^2.6.2",
         "style-loader": "^0.20.1",
         "uglify-js": "3.3.8",
+        "uglifyjs-webpack-plugin": "^1.1.8",
         "webpack": "^3.10.0",
         "webpack-bundle-analyzer": "^2.10.0",
         "webpack-combine-loaders": "^2.0.3",
         "webpack-dev-middleware": "^2.0.4",
-        "webpack-hot-middleware": "^2.21.0"
+        "webpack-hot-middleware": "^2.21.0",
+        "webpack-md5-hash": "^0.0.6"
     }
 }
