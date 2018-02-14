@@ -12,6 +12,8 @@ import Request.DataSet
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
+import View.Grid as Grid
+import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
@@ -194,35 +196,104 @@ gridSection dataSetData tableState =
 
 config : Table.Config ColumnMetadata Msg
 config =
-    Table.customConfig
+    Grid.config
         { toId = .name
         , toMsg = SetTableState
         , columns =
-            [ Table.stringColumn "Column Name" .name
-            , Table.stringColumn "Type" .dataType
-            , Table.stringColumn "Role" .role
-            , Table.stringColumn "Imputation" .imputation
-            , Table.stringColumn "Stats" (\_ -> "")
-            , histogramColumn
+            [ nameColumn
+            , typeColumn
+            , roleColumn
+            , imputationColumn
+            , Grid.customUnsortableColumn "Stats" (\_ -> "-") [ class "per20", colspan 2 ] []
             ]
-        , customizations =
-            { defaultCustomizations
-                | tableAttrs = toTableAttrs
-            }
         }
 
 
-toTableAttrs : List (Attribute Msg)
-toTableAttrs =
-    [ class "table table-striped" ]
+nameColumn : Grid.Column ColumnMetadata Msg
+nameColumn =
+    Grid.veryCustomColumn
+        { name = "Column Name"
+        , viewData = columnNameCell
+        , sorter = Table.increasingOrDecreasingBy .name
+        , headAttributes = [ class "left per25" ]
+        , headHtml = []
+        }
 
 
-histogramColumn : Table.Column ColumnMetadata Msg
+columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
+columnNameCell metadata =
+    Table.HtmlDetails [ class "name" ]
+        [ text metadata.name ]
+
+
+typeColumn : Grid.Column ColumnMetadata Msg
+typeColumn =
+    Grid.veryCustomColumn
+        { name = "Type"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = helpIcon "Type"
+        }
+
+
+dataTypeCell : ColumnMetadata -> Table.HtmlDetails Msg
+dataTypeCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.dataType ]
+            ]
+        ]
+
+
+roleColumn : Grid.Column ColumnMetadata Msg
+roleColumn =
+    Grid.veryCustomColumn
+        { name = "Role"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = helpIcon "Role"
+        }
+
+
+roleCell : ColumnMetadata -> Table.HtmlDetails Msg
+roleCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.role ]
+            ]
+        ]
+
+
+imputationColumn : Grid.Column ColumnMetadata Msg
+imputationColumn =
+    Grid.veryCustomColumn
+        { name = "Imputation"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = helpIcon "Imputation"
+        }
+
+
+imputationCell : ColumnMetadata -> Table.HtmlDetails Msg
+imputationCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.imputation ]
+            ]
+        ]
+
+
+histogramColumn : Grid.Column ColumnMetadata Msg
 histogramColumn =
-    Table.veryCustomColumn
-        { name = ""
+    Grid.veryCustomColumn
+        { name = "Distribution"
         , viewData = histogram
         , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
         }
 
 
