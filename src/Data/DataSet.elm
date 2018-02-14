@@ -1,8 +1,8 @@
 module Data.DataSet
     exposing
-        ( Data
+        ( ColumnMetadata
+        , Data
         , DataSet
-        , DataSetColumnsMetadata
         , DataSetData
         , DataSetList
         , DataSetName
@@ -26,7 +26,7 @@ type alias DataSetData =
     { dataSetName : DataSetName
     , dataSetSize : Int
     , isTimeSeries : Bool
-    , columns : List DataSetColumnsMetadata
+    , columns : List ColumnMetadata
     , data : Data
     , pageNumber : Int
     , totalPages : Int
@@ -51,7 +51,7 @@ type alias DataSet =
     }
 
 
-type alias DataSetColumnsMetadata =
+type alias ColumnMetadata =
     { dataType : String
     , role : String
     , imputation : String
@@ -116,9 +116,9 @@ decodeDataSetData =
         |> Json.Decode.Pipeline.required "totalCount" Decode.int
 
 
-decodeDataSetColumnsMetadata : Decode.Decoder (List DataSetColumnsMetadata)
+decodeDataSetColumnsMetadata : Decode.Decoder (List ColumnMetadata)
 decodeDataSetColumnsMetadata =
-    Json.Decode.Pipeline.decode DataSetColumnsMetadata
+    Json.Decode.Pipeline.decode ColumnMetadata
         |> Json.Decode.Pipeline.required "dataType" Decode.string
         |> Json.Decode.Pipeline.required "role" Decode.string
         |> Json.Decode.Pipeline.optional "imputation" Decode.string ""

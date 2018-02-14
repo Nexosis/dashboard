@@ -6,6 +6,7 @@ import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
+import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
@@ -89,16 +90,36 @@ view model =
                     loadingGrid
     in
     div []
-        [ h2 [] [ text model.pageTitle ]
-        , div [] [ text model.pageBody ]
+        --todo - breadcrumbs ?
+        [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
         , div [ class "row" ]
-            [ div [ class "col-lg-9" ]
-                [ div [ class "panel panel-default" ]
-                    [ div [ class "panel-heading" ]
-                        [ h3 [] [ text "Datasets" ]
+            [ div [ class "col-sm-6" ]
+                [ h2 [ class "mt10" ] [ text "Datasets" ]
+                ]
+            , div [ class "col-sm-6 right" ]
+                [ -- todo - link somewhere
+                  a [ href "#", class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+                ]
+            ]
+        , hr [] []
+        , div [ class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ div [ class "row mb25" ]
+                    [ div [ class "col-sm-6" ]
+                        [ h3 [] [ text "Dataset explainer" ]
                         ]
-                    , div [] gridView
+                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
+                        [ div [ class "mr5" ]
+                            -- change items per page
+                            [ label [] [ text "View" ]
+                            , select []
+                                [ option [] [ text "10" ]
+                                , option [] [ text "25" ]
+                                ]
+                            ]
+                        ]
                     ]
+                , div [ class "table-responsive" ] gridView
                 ]
             ]
         ]
@@ -106,23 +127,18 @@ view model =
 
 loadingGrid : List (Html Msg)
 loadingGrid =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ span [] [ text "No data found" ]
-            ]
+    [ div [ class "table table-striped" ]
+        [ span [] [ text "No data found" ]
         ]
-    , div [ class "panel-footer" ]
-        []
+    , hr [] []
     ]
 
 
 gridSection : DataSetList -> Table.State -> List (Html Msg)
 gridSection dataSetList tableState =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ Table.view config tableState dataSetList.items ]
-        ]
-    , div [ class "panel-footer" ]
+    [ Table.view config tableState dataSetList.items
+    , hr [] []
+    , div [ class "center" ]
         [ Pager.view dataSetList ChangePage ]
     ]
 
@@ -134,23 +150,18 @@ config =
         , toMsg = SetTableState
         , columns =
             [ nameColumn
-            , Table.intColumn "Size" .dataSetSize
-            , Table.stringColumn "IsTimeSeries" (\a -> a.isTimeSeries |> toString)
             , actionsColumn
+            , Table.stringColumn "Size" sizeToString
+            , Table.stringColumn "Shape" (\_ -> "100 x 50")
+            , Table.stringColumn "Created" (\_ -> "12/26/16")
+            , Table.stringColumn "Modified" (\_ -> "12/25/17")
+            , deleteColumn
             ]
         , customizations =
             { defaultCustomizations
                 | tableAttrs = toTableAttrs
+                , thead = toTableHeadAttrs [ "left per30", "", "per10", "per15", "per10", "per10", "per5" ]
             }
-        }
-
-
-actionsColumn : Table.Column DataSet Msg
-actionsColumn =
-    Table.veryCustomColumn
-        { name = ""
-        , viewData = dataSetDeleteButton
-        , sorter = Table.unsortable
         }
 
 
@@ -165,17 +176,107 @@ nameColumn =
 
 dataSetNameCell : DataSet -> Table.HtmlDetails Msg
 dataSetNameCell dataSet =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+
+
+actionsColumn : Table.Column DataSet Msg
+actionsColumn =
+    Table.veryCustomColumn
+        { name = ""
+        , viewData = dataSetActionButton
+        , sorter = Table.unsortable
+        }
+
+
+dataSetActionButton : DataSet -> Table.HtmlDetails Msg
+dataSetActionButton dataSet =
+    Table.HtmlDetails [ class "action" ]
+        --todo - make action buttons to something
+        --todo - Change the button text and color based on the status
+        [ button [ class "btn btn-sm" ] [ text "Start Session" ] ]
+
+
+sizeToString : DataSet -> String
+sizeToString dataSet =
+    if dataSet.dataSetSize == 0 then
+        "-"
+    else
+        toString dataSet.dataSetSize ++ "B"
+
+
+deleteColumn : Table.Column DataSet Msg
+deleteColumn =
+    Table.veryCustomColumn
+        { name = "Delete"
+        , viewData = dataSetDeleteButton
+        , sorter = Table.unsortable
+        }
 
 
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
 dataSetDeleteButton dataSet =
     Table.HtmlDetails []
-        [ button [ onClick (DeleteDataSet dataSet) ] [ text "Delete" ]
+        [ button [ onClick (DeleteDataSet dataSet), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 
 toTableAttrs : List (Attribute Msg)
 toTableAttrs =
     [ class "table table-striped" ]
+
+
+toTableHeadAttrs : List String -> List ( String, Table.Status, Attribute msg ) -> Table.HtmlDetails msg
+toTableHeadAttrs headerClasses headers =
+    let
+        thList =
+            headerClasses
+                |> ListX.zip headers
+                |> List.map (\( ( name, status, onClick ), classes ) -> ( name, status, onClick, classes ))
+                |> List.map headerCell
+    in
+    Table.HtmlDetails [] thList
+
+
+headerCell : ( String, Table.Status, Attribute msg, String ) -> Html msg
+headerCell ( name, status, onClick, classes ) =
+    let
+        content =
+            case status of
+                Table.Unsortable ->
+                    [ Html.text name ]
+
+                Table.Sortable selected ->
+                    [ Html.text name
+                    , if selected then
+                        darkGray "sort-down"
+                      else
+                        mediumGray "sort-down"
+                    ]
+
+                Table.Reversible Nothing ->
+                    [ Html.text name
+                    , mediumGray "sort"
+                    ]
+
+                Table.Reversible (Just isReversed) ->
+                    [ Html.text name
+                    , darkGray
+                        (if isReversed then
+                            "sort-up"
+                         else
+                            "sort-down"
+                        )
+                    ]
+    in
+    Html.th [ onClick, class classes ] content
+
+
+mediumGray : String -> Html msg
+mediumGray icon =
+    i [ class ("fa fa-" ++ icon ++ " color-mediumGray m15") ] []
+
+
+darkGray : String -> Html msg
+darkGray icon =
+    i [ class ("fa fa-" ++ icon ++ " color-darkGray m15") ] []

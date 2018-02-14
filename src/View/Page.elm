@@ -1,7 +1,9 @@
 module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
 import AppRoutes
+import Data.Config as Config exposing (Config)
 import Data.Response as Response exposing (Message, Response)
+import Feature exposing (Feature)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
@@ -23,6 +25,8 @@ type alias PageValues a =
         | lastRequest : String
         , lastResponse : Maybe Response
         , messages : List Message
+        , config : Config
+        , enabledFeatures : List Feature
     }
 
 
@@ -33,30 +37,117 @@ isLoading can be used to show loading during slow transitions
 -}
 layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
 layoutShowingResponses pageValues page content =
-    div []
-        [ viewHeader page
-        , div [] [ viewMessages pageValues.messages ]
-        , div [] [ content ]
-        , viewFooter pageValues
+    let
+        headerLinks =
+            pageValues.enabledFeatures
+                |> List.filterMap featureLinks
+    in
+    div [ id "docs-container", class "layout" ]
+        [ viewHeader headerLinks
+        , div [ class "layout-row layout-row-content" ]
+            [ content
+            ]
+
+        --todo - put messages back in
+        --, div [] [ viewMessages pageValues.messages ]
         ]
+
+
+featureLinks : Feature -> Maybe (Html msg)
+featureLinks feature =
+    case feature of
+        Feature.DataSets ->
+            Just (li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ])
+
+        Feature.Sessions ->
+            Just (li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ])
+
+        Feature.Models ->
+            Just (li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ])
+
+        _ ->
+            Nothing
 
 
 basicLayout : ActivePage -> Html msg -> Html msg
 basicLayout page content =
-    div []
-        [ viewHeader page
-        , div [] [ content ]
+    div [ id "docs-container", class "layout" ]
+        [ viewHeader []
+        , div [ class "layout-row layout-row-content" ]
+            [ div [] [ content ]
+            ]
         ]
 
 
-viewHeader : ActivePage -> Html msg
-viewHeader page =
-    nav []
-        [ div []
-            [ a [ AppRoutes.href AppRoutes.Home ]
-                [ text "Home" ]
+viewHeader : List (Html msg) -> Html msg
+viewHeader navLinks =
+    div [ class "layout-row" ]
+        [ div [ class "zone-header layout" ]
+            [ header [ id "topnav" ]
+                [ nav [ class "nav navbar-fixed-top", attribute "role" "navigation" ]
+                    [ div [ class "container" ]
+                        [ div [ class "navbar-header" ]
+                            [ button
+                                [ class "navbar-toggle collapsed"
+                                , attribute "data-toggle" "collapsed"
+                                , attribute "data-target" "#topnav-collapse"
+                                , attribute "aria-expanded" "false"
+                                ]
+                                [ span [ class "sr-only" ] [ text "Toggle navigation" ]
+                                , i [ class "fa fa-bars fa-lg" ] []
+                                ]
+                            , a [ AppRoutes.href AppRoutes.Home, class "navbar-brand" ]
+                                [ img [ src "https://nexosis.com/assets/img/logo-horizontal.png", alt "" ] []
+                                , div [ class "badge badge-danger badge-logo" ] [ text "API" ]
+                                ]
+                            ]
+                        , div [ id "topnav-collapse", class "collapse navbar-collapse" ]
+                            [ ul [ class "nav navbar-nav navbar-left" ]
+                                (navLinks
+                                    ++ [ li []
+                                            [ a
+                                                [ href "#"
+                                                , class "dropdown-toggle"
+                                                , attribute "data-toggle" "dropdown"
+                                                , attribute "role" "button"
+                                                , attribute "aria-haspopup" "true"
+                                                , attribute "aria-expanded" "false"
+                                                ]
+                                                [ text "Developers ", span [ class "caret" ] [] ]
+                                            , ul [ class "dropdown-menu" ]
+                                                [ li [] [ a [ href "http://docs.nexosis.com" ] [ text "Documentation" ] ]
+                                                , li [] [ a [ href "http://docs.nexosis.com/guides/quickstartguide" ] [ text "Quickstart" ] ]
+                                                , li [] [ a [ href "http://docs.nexosis.com/guides/" ] [ text "Guides" ] ]
+                                                , li [] [ a [ href "http://docs.nexosis.com/tutorials/" ] [ text "Tutorials" ] ]
+                                                , li [] [ a [ href "http://docs.nexosis.com/clients/" ] [ text "API Clients" ] ]
+                                                , li [] [ a [ href "https://developers.nexosis.com/docs/services/98847a3fbbe64f73aa959d3cededb3af/" ] [ text "API Reference" ] ]
+                                                , li [] [ a [ href "https://community.nexosis.com", target "_blank" ] [ text "Community" ] ]
+                                                ]
+                                            ]
+                                       , li []
+                                            [ a [ href "https://support.nexosis.com", target "_blank" ] [ text "Help" ] ]
+                                       ]
+                                )
+                            , ul [ class "nav navbar-nav navbar-right mr10", attribute "role" "navigation", attribute "aria-label" "Account menu" ]
+                                -- todo - Search
+                                [ li [ class "search" ] [ text "Search" ]
+                                , li [ class "dropdown" ]
+                                    [ --todo - Username
+                                      a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text "{UserName} ", b [ class "caret" ] [] ]
+                                    , ul [ class "dropdown-menu" ]
+                                        --todo - get base url for these links
+                                        [ li [] [ a [ href "" ] [ text "Overview" ] ]
+                                        , li [] [ a [ href "" ] [ text "Refer a friend" ] ]
+                                        , li [] [ a [ href "" ] [ text "API Key/Profile" ] ]
+                                        , li [] [ a [ href "" ] [ text "Sign Out" ] ]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
             ]
-        , hr [] []
         ]
 
 
@@ -79,22 +170,6 @@ viewMessage message =
             [ text (toString message.severity)
             ]
         , viewJust (\route -> a [ AppRoutes.href route ] [ text message.message ]) message.routeToResource
-        ]
-
-
-viewFooter : PageValues a -> Html msg
-viewFooter pageValues =
-    let
-        responseView =
-            case pageValues.lastResponse of
-                Just response ->
-                    viewRequestResponse response
-
-                Nothing ->
-                    div [] []
-    in
-    footer []
-        [ responseView
         ]
 
 
