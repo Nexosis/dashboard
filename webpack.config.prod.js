@@ -12,9 +12,6 @@ const GLOBALS = {
 
 export default {
     cache: true,
-    performance: {
-        hints: "error"
-    },
     devtool: 'source-map',
     entry: path.resolve(__dirname, 'src/index.js'),
     target: 'web',
@@ -70,7 +67,7 @@ export default {
                 loader: 'elm-webpack-loader?verbose=true&warn=true&debug=false&pathToMake=' + __dirname + '\\node_modules\\.bin\\elm-make&cwd=' + __dirname + '&forceWatch=false'
             },
             {
-                test: /(\.css)$/,
+                test: /(\.css|\.scss|\.sass)$/,
                 use: ExtractTextPlugin.extract({
                     use: [
                         {
@@ -79,13 +76,20 @@ export default {
                                 minimize: true,
                                 sourceMap: true
                             }
-                        }, {
+                        },
+                        {
                             loader: 'postcss-loader',
                             options: {
                                 plugins: () => [
                                     require('autoprefixer')
                                 ],
-                                souceMap: true
+                                sourceMap: true
+                            }
+                        },
+                        {
+                            loader: 'sass-loader',
+                            options: {
+                                sourceMap: true
                             }
                         }
                     ]

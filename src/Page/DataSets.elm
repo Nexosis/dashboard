@@ -6,12 +6,13 @@ import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
-import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
+import View.Grid as Grid
 import View.Pager as Pager
+import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
@@ -145,32 +146,29 @@ gridSection dataSetList tableState =
 
 config : Table.Config DataSet Msg
 config =
-    Table.customConfig
+    Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
         , columns =
             [ nameColumn
             , actionsColumn
-            , Table.stringColumn "Size" sizeToString
-            , Table.stringColumn "Shape" (\_ -> "100 x 50")
-            , Table.stringColumn "Created" (\_ -> "12/26/16")
-            , Table.stringColumn "Modified" (\_ -> "12/25/17")
+            , Grid.customStringColumn "Size" sizeToString [ class "per10" ] []
+            , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon "Shape refers to the columns and rows in your dataset.")
+            , Grid.customStringColumn "Created" (\_ -> "12/26/16") [ class "per10" ] []
+            , Grid.customStringColumn "Modified" (\_ -> "12/25/17") [ class "per10" ] []
             , deleteColumn
             ]
-        , customizations =
-            { defaultCustomizations
-                | tableAttrs = toTableAttrs
-                , thead = toTableHeadAttrs [ "left per30", "", "per10", "per15", "per10", "per10", "per5" ]
-            }
         }
 
 
-nameColumn : Table.Column DataSet Msg
+nameColumn : Grid.Column DataSet Msg
 nameColumn =
-    Table.veryCustomColumn
+    Grid.veryCustomColumn
         { name = "Name"
         , viewData = dataSetNameCell
         , sorter = Table.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
+        , headAttributes = [ class "left per30" ]
+        , headHtml = []
         }
 
 
@@ -180,12 +178,14 @@ dataSetNameCell dataSet =
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
-actionsColumn : Table.Column DataSet Msg
+actionsColumn : Grid.Column DataSet Msg
 actionsColumn =
-    Table.veryCustomColumn
+    Grid.veryCustomColumn
         { name = ""
         , viewData = dataSetActionButton
         , sorter = Table.unsortable
+        , headAttributes = []
+        , headHtml = []
         }
 
 
@@ -197,20 +197,14 @@ dataSetActionButton dataSet =
         [ button [ class "btn btn-sm" ] [ text "Start Session" ] ]
 
 
-sizeToString : DataSet -> String
-sizeToString dataSet =
-    if dataSet.dataSetSize == 0 then
-        "-"
-    else
-        toString dataSet.dataSetSize ++ "B"
-
-
-deleteColumn : Table.Column DataSet Msg
+deleteColumn : Grid.Column DataSet Msg
 deleteColumn =
-    Table.veryCustomColumn
+    Grid.veryCustomColumn
         { name = "Delete"
         , viewData = dataSetDeleteButton
         , sorter = Table.unsortable
+        , headAttributes = [ class "per5" ]
+        , headHtml = []
         }
 
 
@@ -221,62 +215,9 @@ dataSetDeleteButton dataSet =
         ]
 
 
-toTableAttrs : List (Attribute Msg)
-toTableAttrs =
-    [ class "table table-striped" ]
-
-
-toTableHeadAttrs : List String -> List ( String, Table.Status, Attribute msg ) -> Table.HtmlDetails msg
-toTableHeadAttrs headerClasses headers =
-    let
-        thList =
-            headerClasses
-                |> ListX.zip headers
-                |> List.map (\( ( name, status, onClick ), classes ) -> ( name, status, onClick, classes ))
-                |> List.map headerCell
-    in
-    Table.HtmlDetails [] thList
-
-
-headerCell : ( String, Table.Status, Attribute msg, String ) -> Html msg
-headerCell ( name, status, onClick, classes ) =
-    let
-        content =
-            case status of
-                Table.Unsortable ->
-                    [ Html.text name ]
-
-                Table.Sortable selected ->
-                    [ Html.text name
-                    , if selected then
-                        darkGray "sort-down"
-                      else
-                        mediumGray "sort-down"
-                    ]
-
-                Table.Reversible Nothing ->
-                    [ Html.text name
-                    , mediumGray "sort"
-                    ]
-
-                Table.Reversible (Just isReversed) ->
-                    [ Html.text name
-                    , darkGray
-                        (if isReversed then
-                            "sort-up"
-                         else
-                            "sort-down"
-                        )
-                    ]
-    in
-    Html.th [ onClick, class classes ] content
-
-
-mediumGray : String -> Html msg
-mediumGray icon =
-    i [ class ("fa fa-" ++ icon ++ " color-mediumGray m15") ] []
-
-
-darkGray : String -> Html msg
-darkGray icon =
-    i [ class ("fa fa-" ++ icon ++ " color-darkGray m15") ] []
+sizeToString : DataSet -> String
+sizeToString dataSet =
+    if dataSet.dataSetSize == 0 then
+        "-"
+    else
+        toString dataSet.dataSetSize ++ "B"
