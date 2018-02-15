@@ -1,8 +1,12 @@
-module View.Grid exposing (Column, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn)
+module View.Grid exposing (Column, Config, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events as Events
+import Http
+import Json.Decode as Json
 import List.Extra as ListX
+import RemoteData as Remote
 import Table exposing (..)
 
 
@@ -22,6 +26,15 @@ type alias ColumnHeadConfig a msg =
     }
 
 
+type Config data msg
+    = Config
+        { toId : data -> String
+        , toMsg : Table.State -> msg
+        , columns : List (Column data msg)
+        , customizations : Customizations data msg
+        }
+
+
 config :
     { toId : data -> String
     , toMsg : Table.State -> msg
@@ -29,18 +42,12 @@ config :
     }
     -> Config data msg
 config config =
-    let
-        customs =
-            addColumnCustomizations defaultCustomizations config.columns
-
-        tableConfig =
-            { toId = config.toId
-            , toMsg = config.toMsg
-            , columns = List.map mapColumns config.columns
-            , customizations = customs
-            }
-    in
-    Table.customConfig tableConfig
+    Config
+        { toId = config.toId
+        , toMsg = config.toMsg
+        , columns = config.columns
+        , customizations = defaultCustomizations
+        }
 
 
 customConfig :
@@ -51,14 +58,19 @@ customConfig :
     }
     -> Config data msg
 customConfig config =
+    Config config
+
+
+mapConfig : Config data msg -> Table.Config data msg
+mapConfig (Config { toId, toMsg, columns, customizations }) =
     let
         customs =
-            addColumnCustomizations config.customizations config.columns
+            addColumnCustomizations customizations columns
 
         tableConfig =
-            { toId = config.toId
-            , toMsg = config.toMsg
-            , columns = List.map mapColumns config.columns
+            { toId = toId
+            , toMsg = toMsg
+            , columns = List.map mapColumns columns
             , customizations = customs
             }
     in
@@ -210,3 +222,93 @@ mediumGray icon =
 darkGray : String -> Html msg
 darkGray icon =
     i [ class ("fa fa-" ++ icon ++ " color-darkGray m15") ] []
+
+
+view : (response -> List data) -> Config data msg -> Table.State -> Remote.WebData response -> Html.Html msg
+view toData config state response =
+    let
+        tableConfig =
+            mapConfig config
+
+        (Config { toId, toMsg, columns, customizations }) =
+            config
+    in
+    case response of
+        Remote.Success successResponse ->
+            let
+                items =
+                    successResponse |> toData
+            in
+            div [ class "table-responsive" ]
+                [ Table.view tableConfig state items
+                ]
+
+        Remote.Failure err ->
+            let
+                fakeHeaders =
+                    columns
+                        |> List.map (\col -> th col.headAttributes [])
+
+                columnCount =
+                    List.length columns
+
+                fakeRows =
+                    List.repeat 9 (tr [] [ td [ colspan columnCount ] [ div [ class "line-height" ] [] ] ])
+
+                errorMessageRow =
+                    tr [] [ td [ colspan columnCount ] [ text (niceErrorMessage err) ] ]
+            in
+            div [ class "table-responsive" ]
+                [ Table.view tableConfig state []
+                , table [ class "table table-striped" ]
+                    [ thead []
+                        [ tr []
+                            fakeHeaders
+                        ]
+                    , tbody []
+                        (errorMessageRow
+                            :: fakeRows
+                        )
+                    ]
+                ]
+
+        -- NotAsked and Loading
+        _ ->
+            let
+                loadingHeaders =
+                    columns
+                        |> List.map (\col -> th col.headAttributes [])
+
+                columnCount =
+                    List.length columns
+
+                loadingTds =
+                    List.repeat columnCount (td [] [ div [ class "loading--line" ] [] ])
+
+                loadingRows =
+                    List.repeat 10 (tr [] loadingTds)
+            in
+            div [ class "table-responsive" ]
+                [ Table.view tableConfig state []
+                , table [ class "table table-striped" ]
+                    [ thead []
+                        [ tr []
+                            loadingHeaders
+                        ]
+                    , tbody []
+                        loadingRows
+                    ]
+                ]
+
+
+niceErrorMessage : Http.Error -> String
+niceErrorMessage error =
+    case error of
+        Http.Timeout ->
+            "The request timed out.  Please check your connection and try again."
+
+        Http.NetworkError ->
+            "Network error encountered.  Please check your connection and try again."
+
+        _ ->
+            "An unexpected error occurred.  Please try again."

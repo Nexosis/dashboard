@@ -82,15 +82,6 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    let
-        gridView =
-            case model.dataSetList of
-                Remote.Success dsList ->
-                    gridSection dsList model.tableState model.config.toolTips
-
-                _ ->
-                    loadingGrid
-    in
     div []
         --todo - breadcrumbs ?
         [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
@@ -121,31 +112,16 @@ view model =
                             ]
                         ]
                     ]
-                , div [ class "table-responsive" ] gridView
+                , Grid.view .items (config model.config.toolTips) model.tableState model.dataSetList
+                , hr [] []
+                , div [ class "center" ]
+                    [ Pager.view model.dataSetList ChangePage ]
                 ]
             ]
         ]
 
 
-loadingGrid : List (Html Msg)
-loadingGrid =
-    [ div [ class "table table-striped" ]
-        [ span [] [ text "No data found" ]
-        ]
-    , hr [] []
-    ]
-
-
-gridSection : DataSetList -> Table.State -> Dict String String -> List (Html Msg)
-gridSection dataSetList tableState toolTips =
-    [ Table.view (config toolTips) tableState dataSetList.items
-    , hr [] []
-    , div [ class "center" ]
-        [ Pager.view dataSetList ChangePage ]
-    ]
-
-
-config : Dict String String -> Table.Config DataSet Msg
+config : Dict String String -> Grid.Config DataSet Msg
 config toolTips =
     Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString

@@ -3,6 +3,7 @@ module View.Pager exposing (view)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import RemoteData exposing (WebData)
 
 
 type alias PagedValues a =
@@ -14,29 +15,45 @@ type alias PagedValues a =
     }
 
 
-view : PagedValues a -> (Int -> msg) -> Html msg
+view : WebData (PagedValues a) -> (Int -> msg) -> Html msg
 view pagedValues changePageMsg =
     let
-        pageButtons =
-            generatePageButtons pagedValues.pageNumber pagedValues.totalPages changePageMsg
+        pager =
+            case pagedValues of
+                RemoteData.Success successResponse ->
+                    let
+                        pageButtons =
+                            generatePageButtons successResponse.pageNumber successResponse.totalPages changePageMsg
 
-        prevEnabled =
-            pagedValues.pageNumber > 0
+                        prevEnabled =
+                            successResponse.pageNumber > 0
 
-        nextEnabled =
-            pagedValues.pageNumber < (pagedValues.totalPages - 1)
+                        nextEnabled =
+                            successResponse.pageNumber < (successResponse.totalPages - 1)
 
-        prev =
-            changePageMsg (pagedValues.pageNumber - 1)
+                        prev =
+                            changePageMsg (successResponse.pageNumber - 1)
 
-        next =
-            changePageMsg (pagedValues.pageNumber + 1)
+                        next =
+                            changePageMsg (successResponse.pageNumber + 1)
+                    in
+                    div [ class "btn-group", attribute "role" "group" ]
+                        (backButton prevEnabled prev
+                            :: pageButtons
+                            ++ [ nextButton nextEnabled next ]
+                        )
+
+                _ ->
+                    let
+                        changeMsg =
+                            changePageMsg 0
+                    in
+                    div [ class "btn-group", attribute "role" "group" ]
+                        [ backButton False changeMsg
+                        , nextButton False changeMsg
+                        ]
     in
-    div [ class "btn-group", attribute "role" "group" ]
-        (backButton prevEnabled prev
-            :: pageButtons
-            ++ [ nextButton nextEnabled next ]
-        )
+    pager
 
 
 generatePageButtons : Int -> Int -> (Int -> msg) -> List (Html msg)

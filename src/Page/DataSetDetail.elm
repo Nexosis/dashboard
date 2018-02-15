@@ -14,6 +14,7 @@ import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
 import View.Grid as Grid
+import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
 
 
@@ -25,8 +26,18 @@ type alias Model =
     , pageBody : String
     , errors : List String
     , dataSetResponse : Remote.WebData DataSetData
+    , columnResponse : Remote.WebData ColumnMetadataListing
     , tableState : Table.State
     , config : Config
+    }
+
+
+type alias ColumnMetadataListing =
+    { pageNumber : Int
+    , totalPages : Int
+    , pageSize : Int
+    , totalCount : Int
+    , metadataList : List ColumnMetadata
     }
 
 
@@ -38,8 +49,25 @@ init config dataSetName =
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
     in
-    Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config
+    Model "DataSets" "This is the list of DataSets" [] Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config
         => loadDataSetList
+
+
+mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
+mapColumnListToPagedListing columns =
+    let
+        count =
+            List.length columns
+
+        pageSize =
+            10
+    in
+    { pageNumber = 0
+    , totalPages = count // 10
+    , pageSize = pageSize
+    , totalCount = count
+    , metadataList = columns
+    }
 
 
 
@@ -50,6 +78,7 @@ type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
     | SetTableState Table.State
     | DeleteDataSet DataSet
+    | ChangePage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -63,8 +92,11 @@ update msg model =
                             dataSetDetail.columns
                                 |> List.map generateVegaSpec
                                 |> Json.Encode.object
+
+                        columnListing =
+                            mapColumnListToPagedListing dataSetDetail.columns
                     in
-                    { model | dataSetResponse = resp } => Ports.drawVegaChart vegaSpec
+                    { model | dataSetResponse = resp, columnResponse = Remote.succeed columnListing } => Ports.drawVegaChart vegaSpec
 
                 _ ->
                     { model | dataSetResponse = resp } => Cmd.none
@@ -75,6 +107,13 @@ update msg model =
 
         DeleteDataSet dataSet ->
             model => Cmd.none
+
+        ChangePage pageNumber ->
+            let
+                ( columnListing, cmd ) =
+                    Remote.update (updateColumnPageNumber pageNumber) model.columnResponse
+            in
+            { model | columnResponse = columnListing } => cmd
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
@@ -88,29 +127,17 @@ generateVegaSpec column =
             ]
 
 
+updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnPageNumber pageNumber columnListing =
+    { columnListing | pageNumber = pageNumber } => Cmd.none
+
+
 
 -- VIEW --
 
 
 view : Model -> Html Msg
 view model =
-    let
-        gridView =
-            case model.dataSetResponse of
-                Remote.Success dataSet ->
-                    gridSection dataSet model.tableState model.config.toolTips
-
-                Remote.Failure error ->
-                    case error of
-                        Http.BadStatus response ->
-                            errorDisplay response
-
-                        _ ->
-                            [ div [] [] ]
-
-                _ ->
-                    loadingGrid
-    in
     div []
         --todo breadcrumb
         [ p [ class "breadcrumb" ]
@@ -158,44 +185,26 @@ view model =
                             [--todo : page number changer
                             ]
                         ]
-                    , div [ class "table-responsive" ] gridView
+                    , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnResponse
+                    , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
                     ]
                 ]
             ]
         ]
 
 
-errorDisplay : Http.Response String -> List (Html Msg)
-errorDisplay error =
-    [ div [] [ text (error.body |> toString) ] ]
+filterColumnsToDisplay : ColumnMetadataListing -> List ColumnMetadata
+filterColumnsToDisplay columnListing =
+    let
+        drop =
+            columnListing.pageSize * columnListing.pageNumber
+    in
+    columnListing.metadataList
+        |> List.drop drop
+        |> List.take columnListing.pageSize
 
 
-loadingGrid : List (Html Msg)
-loadingGrid =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ span [] [ text "No data found" ]
-            ]
-        ]
-    , div [ class "panel-footer" ]
-        []
-    ]
-
-
-gridSection : DataSetData -> Table.State -> Dict String String -> List (Html Msg)
-gridSection dataSetData tableState toolTips =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ Table.view (config toolTips) tableState dataSetData.columns ]
-        ]
-    , div [ class "panel-footer" ]
-        []
-
-    -- [ Pager.view dataSetData ChangePage ]
-    ]
-
-
-config : Dict String String -> Table.Config ColumnMetadata Msg
+config : Dict String String -> Grid.Config ColumnMetadata Msg
 config toolTips =
     let
         makeIcon =
