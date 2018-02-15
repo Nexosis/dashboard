@@ -1,5 +1,6 @@
-module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, withAuthorization, tokenDecoder)
+module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, tokenDecoder, withAuthorization)
 
+import Dict exposing (Dict)
 import HttpBuilder exposing (RequestBuilder, withHeader)
 import Json.Decode as Decode exposing (Decoder, andThen, field, int, maybe, nullable, string)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
@@ -11,6 +12,7 @@ type alias Config =
     , token : Maybe NexosisToken
     , loginUrl : String
     , renewalUrl : String
+    , toolTips : Dict String String
     }
 
 
@@ -33,6 +35,8 @@ configDecoder =
             )
         |> required "loginUrl" string
         |> required "renewalUrl" string
+        |> hardcoded Dict.empty
+
 
 tokenDecoder : Decoder NexosisToken
 tokenDecoder =

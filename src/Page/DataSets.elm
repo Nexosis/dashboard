@@ -3,6 +3,7 @@ module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, vi
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, dataSetNameToString)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
@@ -85,7 +86,7 @@ view model =
         gridView =
             case model.dataSetList of
                 Remote.Success dsList ->
-                    gridSection dsList model.tableState
+                    gridSection dsList model.tableState model.config.toolTips
 
                 _ ->
                     loadingGrid
@@ -135,17 +136,17 @@ loadingGrid =
     ]
 
 
-gridSection : DataSetList -> Table.State -> List (Html Msg)
-gridSection dataSetList tableState =
-    [ Table.view config tableState dataSetList.items
+gridSection : DataSetList -> Table.State -> Dict String String -> List (Html Msg)
+gridSection dataSetList tableState toolTips =
+    [ Table.view (config toolTips) tableState dataSetList.items
     , hr [] []
     , div [ class "center" ]
         [ Pager.view dataSetList ChangePage ]
     ]
 
 
-config : Table.Config DataSet Msg
-config =
+config : Dict String String -> Table.Config DataSet Msg
+config toolTips =
     Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
@@ -153,7 +154,7 @@ config =
             [ nameColumn
             , actionsColumn
             , Grid.customStringColumn "Size" sizeToString [ class "per10" ] []
-            , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon "Shape refers to the columns and rows in your dataset.")
+            , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon toolTips "Shape refers to the columns and rows in your dataset.")
             , Grid.customStringColumn "Created" (\_ -> "12/26/16") [ class "per10" ] []
             , Grid.customStringColumn "Modified" (\_ -> "12/25/17") [ class "per10" ] []
             , deleteColumn

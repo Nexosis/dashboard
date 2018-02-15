@@ -6,6 +6,7 @@ import 'balloon-css';
 import Elm from './Main.elm';
 import StackTrace from 'stacktrace-js';
 import '../config.json';
+import '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 
@@ -65,7 +66,7 @@ fetch('./config.json').then(function (response) {
 
         app.ports.drawVegaChart.subscribe(function (specObject) {
             requestAnimationFrame(() => {
-                for (let name of Object.keys(specObject)){
+                for (let name of Object.keys(specObject)) {
                     vegaEmbed(`#histogram_${name}`, specObject[name], {
                         actions: false, logLevel: vega.Warn
                     }).catch(console.warn);

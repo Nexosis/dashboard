@@ -2,6 +2,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
 import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
@@ -97,7 +98,7 @@ view model =
         gridView =
             case model.dataSetResponse of
                 Remote.Success dataSet ->
-                    gridSection dataSet model.tableState
+                    gridSection dataSet model.tableState model.config.toolTips
 
                 Remote.Failure error ->
                     case error of
@@ -181,11 +182,11 @@ loadingGrid =
     ]
 
 
-gridSection : DataSetData -> Table.State -> List (Html Msg)
-gridSection dataSetData tableState =
+gridSection : DataSetData -> Table.State -> Dict String String -> List (Html Msg)
+gridSection dataSetData tableState toolTips =
     [ div [ class "panel-body" ]
         [ div [ class "table-responsive" ]
-            [ Table.view config tableState dataSetData.columns ]
+            [ Table.view (config toolTips) tableState dataSetData.columns ]
         ]
     , div [ class "panel-footer" ]
         []
@@ -194,16 +195,20 @@ gridSection dataSetData tableState =
     ]
 
 
-config : Table.Config ColumnMetadata Msg
-config =
+config : Dict String String -> Table.Config ColumnMetadata Msg
+config toolTips =
+    let
+        makeIcon =
+            helpIcon toolTips
+    in
     Grid.config
         { toId = .name
         , toMsg = SetTableState
         , columns =
             [ nameColumn
-            , typeColumn
-            , roleColumn
-            , imputationColumn
+            , typeColumn makeIcon
+            , roleColumn makeIcon
+            , imputationColumn makeIcon
             , Grid.customUnsortableColumn "Stats" (\_ -> "-") [ class "per20", colspan 2 ] []
             ]
         }
@@ -226,14 +231,14 @@ columnNameCell metadata =
         [ text metadata.name ]
 
 
-typeColumn : Grid.Column ColumnMetadata Msg
-typeColumn =
+typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+typeColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Type"
         , viewData = dataTypeCell
         , sorter = Table.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = helpIcon "Type"
+        , headHtml = makeIcon "Type"
         }
 
 
@@ -246,14 +251,14 @@ dataTypeCell metadata =
         ]
 
 
-roleColumn : Grid.Column ColumnMetadata Msg
-roleColumn =
+roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+roleColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Role"
         , viewData = dataTypeCell
         , sorter = Table.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = helpIcon "Role"
+        , headHtml = makeIcon "Role"
         }
 
 
@@ -266,14 +271,14 @@ roleCell metadata =
         ]
 
 
-imputationColumn : Grid.Column ColumnMetadata Msg
-imputationColumn =
+imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+imputationColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Imputation"
         , viewData = dataTypeCell
         , sorter = Table.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = helpIcon "Imputation"
+        , headHtml = makeIcon "Imputation"
         }
 
 
