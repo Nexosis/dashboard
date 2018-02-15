@@ -2,7 +2,7 @@ module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, toke
 
 import Dict exposing (Dict)
 import HttpBuilder exposing (RequestBuilder, withHeader)
-import Json.Decode as Decode exposing (Decoder, andThen, field, int, maybe, nullable, string)
+import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
 
@@ -35,7 +35,7 @@ configDecoder =
             )
         |> required "loginUrl" string
         |> required "renewalUrl" string
-        |> hardcoded Dict.empty
+        |> required "toolTips" toolTipDictDecoder
 
 
 tokenDecoder : Decoder NexosisToken
@@ -53,6 +53,11 @@ nexosisTokenDecoder rawToken =
         |> optional "givenName" (nullable string) Nothing
         |> optional "email" (nullable string) Nothing
         |> hardcoded rawToken
+
+
+toolTipDictDecoder : Decoder (Dict String String)
+toolTipDictDecoder =
+    dict string
 
 
 withAuthorization : Maybe NexosisToken -> RequestBuilder a -> RequestBuilder a

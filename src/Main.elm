@@ -3,7 +3,6 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Response as Response
-import Dict exposing (Dict)
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
@@ -22,7 +21,6 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
-import Request.Tooltip exposing (getTooltipDictionary)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -76,7 +74,6 @@ type Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
     | RenewToken (Result Http.Error NexosisToken)
-    | LoadToolTips (Result Http.Error (Dict String String))
 
 
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
@@ -235,19 +232,6 @@ updatePage page msg app =
                 => Cmd.batch
                     [ Navigation.load app.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
 
-        ( LoadToolTips (Ok toolTips), _ ) ->
-            let
-                config =
-                    app.config
-
-                newConfig =
-                    { config | toolTips = toolTips }
-            in
-            { app | config = newConfig } => Cmd.none
-
-        ( LoadToolTips (Err err), _ ) ->
-            app => (Log.logMessage <| Log.LogMessage ("Error getting list of tooltips " ++ toString err) Log.Error)
-
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -366,13 +350,9 @@ init flags location =
                 ( app, cmd ) =
                     setRoute (AppRoutes.fromLocation location)
                         appContext
-
-                tooltipsRequest =
-                    getTooltipDictionary
-                        |> Http.send LoadToolTips
             in
             Initialized app
-                => Cmd.batch [ cmd, Task.perform CheckToken Time.now, tooltipsRequest ]
+                => Cmd.batch [ cmd, Task.perform CheckToken Time.now ]
 
         Err error ->
             ( InitializationError error, Cmd.none )

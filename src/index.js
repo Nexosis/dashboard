@@ -6,7 +6,7 @@ import 'balloon-css';
 import Elm from './Main.elm';
 import StackTrace from 'stacktrace-js';
 import '../config.json';
-import '../tooltips.json';
+import * as toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 
@@ -48,6 +48,7 @@ fetch('./config.json').then(function (response) {
         };
 
         config.token = getCookie('accessToken');
+        config.toolTips = toolTips;
 
         const mountNode = document.getElementById('main');
         const app = Elm.Main.embed(main, config);

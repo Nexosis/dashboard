@@ -25,4 +25,8 @@ helpIcon tooltipDefinitions tipKey =
             ]
 
         Nothing ->
+            let
+                l =
+                    Debug.log tipKey tooltipDefinitions
+            in
             []

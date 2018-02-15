@@ -86,11 +86,19 @@ export default {
                 ]
             },
             {
-                test: /(config)|(tooltips)\.json$/,
+                test: /(config)\.json$/,
                 use: [
                     {
                         loader: 'file-loader',
                         options: { name: '[name].[ext]' }
+                    }
+                ]
+            },
+            {
+                test: /(tooltips)\.json$/,
+                use: [
+                    {
+                        loader: 'json-loader'
                     }
                 ]
             }
