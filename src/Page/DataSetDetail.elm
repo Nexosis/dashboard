@@ -1,15 +1,14 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
-import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
+import Data.DataSet exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Http
 import Json.Encode
-import Ports
 import RemoteData as Remote
 import Request.DataSet
+import Request.Log as Log
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
@@ -37,7 +36,13 @@ type alias ColumnMetadataListing =
     , totalPages : Int
     , pageSize : Int
     , totalCount : Int
-    , metadataList : List ColumnMetadata
+    , metadataList : List ColumnInfo
+    }
+
+
+type alias ColumnInfo =
+    { metadata : ColumnMetadata
+    , stats : Maybe ColumnStats
     }
 
 
@@ -66,8 +71,30 @@ mapColumnListToPagedListing columns =
     , totalPages = count // 10
     , pageSize = pageSize
     , totalCount = count
-    , metadataList = columns
+    , metadataList =
+        List.map
+            (\m ->
+                { metadata = m
+                , stats = Nothing
+                }
+            )
+            columns
     }
+
+
+mergeListingAndStats : ColumnMetadataListing -> DataSetStats -> ColumnMetadataListing
+mergeListingAndStats metadataListing stats =
+    let
+        updatedListing =
+            metadataListing.metadataList
+                |> List.map
+                    (\i ->
+                        { metadata = i.metadata
+                        , stats = Dict.get i.metadata.name stats.columns
+                        }
+                    )
+    in
+    { metadataListing | metadataList = updatedListing }
 
 
 
@@ -76,6 +103,7 @@ mapColumnListToPagedListing columns =
 
 type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
+    | StatsResponse (Remote.WebData DataSetStats)
     | SetTableState Table.State
     | DeleteDataSet DataSet
     | ChangePage Int
@@ -95,11 +123,33 @@ update msg model =
 
                         columnListing =
                             mapColumnListToPagedListing dataSetDetail.columns
+
+                        statsRequest =
+                            Request.DataSet.getStats model.config dataSetDetail.dataSetName
+                                |> Remote.sendRequest
+                                |> Cmd.map StatsResponse
                     in
-                    { model | dataSetResponse = resp, columnResponse = Remote.succeed columnListing } => Ports.drawVegaChart vegaSpec
+                    -- Send ports when we want to draw the histogram.
+                    -- Ports.drawVegaChart vegaSpec
+                    { model | dataSetResponse = resp, columnResponse = Remote.succeed columnListing } => statsRequest
 
                 _ ->
                     { model | dataSetResponse = resp } => Cmd.none
+
+        StatsResponse resp ->
+            case resp of
+                Remote.Success _ ->
+                    let
+                        updatedColumnInfo =
+                            Remote.map2 mergeListingAndStats model.columnResponse resp
+                    in
+                    { model | columnResponse = updatedColumnInfo } => Cmd.none
+
+                Remote.Failure err ->
+                    model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
+
+                _ ->
+                    model => Cmd.none
 
         SetTableState newState ->
             { model | tableState = newState }
@@ -130,6 +180,11 @@ generateVegaSpec column =
 updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
 updateColumnPageNumber pageNumber columnListing =
     { columnListing | pageNumber = pageNumber } => Cmd.none
+
+
+updateColumnMetadata : List ColumnInfo -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnMetadata info columnListing =
+    { columnListing | metadataList = info } => Cmd.none
 
 
 
@@ -193,7 +248,7 @@ view model =
         ]
 
 
-filterColumnsToDisplay : ColumnMetadataListing -> List ColumnMetadata
+filterColumnsToDisplay : ColumnMetadataListing -> List ColumnInfo
 filterColumnsToDisplay columnListing =
     let
         drop =
@@ -204,43 +259,43 @@ filterColumnsToDisplay columnListing =
         |> List.take columnListing.pageSize
 
 
-config : Dict String String -> Grid.Config ColumnMetadata Msg
+config : Dict String String -> Grid.Config ColumnInfo Msg
 config toolTips =
     let
         makeIcon =
             helpIcon toolTips
     in
     Grid.config
-        { toId = .name
+        { toId = \c -> c.metadata.name
         , toMsg = SetTableState
         , columns =
             [ nameColumn
             , typeColumn makeIcon
             , roleColumn makeIcon
             , imputationColumn makeIcon
-            , Grid.customUnsortableColumn "Stats" (\_ -> "-") [ class "per20", colspan 2 ] []
+            , statsColumn
             ]
         }
 
 
-nameColumn : Grid.Column ColumnMetadata Msg
+nameColumn : Grid.Column ColumnInfo Msg
 nameColumn =
     Grid.veryCustomColumn
         { name = "Column Name"
         , viewData = columnNameCell
-        , sorter = Table.increasingOrDecreasingBy .name
+        , sorter = Table.increasingOrDecreasingBy (\c -> c.metadata.name)
         , headAttributes = [ class "left per25" ]
         , headHtml = []
         }
 
 
-columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
-columnNameCell metadata =
+columnNameCell : ColumnInfo -> Table.HtmlDetails Msg
+columnNameCell column =
     Table.HtmlDetails [ class "name" ]
-        [ text metadata.name ]
+        [ text column.metadata.name ]
 
 
-typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
 typeColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Type"
@@ -251,16 +306,16 @@ typeColumn makeIcon =
         }
 
 
-dataTypeCell : ColumnMetadata -> Table.HtmlDetails Msg
-dataTypeCell metadata =
+dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
+dataTypeCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text metadata.dataType ]
+            [ option [] [ text column.metadata.dataType ]
             ]
         ]
 
 
-roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
 roleColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Role"
@@ -271,16 +326,16 @@ roleColumn makeIcon =
         }
 
 
-roleCell : ColumnMetadata -> Table.HtmlDetails Msg
-roleCell metadata =
+roleCell : ColumnInfo -> Table.HtmlDetails Msg
+roleCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text metadata.role ]
+            [ option [] [ text column.metadata.role ]
             ]
         ]
 
 
-imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
 imputationColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Imputation"
@@ -291,16 +346,44 @@ imputationColumn makeIcon =
         }
 
 
-imputationCell : ColumnMetadata -> Table.HtmlDetails Msg
-imputationCell metadata =
+imputationCell : ColumnInfo -> Table.HtmlDetails Msg
+imputationCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text metadata.imputation ]
+            [ option [] [ text column.metadata.imputation ]
             ]
         ]
 
 
-histogramColumn : Grid.Column ColumnMetadata Msg
+statsColumn : Grid.Column ColumnInfo Msg
+statsColumn =
+    Grid.veryCustomColumn
+        { name = "Stats"
+        , viewData = statsCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per20", colspan 2 ]
+        , headHtml = []
+        }
+
+
+statsCell : ColumnInfo -> Table.HtmlDetails Msg
+statsCell column =
+    Table.HtmlDetails [ class "stats" ]
+        [ statsDisplay column.stats ]
+
+
+statsDisplay : Maybe ColumnStats -> Html Msg
+statsDisplay columnStats =
+    columnStats
+        |> Maybe.map (\s -> div [] [ text (toString s.max) ])
+        |> Maybe.withDefault
+            (div
+                []
+                [ text "-" ]
+            )
+
+
+histogramColumn : Grid.Column ColumnInfo Msg
 histogramColumn =
     Grid.veryCustomColumn
         { name = "Distribution"
@@ -311,7 +394,7 @@ histogramColumn =
         }
 
 
-histogram : ColumnMetadata -> Table.HtmlDetails Msg
+histogram : ColumnInfo -> Table.HtmlDetails Msg
 histogram column =
     Table.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.name) ] [] ]
+        [ div [ id ("histogram_" ++ column.metadata.name) ] [] ]

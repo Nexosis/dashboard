@@ -1,7 +1,7 @@
-module Request.DataSet exposing (get, getRetrieveDetail)
+module Request.DataSet exposing (get, getRetrieveDetail, getStats)
 
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, dataSetNameToString)
+import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 
@@ -38,6 +38,20 @@ getRetrieveDetail { baseUrl, token } name =
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+getStats : Config -> DataSetName -> Http.Request DataSetStats
+getStats { baseUrl, token } name =
+    let
+        expect =
+            DataSet.decodeDataSetStats
+                |> Http.expectJson
+    in
+    (baseUrl ++ "/data/" ++ dataSetNameToString name ++ "/stats")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
         |> withAuthorization token
         |> HttpBuilder.toRequest
 
