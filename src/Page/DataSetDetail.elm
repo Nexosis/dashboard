@@ -1,11 +1,14 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
-import Data.DataSet exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
+import Data.DataSet as DataSet exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
 import Dict exposing (Dict)
+import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import Json.Encode
+import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log
@@ -24,6 +27,7 @@ type alias Model =
     { pageTitle : String
     , pageBody : String
     , errors : List String
+    , dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnResponse : Remote.WebData ColumnMetadataListing
     , tableState : Table.State
@@ -54,7 +58,7 @@ init config dataSetName =
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
     in
-    Model "DataSets" "This is the list of DataSets" [] Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config
+    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config
         => loadDataSetList
 
 
@@ -85,12 +89,16 @@ mapColumnListToPagedListing columns =
 mergeListingAndStats : ColumnMetadataListing -> DataSetStats -> ColumnMetadataListing
 mergeListingAndStats metadataListing stats =
     let
+        -- Keys are currently lower case, but that could change in the future to match the column metadata exactly.
+        loweredKeys =
+            DictX.mapKeys String.toLower stats.columns
+
         updatedListing =
             metadataListing.metadataList
                 |> List.map
                     (\i ->
                         { metadata = i.metadata
-                        , stats = Dict.get i.metadata.name stats.columns
+                        , stats = Dict.get (String.toLower i.metadata.name) loweredKeys
                         }
                     )
     in
@@ -105,7 +113,7 @@ type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
     | StatsResponse (Remote.WebData DataSetStats)
     | SetTableState Table.State
-    | DeleteDataSet DataSet
+    | DeleteDataSet
     | ChangePage Int
 
 
@@ -155,7 +163,8 @@ update msg model =
             { model | tableState = newState }
                 => Cmd.none
 
-        DeleteDataSet dataSet ->
+        DeleteDataSet ->
+            -- show delete dialog here
             model => Cmd.none
 
         ChangePage pageNumber ->
@@ -202,49 +211,195 @@ view model =
                 , a [ href "#" ] [ text "Datasets" ]
                 ]
             ]
+        , viewNameRow model
+        , hr [] []
+        , viewDetailsRow model
+        , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-6" ]
-                --todo - fill name
-                [ h2 [ class "mt10" ] [ text "{DatasetName}" ] ]
-            , div [ class "col-sm-6 right" ]
-                [ a [ href "#", class "btn mt10" ] [ text "Start Session" ]
-                ]
-            , div [ class "row" ]
-                [ div [ class "col-sm-8" ]
-                    [ p [ class "small" ]
-                        [ strong [] [ text "Dataset ID:" ]
-
-                        --todo - DS id here
-                        , text "1234"
-
-                        -- todo - Copy id
-                        , a [ href "#" ] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
+            [ div [ class "col-sm-12" ]
+                [ div [ class "row mb25" ]
+                    [ div [ class "col-sm-3" ]
+                        [ h3 [] [ text "Columns" ]
+                        ]
+                    , div [ class "col-sm-2 col-sm-offset-7 right" ]
+                        [--todo : page number changer
                         ]
                     ]
-                , div [ class "col-sm-4 right" ]
-                    [ button [ class "btn btn-xs secondary" ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
-                    ]
-                ]
-            , hr [] []
-            , div [ class "row" ]
-                [-- ds details here
-                ]
-            , hr [] []
-            , div [ class "row" ]
-                [ div [ class "col-sm-12" ]
-                    [ div [ class "row mb25" ]
-                        [ div [ class "col-sm-3" ]
-                            [ h3 [] [ text "Columns" ]
-                            ]
-                        , div [ class "col-sm-2 col-sm-offset-7 right" ]
-                            [--todo : page number changer
-                            ]
-                        ]
-                    , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnResponse
-                    , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
-                    ]
+                , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnResponse
+                , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
                 ]
             ]
+        ]
+
+
+viewNameRow : Model -> Html Msg
+viewNameRow model =
+    div [ class "row" ]
+        [ div [ class "col-sm-6" ]
+            [ h2 [ class "mt10" ] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
+        , div [ class "col-sm-6 right" ]
+            -- link to the start session route when it exists
+            [ a [ href "#", class "btn mt10" ] [ text "Start Session" ]
+            ]
+        , div [ class "row" ]
+            [ div [ class "col-sm-8" ] []
+            , div [ class "col-sm-4 right" ]
+                [ button [ class "btn btn-xs secondary", onClick DeleteDataSet ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
+                ]
+            ]
+        ]
+
+
+viewDetailsRow : Model -> Html Msg
+viewDetailsRow model =
+    div [ class "row" ]
+        [ viewRolesCol model
+        , viewDetailsCol model
+        , viewRelatedCol model
+        ]
+
+
+viewRolesCol : Model -> Html Msg
+viewRolesCol model =
+    let
+        ( keyFormGroup, targetFormGroup ) =
+            case model.columnResponse of
+                Remote.Success resp ->
+                    let
+                        keyGroup =
+                            resp.metadataList
+                                --todo : this needs to be a type instead of a string
+                                |> ListX.find (\m -> m.metadata.role == "key")
+                                |> Maybe.map viewKeyFormGroup
+                                |> Maybe.withDefault (div [] [])
+
+                        targetGroup =
+                            resp.metadataList
+                                |> ListX.find (\m -> m.metadata.role == "target")
+                                |> viewTargetFormGroup
+                    in
+                    ( keyGroup, targetGroup )
+
+                Remote.Loading ->
+                    ( viewLoadingFormGroup, viewLoadingFormGroup )
+
+                _ ->
+                    ( div [] [], div [] [] )
+    in
+    div [ class "col-sm-4" ]
+        [ h5 [ class "mt15 mb15" ] [ text "Roles" ]
+        , Html.form [ class "form-horizontal" ]
+            [ keyFormGroup
+            , targetFormGroup
+            ]
+        ]
+
+
+viewLoadingFormGroup : Html Msg
+viewLoadingFormGroup =
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ]
+            [ div [ class "loading--line" ] []
+            ]
+        , div [ class "col-sm-8" ]
+            [ div [ class "loading--line" ] [] ]
+        ]
+
+
+viewKeyFormGroup : ColumnInfo -> Html Msg
+viewKeyFormGroup key =
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ]
+            [ text "Key"
+            ]
+        , div [ class "col-sm-8" ]
+            -- todo: what is there is no key?
+            -- not all datasets have a key at all.
+            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.metadata.name ]
+            , p [ class "small color-mediumGray" ] [ text "The key role can only be set when importing a new dataset." ]
+            ]
+        ]
+
+
+viewTargetFormGroup : Maybe ColumnInfo -> Html Msg
+viewTargetFormGroup target =
+    let
+        targetText =
+            target |> Maybe.map (\t -> t.metadata.name) |> Maybe.withDefault ""
+    in
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+        , div [ class "col-sm-8" ]
+            --todo : this is probably supposed to be some other kind of control.
+            [ input [ type_ "text", class "form-control", value targetText ] []
+            ]
+        ]
+
+
+viewDetailsCol : Model -> Html Msg
+viewDetailsCol model =
+    let
+        ( size, shape, created, modified ) =
+            case model.dataSetResponse of
+                Remote.Success resp ->
+                    let
+                        sizeDisplay =
+                            text <| " " ++ toString resp.dataSetSize ++ "B"
+
+                        shapeDisplay =
+                            text <| " " ++ toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
+
+                        createdDisplay =
+                            text "?"
+
+                        modifiedDisplay =
+                            text "?"
+                    in
+                    ( sizeDisplay, shapeDisplay, createdDisplay, modifiedDisplay )
+
+                Remote.Loading ->
+                    let
+                        loading =
+                            -- this text node has magic \x00A0 characters instead of just spaces.
+                            span [ class "loading--line" ] [ text "       " ]
+                    in
+                    ( loading, loading, loading, loading )
+
+                _ ->
+                    let
+                        empty =
+                            div [] []
+                    in
+                    ( empty, empty, empty, empty )
+    in
+    div [ class "col-sm-5" ]
+        [ h5 [ class "mt15 mb15" ] [ text "Details" ]
+        , p []
+            [ strong [] [ text "Size:" ]
+            , size
+            ]
+        , p []
+            [ strong [] [ text "Shape:" ]
+            , shape
+            ]
+        , p []
+            [ strong [] [ text "Created:" ]
+            , created
+            ]
+        , p []
+            [ strong [] [ text "Modified:" ]
+            , modified
+            ]
+        ]
+
+
+viewRelatedCol : Model -> Html Msg
+viewRelatedCol model =
+    div [ class "col-sm-3", id "related" ]
+        [ h5 [ class "mt15 mb15" ] [ text "Related" ]
+
+        -- todo : accordion thing
+        , div [] []
         ]
 
 
@@ -374,13 +529,36 @@ statsCell column =
 
 statsDisplay : Maybe ColumnStats -> Html Msg
 statsDisplay columnStats =
-    columnStats
-        |> Maybe.map (\s -> div [] [ text (toString s.max) ])
-        |> Maybe.withDefault
-            (div
-                []
-                [ text "-" ]
-            )
+    case columnStats of
+        Just stats ->
+            div [ class "row" ]
+                [ div [ class "col-sm-6" ]
+                    [ strong [] [ text "Min: " ]
+                    , text <| toString stats.min
+                    , br [] []
+                    , strong [] [ text "Max: " ]
+                    , text <| toString stats.max
+                    , br [] []
+                    , strong [] [ text "Standard Deviation: " ]
+                    , text <| toString stats.stddev
+                    ]
+                , div [ class "col-sm-6" ]
+                    [ strong [] [ text "Value Count: " ]
+                    , text <| toString stats.row_count
+                    , br [] []
+                    , strong [ class "text-danger" ] [ text "# Missing: " ]
+                    , text <| "?"
+                    , br [] []
+                    , strong [] [ text "Mean: " ]
+                    , text <| toString stats.mean
+                    , br [] []
+                    , strong [] [ text "Median: " ]
+                    , text <| toString stats.median
+                    ]
+                ]
+
+        Nothing ->
+            div [] [ text "-" ]
 
 
 histogramColumn : Grid.Column ColumnInfo Msg
