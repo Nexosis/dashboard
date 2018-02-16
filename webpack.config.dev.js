@@ -59,7 +59,7 @@ export default {
                 ])
             },
             {
-                test: /(\.css)$/,
+                test: /(\.css|\.scss|\.sass)$/,
                 use: [
                     'style-loader',
                     {
@@ -67,17 +67,39 @@ export default {
                         options: {
                             sourceMap: true
                         }
+                    },
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            plugins: () => [
+                                require('autoprefixer')
+                            ],
+                            sourceMap: true
+                        }
+                    },
+                    {
+                        loader: 'sass-loader',
+                        options: {
+                            sourceMap: true
+                        }
                     }
                 ]
             },
             {
-                test: /config\.json$/,
+                test: /(config)\.json$/,
                 use: [
                     {
                         loader: 'file-loader',
                         options: { name: '[name].[ext]' }
-                    },
-                    'config-loader'
+                    }
+                ]
+            },
+            {
+                test: /(tooltips)\.json$/,
+                use: [
+                    {
+                        loader: 'json-loader'
+                    }
                 ]
             }
         ]

@@ -2,6 +2,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
 import Data.DataSet exposing (ColumnMetadata, DataSet, DataSetData, DataSetName)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http
@@ -12,6 +13,9 @@ import Request.DataSet
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
+import View.Grid as Grid
+import View.Pager as Pager
+import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
@@ -22,8 +26,18 @@ type alias Model =
     , pageBody : String
     , errors : List String
     , dataSetResponse : Remote.WebData DataSetData
+    , columnResponse : Remote.WebData ColumnMetadataListing
     , tableState : Table.State
     , config : Config
+    }
+
+
+type alias ColumnMetadataListing =
+    { pageNumber : Int
+    , totalPages : Int
+    , pageSize : Int
+    , totalCount : Int
+    , metadataList : List ColumnMetadata
     }
 
 
@@ -35,8 +49,25 @@ init config dataSetName =
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
     in
-    Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config
+    Model "DataSets" "This is the list of DataSets" [] Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config
         => loadDataSetList
+
+
+mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
+mapColumnListToPagedListing columns =
+    let
+        count =
+            List.length columns
+
+        pageSize =
+            10
+    in
+    { pageNumber = 0
+    , totalPages = count // 10
+    , pageSize = pageSize
+    , totalCount = count
+    , metadataList = columns
+    }
 
 
 
@@ -47,6 +78,7 @@ type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
     | SetTableState Table.State
     | DeleteDataSet DataSet
+    | ChangePage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -60,8 +92,11 @@ update msg model =
                             dataSetDetail.columns
                                 |> List.map generateVegaSpec
                                 |> Json.Encode.object
+
+                        columnListing =
+                            mapColumnListToPagedListing dataSetDetail.columns
                     in
-                    { model | dataSetResponse = resp } => Ports.drawVegaChart vegaSpec
+                    { model | dataSetResponse = resp, columnResponse = Remote.succeed columnListing } => Ports.drawVegaChart vegaSpec
 
                 _ ->
                     { model | dataSetResponse = resp } => Cmd.none
@@ -72,6 +107,13 @@ update msg model =
 
         DeleteDataSet dataSet ->
             model => Cmd.none
+
+        ChangePage pageNumber ->
+            let
+                ( columnListing, cmd ) =
+                    Remote.update (updateColumnPageNumber pageNumber) model.columnResponse
+            in
+            { model | columnResponse = columnListing } => cmd
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
@@ -85,29 +127,17 @@ generateVegaSpec column =
             ]
 
 
+updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnPageNumber pageNumber columnListing =
+    { columnListing | pageNumber = pageNumber } => Cmd.none
+
+
 
 -- VIEW --
 
 
 view : Model -> Html Msg
 view model =
-    let
-        gridView =
-            case model.dataSetResponse of
-                Remote.Success dataSet ->
-                    gridSection dataSet model.tableState
-
-                Remote.Failure error ->
-                    case error of
-                        Http.BadStatus response ->
-                            errorDisplay response
-
-                        _ ->
-                            [ div [] [] ]
-
-                _ ->
-                    loadingGrid
-    in
     div []
         --todo breadcrumb
         [ p [ class "breadcrumb" ]
@@ -155,74 +185,129 @@ view model =
                             [--todo : page number changer
                             ]
                         ]
-                    , div [ class "table-responsive" ] gridView
+                    , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnResponse
+                    , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
                     ]
                 ]
             ]
         ]
 
 
-errorDisplay : Http.Response String -> List (Html Msg)
-errorDisplay error =
-    [ div [] [ text (error.body |> toString) ] ]
+filterColumnsToDisplay : ColumnMetadataListing -> List ColumnMetadata
+filterColumnsToDisplay columnListing =
+    let
+        drop =
+            columnListing.pageSize * columnListing.pageNumber
+    in
+    columnListing.metadataList
+        |> List.drop drop
+        |> List.take columnListing.pageSize
 
 
-loadingGrid : List (Html Msg)
-loadingGrid =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ span [] [ text "No data found" ]
-            ]
-        ]
-    , div [ class "panel-footer" ]
-        []
-    ]
-
-
-gridSection : DataSetData -> Table.State -> List (Html Msg)
-gridSection dataSetData tableState =
-    [ div [ class "panel-body" ]
-        [ div [ class "table-responsive" ]
-            [ Table.view config tableState dataSetData.columns ]
-        ]
-    , div [ class "panel-footer" ]
-        []
-
-    -- [ Pager.view dataSetData ChangePage ]
-    ]
-
-
-config : Table.Config ColumnMetadata Msg
-config =
-    Table.customConfig
+config : Dict String String -> Grid.Config ColumnMetadata Msg
+config toolTips =
+    let
+        makeIcon =
+            helpIcon toolTips
+    in
+    Grid.config
         { toId = .name
         , toMsg = SetTableState
         , columns =
-            [ Table.stringColumn "Column Name" .name
-            , Table.stringColumn "Type" .dataType
-            , Table.stringColumn "Role" .role
-            , Table.stringColumn "Imputation" .imputation
-            , Table.stringColumn "Stats" (\_ -> "")
-            , histogramColumn
+            [ nameColumn
+            , typeColumn makeIcon
+            , roleColumn makeIcon
+            , imputationColumn makeIcon
+            , Grid.customUnsortableColumn "Stats" (\_ -> "-") [ class "per20", colspan 2 ] []
             ]
-        , customizations =
-            { defaultCustomizations
-                | tableAttrs = toTableAttrs
-            }
         }
 
 
-toTableAttrs : List (Attribute Msg)
-toTableAttrs =
-    [ class "table table-striped" ]
+nameColumn : Grid.Column ColumnMetadata Msg
+nameColumn =
+    Grid.veryCustomColumn
+        { name = "Column Name"
+        , viewData = columnNameCell
+        , sorter = Table.increasingOrDecreasingBy .name
+        , headAttributes = [ class "left per25" ]
+        , headHtml = []
+        }
 
 
-histogramColumn : Table.Column ColumnMetadata Msg
+columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
+columnNameCell metadata =
+    Table.HtmlDetails [ class "name" ]
+        [ text metadata.name ]
+
+
+typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+typeColumn makeIcon =
+    Grid.veryCustomColumn
+        { name = "Type"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = makeIcon "Type"
+        }
+
+
+dataTypeCell : ColumnMetadata -> Table.HtmlDetails Msg
+dataTypeCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.dataType ]
+            ]
+        ]
+
+
+roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+roleColumn makeIcon =
+    Grid.veryCustomColumn
+        { name = "Role"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = makeIcon "Role"
+        }
+
+
+roleCell : ColumnMetadata -> Table.HtmlDetails Msg
+roleCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.role ]
+            ]
+        ]
+
+
+imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
+imputationColumn makeIcon =
+    Grid.veryCustomColumn
+        { name = "Imputation"
+        , viewData = dataTypeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = makeIcon "Imputation"
+        }
+
+
+imputationCell : ColumnMetadata -> Table.HtmlDetails Msg
+imputationCell metadata =
+    Table.HtmlDetails [ class "form-group" ]
+        [ select [ class "form-control" ]
+            [ option [] [ text metadata.imputation ]
+            ]
+        ]
+
+
+histogramColumn : Grid.Column ColumnMetadata Msg
 histogramColumn =
-    Table.veryCustomColumn
-        { name = ""
+    Grid.veryCustomColumn
+        { name = "Distribution"
         , viewData = histogram
         , sorter = Table.unsortable
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
         }
 
 

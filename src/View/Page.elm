@@ -189,7 +189,7 @@ viewRequestResponse response =
             [ div [ class "col" ]
                 [ div [ class "panel" ]
                     [ div [ class "panel-header" ]
-                        [ h4 (balloonTooltip "Raw response body") [ text "Response Body" ]
+                        [ h4 [] [ text "Response Body" ]
                         ]
                     , div [ class "panel-body" ]
                         [ div [] [ viewJsonSyntaxHighlightedView response ]
@@ -199,10 +199,6 @@ viewRequestResponse response =
             ]
         ]
 
-
-balloonTooltip : String -> List (Attribute msg)
-balloonTooltip text =
-    [ attribute "data-balloon" text, attribute "data-balloon-pos" "up" ]
 
 
 viewJsonSyntaxHighlightedView : Response.Response -> Html msg
