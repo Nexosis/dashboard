@@ -9,6 +9,7 @@ import '../config.json';
 import * as toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
+import '../interim.css'
 
 
 if (!Intercept.isWired()) {

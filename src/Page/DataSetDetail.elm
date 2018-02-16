@@ -531,8 +531,8 @@ statsDisplay : Maybe ColumnStats -> Html Msg
 statsDisplay columnStats =
     case columnStats of
         Just stats ->
-            div [ class "row" ]
-                [ div [ class "col-sm-6" ]
+            div [ class "row m0" ]
+                [ div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Min: " ]
                     , text <| toString stats.min
                     , br [] []
@@ -542,7 +542,7 @@ statsDisplay columnStats =
                     , strong [] [ text "Standard Deviation: " ]
                     , text <| toString stats.stddev
                     ]
-                , div [ class "col-sm-6" ]
+                , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
                     , text <| toString stats.row_count
                     , br [] []
