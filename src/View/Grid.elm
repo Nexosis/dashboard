@@ -2,9 +2,7 @@ module View.Grid exposing (Column, Config, config, customStringColumn, customUns
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events as Events
 import Http
-import Json.Decode as Json
 import List.Extra as ListX
 import RemoteData as Remote
 import Table exposing (..)
@@ -87,7 +85,7 @@ addColumnCustomizations customizations columnCustomizations =
 
 toTableAttrs : List (Attribute msg)
 toTableAttrs =
-    [ class "table table-striped" ]
+    [ id "dataset-details", class "table table-striped" ]
 
 
 mapColumns : Column data msg -> Table.Column data msg
@@ -260,7 +258,7 @@ view toData config state response =
             in
             div [ class "table-responsive" ]
                 [ Table.view tableConfig state []
-                , table [ class "table table-striped" ]
+                , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
                         [ tr []
                             fakeHeaders
@@ -290,7 +288,7 @@ view toData config state response =
             in
             div [ class "table-responsive" ]
                 [ Table.view tableConfig state []
-                , table [ class "table table-striped" ]
+                , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
                         [ tr []
                             loadingHeaders

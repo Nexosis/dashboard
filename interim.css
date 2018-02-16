@@ -1,0 +1,214 @@
+/* ------- Layout Updates ------- */
+
+#docs-container {height: auto; padding-bottom: 20px;}
+#docs-container .layout-row-content {padding-top: 50px !important;}
+
+/* ------- New Header Layout ------- */
+
+header#topnav .collapse.navbar-collapse ul.navbar-nav, #topnav .collapse.navbar-collapse ul.navbar-nav {padding: 5px 0;}
+#topnav .navbar-header {padding: 0 25px 0 0; margin: 1px 0;}
+#topnav .main-navigation, #topnav nav {height: auto;padding: 5px 0;}
+
+a.navbar-brand img {
+    width: 125px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-height: 70px;
+    display: inline;
+}
+
+.badge.badge-logo{
+    top: 2px;
+    padding: 5px 6px 4px;
+    font-size: .75em;
+    margin: 9px 3px;
+    position: relative;
+    /*border-radius: 20px;*/
+    font-weight: 500;
+    letter-spacing: .05em;
+}
+
+#topnav .nav li {margin: 0 0 0 25px;}
+#topnav .nav li a {padding: 6px 0;font-size: 1.25rem;}
+#topnav .nav .dropdown li {margin: 0 0 0 15px;}
+#topnav .nav .dropdown li a {padding: 7px 0;}
+#topnav .nav li.search {
+    position: relative;
+    top: 3px;
+    display: inline-block;
+}
+form.search input {
+    padding: 5px 7px;
+    border: 1px solid #afb0b4 !important;
+    border-radius: 5px;
+}
+form.search span.input-group-addon {color: #afb0b4;}
+
+
+
+/* ------- Dashboard CSS ------- */
+
+#api-messages .message-group {padding: 10px 0; border-top: 1px dotted #afb0b4; cursor: pointer;}
+#api-messages .message-group:hover {background-color: #f0f0f0;}
+#api-messages .api-code {margin-bottom: 5px;}
+#api-messages .message {margin-bottom: 5px; color: #e20467;}
+#api-messages .message-group:hover .message {color: #2bb7ec;}
+#api-messages .date {font-size: .85em; color: #afb0b4; margin-bottom: 0;}
+
+#datasets th, #dataset-details th, #sessions th, #session-details th, #models th, #model-details th {line-height: 1.25; padding-left: 10px;}
+#datasets td, #dataset-details td, #sessions td, #session-details td, #models td, #model-details td {vertical-align: middle; font-size: .85em;}
+#dataset-details td.stats, #session-details td.stats, #model-details td.stats {text-align: left; font-size: .8em; vertical-align: top;}
+#datasets td.name, #dataset-details td.name, #sessions td.name, #session-details td.name, #models td.name, #model-details td.name, #contest td.name {font-size: 1.15em; font-weight: 700; line-height: 1.25; text-align: left; padding-left: 10px;}
+#datasets td.action, #sessions td.action, #sessions td.status, #models td.action {text-align: left; padding: 8px 20px; min-width: 100px;}
+#dataset-details img.histogram {width: 150px;}
+#dataset-details span.metadata-edit {font-size: .75em; font-weight: 500;}
+
+td.action span.label, td.status span.label {font-size: .85em;}
+
+#related {background-color: #f0f0f0;border-radius: 5px;}
+#related h4.related-section {font-size: 1em; font-weight: 700; margin: 0;}
+#related h4.related-section a {color: #332c33; display: block;}
+#related h4.related-section a:hover {color: #2bb7ec; text-decoration: none;}
+#related .panel, #related .panel-heading {padding: 0; margin: 0 0 5px; background-color: transparent;}
+#related .panel-body {padding: 0; max-height: 150px; overflow: scroll; }
+#related .panel ul li {
+    margin-left: 30px;
+    padding-bottom: 5px;
+    font-size: .9em;
+}
+
+.ml-select {border: 1px solid #2bb7ec; cursor: pointer;}
+.ml-select:hover { border-color: #afb0b4; }
+.ml-select:hover .panel-heading { background-color: #f0f0f0;}
+.ml-select:hover .panel-title { color: initial; }
+.ml-select .panel-heading {background-color: #ebf8fb;}
+.ml-select .panel-heading img {width: 100px;}
+.ml-select .panel-title {color: #2bb7ec;}
+.ml-select.selected {border: 1px solid #e20467;}
+.ml-select.selected .panel-heading {background-color: #fff0f7;}
+.ml-select.selected .panel-title {color: #e20467; font-weight: 500;}
+
+.progress-indicator {margin: 20px; padding:0 15px; background-color: #f9f9f9; border: 1px solid #e5e5e5; color: #afb0b4; border-radius: 5px;}
+.progress-indicator h6 {padding-left: 15px; margin: 0;}
+.progress-indicator .form-group {margin: 0;}
+.progress-indicator li{font-weight: 600; margin: 0 20px 0 10px;}
+.progress-indicator li i.fa {
+    top: 3px;
+    position: relative;
+    margin-right: 5px;
+    float: left;
+}
+
+#review p {
+    padding-left: 0;
+    margin-bottom: 5px;
+    font-weight: 700;
+}
+#review h6 {
+    margin:0;
+    padding-left: 0;
+    font-weight: 500;
+}
+
+#review h6 i.fa {
+    font-size: .85em;
+    color: #afb0b4;
+    margin-left: 5px;
+}
+
+ul.actions.dropdown-menu {font-size: 1em; margin: 0; padding: 0;}
+ul.actions.dropdown-menu li {padding: 0; margin: 0;}
+ul.actions.dropdown-menu li.section {font-weight: 700; margin:0; padding: 5px 10px 5px 15px; background-color: #f0f0f0;}
+ul.actions.dropdown-menu li.divider {padding:0; margin:0;}
+ul.actions.dropdown-menu>li>a {
+    display: block;
+    padding: 5px 15px;
+    clear: both;
+    font-weight: normal;
+    line-height: 1.5;
+    color: #2bb7ec;
+    white-space: nowrap;
+}
+ul.actions.dropdown-menu>li>a:hover {color: #e20467;}
+
+
+select {-webkit-appearance: menulist;}
+
+#add-dataset .tab-pane {
+    padding: 30px 15px 15px;
+}
+.alert {border-radius: 5px;}
+
+input#upload-dataset {
+    width: 0.1px;
+	height: 0.1px;
+	opacity: 0;
+	overflow: hidden;
+	position: absolute;
+	z-index: -1;
+}
+
+input#upload-dataset + label {
+    color: #fff !important;
+	text-align: center;
+	border: #e20467 solid 1px;
+	cursor: pointer;
+	background-color: #e20467;
+	padding: 5px 20px;
+	margin: 2px;
+	display:inline-block;
+	border-radius: 5px;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+input#upload-dataset:focus + label,
+input#upload-dataset + label:hover {
+    background-color: #f0f0f0;
+    color: #e20467;
+}
+
+.obfuscate {font-size: .8em; margin-top:0; color: #afb0b4;}
+
+ul.algorithm-metrics {
+    padding-top: 0;
+    list-style: none;
+    margin-left: 0px;
+}
+
+ul.algorithm-metrics li{
+    padding-bottom: 7px
+}
+
+/* ------- Bootstrap Updates ------- */
+.modal-body, .modal-footer {padding: 15px;}
+.well {border-radius: 5px;}
+.clearfix {clear: both;}
+.clearfix-left {clear: left;}
+.clearfix-right {clear: right;}
+.alert h5 {margin-top: 0;}
+
+/* ------- nexosis.css Updates ------- */
+input[type="checkbox"] {
+    background-image: none;
+    border: 1px solid #afb0b4;
+    -webkit-appearance: none;
+    padding: 5px;
+    display: inline-block;
+    top: 0px;
+    margin-right: 5px;
+}
+
+input[type="radio"] {
+    background-image: none;
+    border: 1px solid #afb0b4;
+    -webkit-appearance: none;
+    padding: 5px;
+    display: inline-block;
+    top: 0px;
+    margin-right: 5px;
+    border-radius: 50%;
+}
+.radio, .checkbox {margin-left: 20px;}
