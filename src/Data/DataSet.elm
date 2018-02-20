@@ -70,6 +70,7 @@ type alias ColumnStats =
     , mean : Float
     , median : Float
     , min : Float
+    , missing: Int
     , non_numeric : Int
     , row_count : Int
     , stddev : Float
@@ -180,6 +181,7 @@ decodeColumnStats =
         |> required "mean" float
         |> required "median" float
         |> required "min" float
+        |> required "missing" int
         |> required "non_numeric" int
         |> required "row_count" int
         |> required "stddev" float
