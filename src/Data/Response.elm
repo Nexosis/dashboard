@@ -1,10 +1,10 @@
-module Data.Response exposing (Message, Response, Severity(..), decodeResponse, decodeXhrResponse)
+module Data.Response exposing (Message, Response, ResponseError, Severity(..), decodeResponse, decodeXhrResponse, responseErrorDecoder)
 
 import AppRoutes exposing (Route)
 import Dict exposing (Dict)
-import Json.Decode exposing (Decoder, Value, andThen, decodeValue, fail, field, int, list, string, succeed)
+import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, string, succeed)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
-import Json.Decode.Pipeline exposing (decode, hardcoded, required)
+import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 
 
 type alias Response =
@@ -19,10 +19,10 @@ type alias Response =
 
 
 type alias ResponseError =
-    { statusCode : String
+    { statusCode : Int
     , message : String
     , errorType : String
-    , errorDetails : Maybe (Dict String String)
+    , errorDetails : Dict String String
     }
 
 
@@ -101,3 +101,17 @@ decodeSeverity =
                     unknown ->
                         fail <| "Unknown message severity: " ++ unknown
             )
+
+
+responseErrorDecoder : String -> Result String ResponseError
+responseErrorDecoder responseError =
+    decodeString decodeResponseError responseError
+
+
+decodeResponseError : Decoder ResponseError
+decodeResponseError =
+    decode ResponseError
+        |> required "statusCode" int
+        |> required "message" string
+        |> required "errorType" string
+        |> optional "errorDetails" (dict string) Dict.empty
