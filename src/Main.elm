@@ -182,6 +182,9 @@ updatePage page msg app =
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
+        ( ModelsMsg subMsg, Models subModel ) ->
+            toPage Models ModelsMsg Models.update subMsg subModel
+
         ( ResponseReceived (Ok response), _ ) ->
             { app
                 | lastResponse = Just response

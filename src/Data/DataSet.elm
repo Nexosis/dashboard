@@ -1,7 +1,6 @@
 module Data.DataSet
     exposing
-        ( ColumnMetadata
-        , ColumnStats
+        ( ColumnStats
         , ColumnStatsDict
         , Data
         , DataSet
@@ -18,6 +17,7 @@ module Data.DataSet
         )
 
 import Combine exposing ((<$>))
+import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, dict, float, int, list, string)
 import Json.Decode.Pipeline exposing (decode, optional, required)
@@ -55,22 +55,13 @@ type alias DataSet =
     }
 
 
-type alias ColumnMetadata =
-    { dataType : String
-    , role : String
-    , imputation : String
-    , aggregation : String
-    , name : String
-    }
-
-
 type alias ColumnStats =
     { errors : Int
     , max : Float
     , mean : Float
     , median : Float
     , min : Float
-    , missing: Int
+    , missing : Int
     , non_numeric : Int
     , row_count : Int
     , stddev : Float
@@ -136,23 +127,12 @@ decodeDataSetData =
         |> required "dataSetName" dataSetNameDecoder
         |> optional "dataSetSize" Decode.int 0
         |> required "isTimeSeries" Decode.bool
-        |> required "columns" decodeDataSetColumnsMetadata
+        |> required "columns" decodeColumnMetadata
         |> required "data" decodeData
         |> required "pageNumber" Decode.int
         |> required "totalPages" Decode.int
         |> required "pageSize" Decode.int
         |> required "totalCount" Decode.int
-
-
-decodeDataSetColumnsMetadata : Decode.Decoder (List ColumnMetadata)
-decodeDataSetColumnsMetadata =
-    decode ColumnMetadata
-        |> required "dataType" Decode.string
-        |> required "role" Decode.string
-        |> optional "imputation" Decode.string ""
-        |> optional "aggregation" Decode.string ""
-        |> Decode.keyValuePairs
-        |> Decode.map (\a -> List.map (uncurry (|>)) a)
 
 
 decodeData : Decoder Data
