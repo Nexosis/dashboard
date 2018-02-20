@@ -19,7 +19,6 @@ import View.Grid as Grid
 type alias Model =
     { pageTitle : String
     , pageBody : String
-    , errors : List String
     , modelList : Remote.WebData ModelList
     , tableState : Table.State
     , config : Config
@@ -37,7 +36,7 @@ init config =
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
     in
-    Model "Models" "This is the list of Models" [] Remote.Loading (Table.initialSort "createdDate") config
+    Model "Models" "This is the list of Models" Remote.Loading (Table.initialSort "createdDate") config
         => loadModelList
 
 

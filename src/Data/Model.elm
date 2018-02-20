@@ -49,7 +49,7 @@ stringToDate =
             )
 
 
-decodeModelList : Decode.Decoder ModelList
+decodeModelList : Decoder ModelList
 decodeModelList =
     decode ModelList
         |> required "items" (Decode.list decodeModel)
@@ -59,7 +59,7 @@ decodeModelList =
         |> required "totalCount" Decode.int
 
 
-decodeAlgorithm : Decode.Decoder Algorithm
+decodeAlgorithm : Decoder Algorithm
 decodeAlgorithm =
     decode Algorithm
         |> required "name" Decode.string
@@ -67,7 +67,7 @@ decodeAlgorithm =
         |> required "key" Decode.string
 
 
-decodeModel : Decode.Decoder ModelData
+decodeModel : Decoder ModelData
 decodeModel =
     decode ModelData
         |> required "modelId" Decode.string
