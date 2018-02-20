@@ -541,13 +541,16 @@ statsDisplay columnStats =
                     , br [] []
                     , strong [] [ text "Standard Deviation: " ]
                     , text <| toString stats.stddev
+                     , br [] []
+                    , strong [class "text-danger"] [ text "Errors: " ]
+                    , text <| toString stats.errors
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
                     , text <| toString stats.row_count
                     , br [] []
                     , strong [ class "text-danger" ] [ text "# Missing: " ]
-                    , text <| "?"
+                    , text <| toString stats.missing
                     , br [] []
                     , strong [] [ text "Mean: " ]
                     , text <| toString stats.mean

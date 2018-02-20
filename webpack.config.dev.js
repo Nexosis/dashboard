@@ -54,7 +54,7 @@ export default {
                         loader: 'elm-hot-loader'
                     },
                     {
-                        loader: 'elm-webpack-loader?verbose=true&warn=true&debug=true&pathToMake=' + __dirname + '\\node_modules\\.bin\\elm-make&cwd=' + __dirname + '&forceWatch=true'
+                        loader: 'elm-webpack-loader?verbose=true&warn=true&debug=true&pathToMake=' + __dirname + '/node_modules/.bin/elm-make&cwd=' + __dirname + '&forceWatch=true'
                     }
                 ])
             },
