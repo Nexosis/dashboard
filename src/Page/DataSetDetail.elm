@@ -1,6 +1,6 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
-import Data.Columns exposing (ColumnMetadata)
+import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
 import Dict exposing (Dict)
@@ -269,14 +269,13 @@ viewRolesCol model =
                     let
                         keyGroup =
                             resp.metadataList
-                                --todo : this needs to be a type instead of a string
-                                |> ListX.find (\m -> m.metadata.role == "key")
+                                |> ListX.find (\m -> m.metadata.role == Columns.Key)
                                 |> Maybe.map viewKeyFormGroup
                                 |> Maybe.withDefault (div [] [])
 
                         targetGroup =
                             resp.metadataList
-                                |> ListX.find (\m -> m.metadata.role == "target")
+                                |> ListX.find (\m -> m.metadata.role == Columns.Target)
                                 |> viewTargetFormGroup
                     in
                     ( keyGroup, targetGroup )
@@ -345,10 +344,10 @@ viewDetailsCol model =
                 Remote.Success resp ->
                     let
                         sizeDisplay =
-                            text <| " " ++ toString resp.dataSetSize ++ "B"
+                            text <| toString resp.dataSetSize ++ "B"
 
                         shapeDisplay =
-                            text <| " " ++ toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
+                            text <| toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
 
                         createdDisplay =
                             text "?"
@@ -376,19 +375,19 @@ viewDetailsCol model =
     div [ class "col-sm-5" ]
         [ h5 [ class "mt15 mb15" ] [ text "Details" ]
         , p []
-            [ strong [] [ text "Size:" ]
+            [ strong [] [ text "Size: " ]
             , size
             ]
         , p []
-            [ strong [] [ text "Shape:" ]
+            [ strong [] [ text "Shape: " ]
             , shape
             ]
         , p []
-            [ strong [] [ text "Created:" ]
+            [ strong [] [ text "Created: " ]
             , created
             ]
         , p []
-            [ strong [] [ text "Modified:" ]
+            [ strong [] [ text "Modified: " ]
             , modified
             ]
         ]
@@ -466,7 +465,7 @@ dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
 dataTypeCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text column.metadata.dataType ]
+            [ option [] [ text <| toString column.metadata.dataType ]
             ]
         ]
 
@@ -475,7 +474,7 @@ roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
 roleColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Role"
-        , viewData = dataTypeCell
+        , viewData = roleCell
         , sorter = Table.unsortable
         , headAttributes = [ class "per10" ]
         , headHtml = makeIcon "Role"
@@ -486,7 +485,7 @@ roleCell : ColumnInfo -> Table.HtmlDetails Msg
 roleCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text column.metadata.role ]
+            [ option [] [ text <| toString column.metadata.role ]
             ]
         ]
 
@@ -495,7 +494,7 @@ imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
 imputationColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Imputation"
-        , viewData = dataTypeCell
+        , viewData = imputationCell
         , sorter = Table.unsortable
         , headAttributes = [ class "per10" ]
         , headHtml = makeIcon "Imputation"
@@ -506,7 +505,7 @@ imputationCell : ColumnInfo -> Table.HtmlDetails Msg
 imputationCell column =
     Table.HtmlDetails [ class "form-group" ]
         [ select [ class "form-control" ]
-            [ option [] [ text column.metadata.imputation ]
+            [ option [] [ text <| toString column.metadata.imputation ]
             ]
         ]
 
@@ -562,7 +561,10 @@ statsDisplay columnStats =
                 ]
 
         Nothing ->
-            div [] [ text "-" ]
+            div [ class "row m0" ]
+                [ div [ class "col-sm-6 pl0 pr0" ] []
+                , div [ class "col-sm-6 pl0 pr0" ] []
+                ]
 
 
 histogramColumn : Grid.Column ColumnInfo Msg
