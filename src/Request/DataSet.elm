@@ -1,9 +1,10 @@
-module Request.DataSet exposing (get, getRetrieveDetail, getStats)
+module Request.DataSet exposing (delete, get, getRetrieveDetail, getStats)
 
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
+import Set
 
 
 get : Config -> Int -> Http.Request DataSetList
@@ -52,6 +53,20 @@ getStats { baseUrl, token } name =
     (baseUrl ++ "/data/" ++ dataSetNameToString name ++ "/stats")
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+delete : Config -> DataSetName -> Set.Set String -> Http.Request ()
+delete { baseUrl, token } name cascadeOptions =
+    let
+        cascadeList =
+            Set.toList cascadeOptions
+                |> List.map (\c -> ( "cascade", c ))
+    in
+    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+        |> HttpBuilder.delete
+        |> HttpBuilder.withQueryParams cascadeList
         |> withAuthorization token
         |> HttpBuilder.toRequest
 

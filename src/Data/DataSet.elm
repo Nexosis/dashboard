@@ -19,7 +19,7 @@ module Data.DataSet
 import Combine exposing ((<$>))
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Dict exposing (Dict)
-import Json.Decode as Decode exposing (Decoder, dict, float, int, list, string)
+import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
@@ -97,13 +97,13 @@ dataSetNameParser =
     DataSetName <$> Combine.regex "[^/]+"
 
 
-dataSetNameDecoder : Decode.Decoder DataSetName
+dataSetNameDecoder : Decoder DataSetName
 dataSetNameDecoder =
     string
         |> Decode.map DataSetName
 
 
-decodeDataSetList : Decode.Decoder DataSetList
+decodeDataSetList : Decoder DataSetList
 decodeDataSetList =
     decode DataSetList
         |> required "items" (Decode.list decodeDataSet)
@@ -113,7 +113,7 @@ decodeDataSetList =
         |> required "totalCount" Decode.int
 
 
-decodeDataSet : Decode.Decoder DataSet
+decodeDataSet : Decoder DataSet
 decodeDataSet =
     decode DataSet
         |> required "dataSetName" dataSetNameDecoder
@@ -121,7 +121,7 @@ decodeDataSet =
         |> required "isTimeSeries" Decode.bool
 
 
-decodeDataSetData : Decode.Decoder DataSetData
+decodeDataSetData : Decoder DataSetData
 decodeDataSetData =
     decode DataSetData
         |> required "dataSetName" dataSetNameDecoder

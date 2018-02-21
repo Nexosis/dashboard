@@ -1,4 +1,4 @@
-module Util exposing ((=>))
+module Util exposing ((=>), isJust)
 
 -- toTuple
 
@@ -12,3 +12,13 @@ module Util exposing ((=>))
 meaning you can use it at the end of a pipeline and have the precedence work out.
 -}
 infixl 0 =>
+
+
+isJust : Maybe a -> Bool
+isJust m =
+    case m of
+        Nothing ->
+            False
+
+        Just _ ->
+            True

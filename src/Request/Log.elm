@@ -1,8 +1,31 @@
-module Request.Log exposing (Level(..), LogMessage, logMessage)
+module Request.Log exposing (Level(..), LogMessage, logError, logHttpError, logMessage)
 
+import Http
 import Json.Encode as Encode
 import Ports
 import Util exposing ((=>))
+
+
+logHttpError : Http.Error -> Cmd msg
+logHttpError httpError =
+    let
+        message =
+            LogMessage (toString httpError) Error
+    in
+    encodeMessage message
+        |> Encode.encode 0
+        |> Ports.log
+
+
+logError : String -> Cmd msg
+logError messageString =
+    let
+        message =
+            LogMessage messageString Error
+    in
+    encodeMessage message
+        |> Encode.encode 0
+        |> Ports.log
 
 
 logMessage : LogMessage -> Cmd msg
