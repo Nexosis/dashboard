@@ -18,6 +18,7 @@ type ActivePage
     | Imports
     | Sessions
     | Models
+    | ModelDetail
 
 
 type alias PageValues a =

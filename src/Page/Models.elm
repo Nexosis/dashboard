@@ -15,6 +15,7 @@ import View.Modal as Modal
 import View.Error exposing (viewRemoteError)
 import Set exposing (Set)
 import Request.Log as Log
+import AppRoutes as AppRoutes
 
 ---- MODEL ----
 
@@ -132,7 +133,9 @@ view : Model -> Html Msg
 view model =
     div [][
         p [class "breadcrumb"][
-        span[][a[href "#"][text "Api Dashboard"]]
+        span[][
+            a[href "#"][text "Api Dashboard"]
+        ]
     ]
     ,div [class "row"][
         div [class "col-sm-6"][h2[class "mt10"][text "Models"]]
@@ -229,7 +232,7 @@ modelNameCell : ModelData -> Table.HtmlDetails Msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
         [
-            a [] [ text model.dataSourceName ]
+            a [AppRoutes.href (AppRoutes.ModelDetail model.modelId)] [ text model.dataSourceName ]
         ]
 
 predictActionColumn : Grid.Column ModelData Msg

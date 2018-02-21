@@ -1,4 +1,4 @@
-module Request.Model exposing (get, delete)
+module Request.Model exposing (get, delete, getOne)
 
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.Model exposing (ModelList, ModelData, decodeModelList, decodeModel)

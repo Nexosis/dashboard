@@ -18,6 +18,7 @@ type PredictionDomain = Regression
     | Forecast
     | Impact
     | Anomalies
+    | None
 
 type alias ModelData =
     { modelId : String
