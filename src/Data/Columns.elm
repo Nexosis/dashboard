@@ -37,8 +37,8 @@ decodeColumnMetadata =
     decode ColumnMetadata
         |> optional "dataType" decodeDataType String
         |> optional "role" decodeRole None
-        |> optional "imputation" decodeImputation Impute.Zeroes
-        |> optional "aggregation" decodeAggregation Aggregate.Sum
+        |> optional "imputation" decodeImputation Impute.Mean
+        |> optional "aggregation" decodeAggregation Aggregate.Mean
         |> Decode.keyValuePairs
         |> Decode.map (\a -> List.map (uncurry (|>)) a)
 
