@@ -64,7 +64,7 @@ export default {
             {
                 test: /\.elm$/,
                 exclude: [/elm-stuff/, /node_modules/],
-                loader: 'elm-webpack-loader?verbose=true&warn=true&debug=false&pathToMake=' + __dirname + '\\node_modules\\.bin\\elm-make&cwd=' + __dirname + '&forceWatch=false'
+                loader: 'elm-webpack-loader?verbose=true&warn=true&debug=false&pathToMake=' + __dirname + '/node_modules/.bin/elm-make&cwd=' + __dirname + '&forceWatch=false'
             },
             {
                 test: /(\.css|\.scss|\.sass)$/,

@@ -1,7 +1,8 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
+import Data.Columns exposing (ColumnMetadata)
 import Data.Config exposing (Config)
-import Data.DataSet as DataSet exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
+import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
@@ -541,8 +542,8 @@ statsDisplay columnStats =
                     , br [] []
                     , strong [] [ text "Standard Deviation: " ]
                     , text <| toString stats.stddev
-                     , br [] []
-                    , strong [class "text-danger"] [ text "Errors: " ]
+                    , br [] []
+                    , strong [ class "text-danger" ] [ text "Errors: " ]
                     , text <| toString stats.errors
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
