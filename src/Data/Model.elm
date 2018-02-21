@@ -13,11 +13,16 @@ type alias Algorithm =
     , key : String
     }
 
+type PredictionDomain = Regression
+    | Classification
+    | Forecast
+    | Impact
+    | Anomalies
 
 type alias ModelData =
     { modelId : String
     , sessionId : String
-    , predictionDomain : String
+    , predictionDomain : PredictionDomain
     , dataSourceName : String
     , columns : List ColumnMetadata
     , createdDate : DateTime
@@ -66,13 +71,25 @@ decodeAlgorithm =
         |> required "description" Decode.string
         |> required "key" Decode.string
 
+decodePredictionDomain : Decoder PredictionDomain
+decodePredictionDomain = 
+    string |> andThen 
+                (\n -> 
+                    case n of
+                        "regression" -> succeed Regression
+                        "classification" -> succeed Classification
+                        "forecast" -> succeed Forecast
+                        "anomalies" -> succeed Anomalies
+                        "impact" -> succeed Impact
+                        unknown -> fail <| "Unknown prediction domain: " ++ unknown
+                ) 
 
 decodeModel : Decoder ModelData
 decodeModel =
     decode ModelData
         |> required "modelId" Decode.string
         |> required "sessionId" Decode.string
-        |> required "predictionDomain" Decode.string
+        |> required "predictionDomain" decodePredictionDomain
         |> required "dataSourceName" Decode.string
         |> required "columns" decodeColumnMetadata
         |> required "createdDate" stringToDate
