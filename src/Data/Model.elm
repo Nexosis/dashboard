@@ -1,4 +1,4 @@
-module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModelList)
+module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModelList, decodeModel)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Dict exposing (Dict)
