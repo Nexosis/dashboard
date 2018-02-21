@@ -193,6 +193,9 @@ updatePage page msg app =
         ( ModelsMsg subMsg, Models subModel ) ->
             toPage Models ModelsMsg Models.update subMsg subModel
 
+        (ModelDetailMsg subMsg, ModelDetail subModel ) -> 
+            toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
+
         ( ResponseReceived (Ok response), _ ) ->
             { app
                 | lastResponse = Just response

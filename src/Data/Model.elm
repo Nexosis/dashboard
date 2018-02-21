@@ -5,21 +5,13 @@ import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.DateTime exposing (DateTime, fromISO8601)
-
+import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
 
 type alias Algorithm =
     { name : String
     , description : String
     , key : String
     }
-
-type PredictionDomain = Regression
-    | Classification
-    | Forecast
-    | Impact
-    | Anomalies
-    | None
-
 type alias ModelData =
     { modelId : String
     , sessionId : String
@@ -72,18 +64,6 @@ decodeAlgorithm =
         |> required "description" Decode.string
         |> required "key" Decode.string
 
-decodePredictionDomain : Decoder PredictionDomain
-decodePredictionDomain = 
-    string |> andThen 
-                (\n -> 
-                    case n of
-                        "regression" -> succeed Regression
-                        "classification" -> succeed Classification
-                        "forecast" -> succeed Forecast
-                        "anomalies" -> succeed Anomalies
-                        "impact" -> succeed Impact
-                        unknown -> fail <| "Unknown prediction domain: " ++ unknown
-                ) 
 
 decodeModel : Decoder ModelData
 decodeModel =
