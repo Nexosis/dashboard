@@ -1,4 +1,4 @@
-module Request.DataSet exposing (delete, get, getRetrieveDetail, getStats)
+module Request.DataSet exposing (delete, get, getRetrieveDetail, getStats, put)
 
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
@@ -67,6 +67,15 @@ delete { baseUrl, token } name cascadeOptions =
     (baseUrl ++ "/data/" ++ dataSetNameToString name)
         |> HttpBuilder.delete
         |> HttpBuilder.withQueryParams cascadeList
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+put : Config -> String -> String -> String -> Http.Request ()
+put { baseUrl, token } name content contentType =
+    (baseUrl ++ "/data/" ++ name)
+        |> HttpBuilder.put
+        |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization token
         |> HttpBuilder.toRequest
 

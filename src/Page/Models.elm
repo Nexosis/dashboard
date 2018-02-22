@@ -12,7 +12,7 @@ import Request.Log as Log
 import Request.Model exposing (delete, get)
 import Set exposing (Set)
 import Table
-import Util exposing ((=>), toShortDateString)
+import Util exposing ((=>), spinner, toShortDateString)
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
@@ -357,7 +357,7 @@ deleteModalFooter confirmEnabled deleteRequest =
         deleteButton =
             case deleteRequest of
                 Remote.Loading ->
-                    button [ class "btn btn-primary", disabled True, onClick DoDelete ] [ i [ class "fa fa-spinner fa-spin fa-2x fa-fw" ] [] ]
+                    button [ class "btn btn-primary", disabled True, onClick DoDelete ] [ spinner ]
 
                 _ ->
                     button [ class "btn btn-primary", disabled (not confirmEnabled), onClick DoDelete ] [ text "Confirm" ]

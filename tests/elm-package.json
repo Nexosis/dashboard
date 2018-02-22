@@ -25,8 +25,10 @@
         "elm-lang/http": "1.0.0 <= v < 2.0.0",
         "elm-lang/navigation": "2.1.0 <= v < 3.0.0",
         "evancz/elm-sortable-table": "1.0.1 <= v < 2.0.0",
+        "gicentre/elm-vega": "1.0.4 <= v < 2.0.0",
         "krisajenkins/remotedata": "4.3.3 <= v < 5.0.0",
         "lukewestby/elm-http-builder": "5.1.0 <= v < 6.0.0",
+        "rtfeldman/elm-validate": "3.0.0 <= v < 4.0.0",
         "simonh1000/elm-jwt": "5.3.0 <= v < 6.0.0"
     },
     "elm-version": "0.18.0 <= v < 0.19.0"

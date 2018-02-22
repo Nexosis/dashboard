@@ -15,6 +15,7 @@ type ActivePage
     | Home
     | DataSets
     | DataSetData
+    | DataSetAdd
     | Imports
     | Sessions
     | Models
