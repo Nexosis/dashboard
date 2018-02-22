@@ -1,37 +1,38 @@
 module Page.Models exposing (Model, Msg, init, update, view)
 
+import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onCheck, onInput)
+import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
-import Request.Model exposing (get, delete)
+import Request.Log as Log
+import Request.Model exposing (delete, get)
+import Set exposing (Set)
 import Table
-import Util exposing ((=>),toShortDateString)
+import Util exposing ((=>), toShortDateString)
+import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
-import View.Error exposing (viewRemoteError)
-import Set exposing (Set)
-import Request.Log as Log
-import AppRoutes as AppRoutes
 import View.Pager as Pager
+
 
 ---- MODEL ----
 
 
 type alias Model =
-    {   pageTitle : String
-        , pageBody : String
-        , modelList : Remote.WebData ModelList
-        , tableState : Table.State
-        , config : Config
-        , deleteDialogSetting : Maybe String
-        , deleteRequest : Remote.WebData ()
-        , deleteConfirmEnabled : Bool
-        , deleteCascadeOptions : Set String
-        , deleteConfirmInput : String
+    { pageTitle : String
+    , pageBody : String
+    , modelList : Remote.WebData ModelList
+    , tableState : Table.State
+    , config : Config
+    , deleteDialogSetting : Maybe String
+    , deleteRequest : Remote.WebData ()
+    , deleteConfirmEnabled : Bool
+    , deleteCascadeOptions : Set String
+    , deleteConfirmInput : String
     }
 
 
@@ -74,10 +75,10 @@ update msg model =
                 => Cmd.none
 
         ShowDeleteDialog modelData ->
-             { model | deleteDialogSetting = Just modelData.modelId } => Cmd.none
+            { model | deleteDialogSetting = Just modelData.modelId } => Cmd.none
 
         DeleteTextBoxChanged content ->
-             let
+            let
                 isEnabled =
                     content == "DELETE"
             in
@@ -87,7 +88,7 @@ update msg model =
             }
                 => Cmd.none
 
-        DoDelete -> 
+        DoDelete ->
             case model.deleteDialogSetting of
                 Just modelId ->
                     model
@@ -99,8 +100,8 @@ update msg model =
                 Nothing ->
                     model => Cmd.none
 
-        CancelDeleteDialog -> 
-             { model
+        CancelDeleteDialog ->
+            { model
                 | deleteDialogSetting = Nothing
                 , deleteConfirmInput = ""
                 , deleteConfirmEnabled = False
@@ -125,77 +126,78 @@ update msg model =
                 _ ->
                     { model | deleteRequest = response }
                         => Cmd.none
+
         ChangePage pgNum ->
-                { model | modelList = Remote.Loading }
-                    => (Request.Model.get model.config pgNum
-                            |> Remote.sendRequest
-                            |> Cmd.map ModelListResponse
-                    )
-       
+            { model | modelList = Remote.Loading }
+                => (Request.Model.get model.config pgNum
+                        |> Remote.sendRequest
+                        |> Cmd.map ModelListResponse
+                   )
+
+
 
 -- VIEW --
 
 
 view : Model -> Html Msg
 view model =
-    div [][
-        p [class "breadcrumb"][
-        span[][
-            a[href "#"][text "Api Dashboard"]
-        ]
-    ]
-    ,div [class "row"][
-        div [class "col-sm-6"][h2[class "mt10"][text "Models"]]
-        ,div [class "col-sm-6 right"][]
-    ]
-    ,div []
-        [
-        hr [] []
+    div []
+        [ p [ class "breadcrumb" ]
+            [ span []
+                [ a [ href "#" ] [ text "Api Dashboard" ]
+                ]
+            ]
         , div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ]
-                        [ h3 [] [ text "Model Types" ]
-                        , p[][
-                                text "The type of model to build is determined by the"
-                                ,code[][text "predictionDomain"]
-                                ,text "property on the request. Acceptable values are: "
-                            ]
-                        , ul[][
-                            li[][
-                                    code [][text "regression"]                                
-                                    ,text ": Builds a regression model"
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Models" ] ]
+            , div [ class "col-sm-6 right" ] []
+            ]
+        , div []
+            [ hr [] []
+            , div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row mb25" ]
+                        [ div [ class "col-sm-6" ]
+                            [ h3 [] [ text "Model Types" ]
+                            , p []
+                                [ text "The type of model to build is determined by the"
+                                , code [] [ text "predictionDomain" ]
+                                , text "property on the request. Acceptable values are: "
+                                ]
+                            , ul []
+                                [ li []
+                                    [ code [] [ text "regression" ]
+                                    , text ": Builds a regression model"
                                     ]
-                            ,li[][
-                                code [][text "classification"]
-                                ,text ": Builds a classification model"
+                                , li []
+                                    [ code [] [ text "classification" ]
+                                    , text ": Builds a classification model"
+                                    ]
+                                , li []
+                                    [ code [] [ text "anomalies" ]
+                                    , text ": Builds an anomaly detection model"
+                                    ]
+                                ]
                             ]
-                            ,li[][
-                                code [][text "anomalies"]
-                               ,text ": Builds an anomaly detection model"
-                            ]
-                        ]
-                        ]
-                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ div [ class "form-inline mr5" ]
-                            -- change items per page
-                            [ label [] [ text "View" ]
-                            , select [class "form-control"]
-                                [ option [] [ text "10" ]
-                                , option [] [ text "25" ]
-                                , option [] [ text "50" ]
-                                , option [] [ text "100" ]
+                        , div [ class "col-sm-2 col-sm-offset-4 right" ]
+                            [ div [ class "form-inline mr5" ]
+                                -- change items per page
+                                [ label [] [ text "View" ]
+                                , select [ class "form-control" ]
+                                    [ option [] [ text "10" ]
+                                    , option [] [ text "25" ]
+                                    , option [] [ text "50" ]
+                                    , option [] [ text "100" ]
+                                    ]
                                 ]
                             ]
                         ]
                     ]
                 ]
-            ]
             , Grid.view .items (config model.config.toolTips) model.tableState model.modelList
             , hr [] []
             , div [ class "center" ]
                 [ Pager.view model.modelList ChangePage ]
-        ]
+            ]
         , Modal.view
             (case model.deleteDialogSetting of
                 Just modelIdToDelete ->
@@ -209,7 +211,8 @@ view model =
                 Nothing ->
                     Nothing
             )
-    ]
+        ]
+
 
 config : Dict String String -> Grid.Config ModelData Msg
 config toolTips =
@@ -232,7 +235,7 @@ nameColumn =
     Grid.veryCustomColumn
         { name = "Datasource Name"
         , viewData = modelNameCell
-        , sorter = Table.increasingOrDecreasingBy (\a -> a.dataSourceName)
+        , sorter = Table.increasingOrDecreasingBy .dataSourceName
         , headAttributes = [ class "left per30" ]
         , headHtml = []
         }
@@ -241,13 +244,13 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails Msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [
-            a [AppRoutes.href (AppRoutes.ModelDetail model.modelId)] [ text model.dataSourceName ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text model.dataSourceName ]
         ]
 
+
 predictActionColumn : Grid.Column ModelData Msg
-predictActionColumn = 
-       Grid.veryCustomColumn
+predictActionColumn =
+    Grid.veryCustomColumn
         { name = ""
         , viewData = predictActionButton
         , sorter = Table.unsortable
@@ -255,45 +258,54 @@ predictActionColumn =
         , headHtml = []
         }
 
+
 predictActionButton : ModelData -> Table.HtmlDetails Msg
 predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ button [ class "btn btn-sm" ] [ text "Predict" ] ]
 
+
 typeColumn : Grid.Column ModelData Msg
-typeColumn = 
-    Grid.veryCustomColumn {
-        name = "Type"
-        ,viewData = typeCell
-        ,sorter = Table.decreasingOrIncreasingBy (\a -> (toString a.predictionDomain))
-        ,headAttributes = [class "per10"]
-        ,headHtml = []
-    }
+typeColumn =
+    Grid.veryCustomColumn
+        { name = "Type"
+        , viewData = typeCell
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
 
 typeCell : ModelData -> Table.HtmlDetails Msg
-typeCell model = 
-    Table.HtmlDetails [][
-        text (toString model.predictionDomain)
-    ]
+typeCell model =
+    Table.HtmlDetails []
+        [ text (toString model.predictionDomain)
+        ]
+
 
 createdColumn : Grid.Column ModelData Msg
-createdColumn = Grid.veryCustomColumn {
-        name = "Created"
-        ,viewData = createdCell
-        ,sorter = Table.decreasingOrIncreasingBy (\a -> (toShortDateString a.createdDate))
-        ,headAttributes = [class "per10"]
-        ,headHtml = []
-    }
+createdColumn =
+    Grid.veryCustomColumn
+        { name = "Created"
+        , viewData = createdCell
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateString a.createdDate)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
 
 createdCell : ModelData -> Table.HtmlDetails Msg
-createdCell model = 
-    Table.HtmlDetails[][
-        text (toShortDateString model.createdDate)
-    ]
+createdCell model =
+    Table.HtmlDetails []
+        [ text (toShortDateString model.createdDate)
+        ]
+
 
 lastUsedColumn : Grid.Column ModelData Msg
-lastUsedColumn = Grid.stringColumn "Last used" (\a->"?")
+lastUsedColumn =
+    Grid.stringColumn "Last used" (\a -> "?")
+
 
 deleteColumn : Grid.Column ModelData Msg
 deleteColumn =
@@ -312,19 +324,21 @@ deleteButton model =
         [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
+
 deleteModalHeader : Html Msg
 deleteModalHeader =
     h4 [ class "modal-title", style [ ( "color", "#fff" ), ( "font-weight", "700" ) ] ] [ text "Delete Model" ]
+
 
 deleteModalBody : String -> Remote.WebData () -> Html Msg
 deleteModalBody modelId deleteRequest =
     div []
         [ h5 []
             [ text "Are you sure you want to delete model "
-            , strong [] [ text (modelId) ]
+            , strong [] [ text modelId ]
             , text "?"
             ]
-        , p [] [ text ("This action cannot be undone. You will have to run another sesssion to replace this model.")]
+        , p [] [ text "This action cannot be undone. You will have to run another sesssion to replace this model." ]
         , p [] [ text "Type ", strong [] [ text "\"DELETE\"" ], text "and then press \"confirm\" to delete." ]
         , div [ class "row m10" ]
             [ div [ class "col-sm-4" ]
@@ -343,7 +357,7 @@ deleteModalFooter confirmEnabled deleteRequest =
         deleteButton =
             case deleteRequest of
                 Remote.Loading ->
-                    button [ class "btn btn-primary", disabled True, onClick DoDelete] [ i [ class "fa fa-spinner fa-spin fa-2x fa-fw" ] [] ]
+                    button [ class "btn btn-primary", disabled True, onClick DoDelete ] [ i [ class "fa fa-spinner fa-spin fa-2x fa-fw" ] [] ]
 
                 _ ->
                     button [ class "btn btn-primary", disabled (not confirmEnabled), onClick DoDelete ] [ text "Confirm" ]

@@ -87,8 +87,10 @@ type alias Data =
 type DataSetName
     = DataSetName String
 
+
 toDataSetName : String -> DataSetName
-toDataSetName input = DataSetName input
+toDataSetName input =
+    DataSetName input
 
 
 dataSetNameToString : DataSetName -> String

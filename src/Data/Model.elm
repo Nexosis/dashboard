@@ -1,17 +1,20 @@
-module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModelList, decodeModel)
+module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModel, decodeModelList)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.DateTime exposing (DateTime, fromISO8601)
-import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
+
 
 type alias Algorithm =
     { name : String
     , description : String
     , key : String
     }
+
+
 type alias ModelData =
     { modelId : String
     , sessionId : String
