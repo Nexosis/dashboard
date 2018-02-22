@@ -16,6 +16,7 @@ import View.Error exposing (viewRemoteError)
 import Set exposing (Set)
 import Request.Log as Log
 import AppRoutes as AppRoutes
+import View.Pager as Pager
 
 ---- MODEL ----
 
@@ -59,6 +60,7 @@ type Msg
     | DoDelete
     | CancelDeleteDialog
     | DeleteResponse (Remote.WebData ())
+    | ChangePage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -123,7 +125,12 @@ update msg model =
                 _ ->
                     { model | deleteRequest = response }
                         => Cmd.none
-
+        ChangePage pgNum ->
+                { model | modelList = Remote.Loading }
+                    => (Request.Model.get model.config pgNum
+                            |> Remote.sendRequest
+                            |> Cmd.map ModelListResponse
+                    )
        
 
 -- VIEW --
@@ -185,6 +192,9 @@ view model =
                 ]
             ]
             , Grid.view .items (config model.config.toolTips) model.tableState model.modelList
+            , hr [] []
+            , div [ class "center" ]
+                [ Pager.view model.modelList ChangePage ]
         ]
         , Modal.view
             (case model.deleteDialogSetting of
