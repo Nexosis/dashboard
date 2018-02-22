@@ -29,6 +29,7 @@ type alias Model =
     , pageBody : String
     , errors : List String
     , dataSetList : Remote.WebData DataSetList
+    , currentPage : Int
     , tableState : Table.State
     , config : Config
     , deleteDataSetPrompt : Maybe DataSetName
@@ -39,17 +40,17 @@ type alias Model =
     }
 
 
-loadDataSetList : Config -> Cmd Msg
-loadDataSetList config =
-    Request.DataSet.get config 0
+loadDataSetList : Config -> Int -> Cmd Msg
+loadDataSetList config pageNum =
+    Request.DataSet.get config pageNum
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
-        => loadDataSetList config
+    Model "DataSets" "This is the list of DataSets" [] Remote.Loading 0 (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
+        => loadDataSetList config 0
 
 
 
@@ -79,7 +80,7 @@ update msg model =
                 => Cmd.none
 
         ChangePage pgNum ->
-            { model | dataSetList = Remote.Loading }
+            { model | dataSetList = Remote.Loading, currentPage = pgNum }
                 => (Request.DataSet.get model.config pgNum
                         |> Remote.sendRequest
                         |> Cmd.map DataSetListResponse
@@ -140,7 +141,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadDataSetList model.config
+                        => loadDataSetList model.config model.currentPage
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
