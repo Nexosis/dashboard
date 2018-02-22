@@ -1,5 +1,6 @@
-module Util exposing ((=>), isJust)
+module Util exposing ((=>), isJust, toShortDateString)
 
+import Time.DateTime exposing(DateTime, year, month, day)
 -- toTuple
 
 
@@ -22,3 +23,18 @@ isJust m =
 
         Just _ ->
             True
+
+toShortDateString : DateTime -> String
+toShortDateString time =
+        padded (month time)
+        ++ "/"
+        ++ padded (day time)
+        ++ "/"
+        ++ toString (year time)
+
+padded : Int -> String
+padded n =
+    if n < 10 then
+        "0" ++ toString n
+    else
+        toString n

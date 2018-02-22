@@ -16,6 +16,7 @@ import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
 import Page.Imports as Imports
 import Page.Models as Models
+import Page.ModelDetail as ModelDetail
 import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
@@ -57,6 +58,7 @@ type Page
     | Imports Imports.Model
     | Sessions Sessions.Model
     | Models Models.Model
+    | ModelDetail ModelDetail.Model
 
 
 
@@ -74,6 +76,7 @@ type Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
     | RenewToken (Result Http.Error NexosisToken)
+    | ModelDetailMsg ModelDetail.Msg
 
 
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
@@ -141,6 +144,11 @@ setRoute route app =
                             Models.init app.config
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
+                Just (AppRoutes.ModelDetail id) -> 
+                    let
+                        (pageModel, initCmd) = ModelDetail.init app.config id
+                    in
+                        ( { app | page = ModelDetail pageModel}, Cmd.map ModelDetailMsg initCmd)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -184,6 +192,9 @@ updatePage page msg app =
 
         ( ModelsMsg subMsg, Models subModel ) ->
             toPage Models ModelsMsg Models.update subMsg subModel
+
+        (ModelDetailMsg subMsg, ModelDetail subModel ) -> 
+            toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             { app
@@ -314,7 +325,10 @@ view model =
                         |> layout Page.Models
                         |> Html.map ModelsMsg
 
-
+                ModelDetail subModel -> 
+                    ModelDetail.view subModel
+                        |> layout Page.ModelDetail
+                        |> Html.map ModelDetailMsg
 
 ---- SUBSCRIPTIONS ----
 

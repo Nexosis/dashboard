@@ -19,6 +19,7 @@ type Route
     | Sessions
     | SessionDetail String
     | Models
+    | ModelDetail String
 
 
 
@@ -41,6 +42,7 @@ routeMatcher =
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
         , route Models (static "models")
+        , route ModelDetail (static "models" </> string)
         ]
 
 
@@ -73,6 +75,9 @@ routeToString page =
 
                 Models ->
                     [ "models" ]
+
+                ModelDetail id ->
+                    [ "models", id]
 
         --    When needing parameters on the form base/item/3
         --                    Item id ->
