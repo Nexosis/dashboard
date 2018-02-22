@@ -21,7 +21,7 @@ type alias Response =
 type alias ResponseError =
     { statusCode : Int
     , message : String
-    , errorType : String
+    , errorType : Maybe String
     , errorDetails : Dict String String
     }
 
@@ -113,5 +113,5 @@ decodeResponseError =
     decode ResponseError
         |> required "statusCode" int
         |> required "message" string
-        |> required "errorType" string
+        |> optional "errorType" (nullable string) Nothing
         |> optional "errorDetails" (dict string) Dict.empty
