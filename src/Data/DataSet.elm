@@ -14,6 +14,7 @@ module Data.DataSet
         , decodeDataSetData
         , decodeDataSetList
         , decodeDataSetStats
+        , toDataSetName
         )
 
 import Combine exposing ((<$>))
@@ -85,6 +86,9 @@ type alias Data =
 
 type DataSetName
     = DataSetName String
+
+toDataSetName : String -> DataSetName
+toDataSetName input = DataSetName input
 
 
 dataSetNameToString : DataSetName -> String

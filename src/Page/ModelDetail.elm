@@ -7,12 +7,14 @@ import Data.Config
 import RemoteData as Remote
 import Data.Config exposing (Config)
 import Data.Model exposing (..)
+import Data.DataSet exposing (toDataSetName)
 import Request.Log as Log
 import Html.Attributes exposing (..)
 import Data.PredictionDomain exposing (..)
 import Data.Columns exposing (ColumnMetadata, Role)
 import List.Extra exposing (find)
-
+import AppRoutes as Routes
+import Dict exposing (Dict)
 type alias Model =
     { 
        modelId : String 
@@ -81,10 +83,9 @@ view model =
                         ,text "Delete"
                     ]]
                 ]
+                ,hr[][]
                 , div [class "row"][
-                    div [class "col-sm-4"][
-                        detailRow model
-                    ]
+                    div [class "col-sm-4"] (detailRow model)
                     ,div [class "col-sm-5"][]
                     ,div [class "col-sm-3"][]
                 ]
@@ -101,19 +102,19 @@ dataSourceName model =
         _ -> 
             text "Not found" 
 
-detailRow : Model -> Html Msg
+detailRow : Model -> List (Html Msg)
 detailRow model = 
     case model.modelResponse of
         Remote.Success resp ->
-           div[][
+           [
                h5[class "mt15 mb15"][text "Details"]
                ,p[][
                    strong[][text "Session Used:"]
-                   ,a[href "#"][text resp.sessionId]
+                   ,a[Routes.href(Routes.SessionDetail resp.sessionId)][text resp.sessionId]
                ]
                ,p[][
                    strong[][text "Source:"]
-                   ,a[href "#"][text resp.dataSourceName]
+                   ,a[Routes.href(Routes.DataSetDetail (toDataSetName resp.dataSourceName))][text resp.dataSourceName]
                ]
                ,p[][
                    strong[][text "Target Column:"]
@@ -123,11 +124,39 @@ detailRow model =
                    strong[][text "Algorithm:"]
                    ,text resp.algorithm.name
                ]
+               ,metricsList resp.metrics
            ]
         Remote.Loading ->
-            text "Loading..."
+            [text "Loading..."]
         _ -> 
-            text "Not found" 
+            [text "Not found"]
+
+metricsList : Dict String Float -> Html Msg
+metricsList metrics =
+    div[][
+        p[class "small"][
+            strong[][text "Metrics"]
+        ]
+        ,ul[class "small algorithm-metrics"] (List.map metricListItem (Dict.toList metrics))
+    ]
+
+metricListItem : (String, Float) -> Html Msg
+metricListItem (name, value) =
+    li[][
+        strong[][text name]
+        ,br [][]
+        , text (formatFloatToString value)
+    ]
+
+formatFloatToString : Float -> String
+formatFloatToString input = 
+    let
+        expand = toString(ceiling(input * 100000))
+        len = String.length expand
+        filled = String.padLeft 5 '0' expand
+    in
+        (String.left (len-5) filled ++ "." ++ (String.right 5 filled))
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
