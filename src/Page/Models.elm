@@ -27,7 +27,7 @@ type alias Model =
     { modelList : Remote.WebData ModelList
     , tableState : Table.State
     , config : Config
-    , page : Int
+    , currentPage : Int
     , pageSize : Int
     , deleteDialogSetting : Maybe String
     , deleteRequest : Remote.WebData ()
@@ -119,7 +119,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadModelList model.config model.page model.pageSize
+                        => loadModelList model.config model.currentPage model.pageSize
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -130,11 +130,11 @@ update msg model =
                         => Cmd.none
 
         ChangePage pgNum ->
-            { model | modelList = Remote.Loading }
+            { model | modelList = Remote.Loading, currentPage = pgNum }
                 => loadModelList model.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize }
+            { model | pageSize = pageSize, currentPage = 0 }
                 => loadModelList model.config 0 pageSize
 
 
