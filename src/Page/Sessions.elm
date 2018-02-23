@@ -14,6 +14,7 @@ import Request.Session exposing (get)
 import Set exposing (Set)
 import Table
 import Util exposing ((=>), spinner, toShortDateString)
+import View.DeleteDialog as DeleteDialog
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
@@ -28,13 +29,9 @@ type alias Model =
     { sessionList : Remote.WebData SessionList
     , tableState : Table.State
     , config : Config
-    , deleteDialogSetting : Maybe String
-    , deleteRequest : Remote.WebData ()
-    , deleteConfirmEnabled : Bool
-    , deleteCascadeOptions : Set String
-    , deleteConfirmInput : String
     , pageSize : Int
     , currentPage : Int
+    , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
@@ -47,7 +44,7 @@ loadSessionList config pageNo pageSize =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model Remote.Loading (Table.initialSort "name") config Nothing Remote.NotAsked False Set.empty "" 10 0
+    Model Remote.Loading (Table.initialSort "name") config 10 0 Nothing
         => loadSessionList config 0 10
 
 
@@ -58,13 +55,10 @@ init config =
 type Msg
     = SessionListResponse (Remote.WebData SessionList)
     | SetTableState Table.State
-    | ShowDeleteDialog SessionData
-    | DeleteTextBoxChanged String
-    | DoDelete
-    | CancelDeleteDialog
-    | DeleteResponse (Remote.WebData ())
     | ChangePage Int
     | ChangePageSize Int
+    | ShowDeleteDialog SessionData
+    | DeleteDialogMsg DeleteDialog.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -77,59 +71,6 @@ update msg model =
             { model | tableState = newState }
                 => Cmd.none
 
-        ShowDeleteDialog sessionData ->
-            { model | deleteDialogSetting = Just sessionData.sessionId } => Cmd.none
-
-        DeleteTextBoxChanged content ->
-            let
-                isEnabled =
-                    content == "DELETE"
-            in
-            { model
-                | deleteConfirmInput = content
-                , deleteConfirmEnabled = isEnabled
-            }
-                => Cmd.none
-
-        DoDelete ->
-            case model.deleteDialogSetting of
-                Just sessionId ->
-                    model
-                        => (Request.Session.delete model.config sessionId
-                                |> Remote.sendRequest
-                                |> Cmd.map DeleteResponse
-                           )
-
-                Nothing ->
-                    model => Cmd.none
-
-        CancelDeleteDialog ->
-            { model
-                | deleteDialogSetting = Nothing
-                , deleteConfirmInput = ""
-                , deleteConfirmEnabled = False
-            }
-                => Cmd.none
-
-        DeleteResponse response ->
-            case response of
-                Remote.Success () ->
-                    { model
-                        | deleteDialogSetting = Nothing
-                        , deleteConfirmInput = ""
-                        , deleteConfirmEnabled = False
-                        , deleteRequest = Remote.NotAsked
-                    }
-                        => loadSessionList model.config model.currentPage model.pageSize
-
-                Remote.Failure err ->
-                    { model | deleteRequest = response }
-                        => Log.logHttpError err
-
-                _ ->
-                    { model | deleteRequest = response }
-                        => Cmd.none
-
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading, currentPage = pgNum }
                 => loadSessionList model.config pgNum model.pageSize
@@ -137,6 +78,32 @@ update msg model =
         ChangePageSize pageSize ->
             { model | pageSize = pageSize, currentPage = 0 }
                 => loadSessionList model.config 0 pageSize
+
+        ShowDeleteDialog sessionData ->
+            { model | deleteDialogModel = Just (DeleteDialog.init sessionData.sessionId sessionData.name) }
+                => Cmd.none
+
+        DeleteDialogMsg subMsg ->
+            let
+                ignoreCascadeParams cmd _ =
+                    cmd
+
+                pendingDeleteCmd =
+                    Request.Session.delete model.config >> ignoreCascadeParams
+
+                ( ( deleteModel, cmd ), msgFromDialog ) =
+                    DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
+
+                closeCmd =
+                    case msgFromDialog of
+                        DeleteDialog.NoOp ->
+                            Cmd.none
+
+                        DeleteDialog.Confirmed ->
+                            loadSessionList model.config model.currentPage model.pageSize
+            in
+            { model | deleteDialogModel = deleteModel }
+                ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
 
@@ -171,19 +138,12 @@ view model =
                     ]
                 ]
             ]
-        , Modal.view
-            (case model.deleteDialogSetting of
-                Just modelIdToDelete ->
-                    Just
-                        { closeMessage = CancelDeleteDialog
-                        , header = Just deleteModalHeader
-                        , body = Just (deleteModalBody modelIdToDelete model.deleteRequest)
-                        , footer = Just (deleteModalFooter model.deleteConfirmEnabled model.deleteRequest)
-                        }
-
-                Nothing ->
-                    Nothing
-            )
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Session"
+            , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
         ]
 
 
@@ -343,47 +303,4 @@ deleteButton : SessionData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
         [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
-        ]
-
-
-deleteModalHeader : Html Msg
-deleteModalHeader =
-    h4 [ class "modal-title", style [ ( "color", "#fff" ), ( "font-weight", "700" ) ] ] [ text "Delete Model" ]
-
-
-deleteModalBody : String -> Remote.WebData () -> Html Msg
-deleteModalBody sessionId deleteRequest =
-    div []
-        [ h5 []
-            [ text "Are you sure you want to delete session "
-            , strong [] [ text sessionId ]
-            , text "?"
-            ]
-        , p [] [ text "This action cannot be undone. You will have to run another sesssion to replace this model." ]
-        , p [] [ text "Type ", strong [] [ text "\"DELETE\"" ], text "and then press \"confirm\" to delete." ]
-        , div [ class "row m10" ]
-            [ div [ class "col-sm-4" ]
-                [ div [ class "form-group" ]
-                    [ input [ class "form-control", placeholder "DELETE", onInput DeleteTextBoxChanged ] []
-                    ]
-                ]
-            ]
-        , viewRemoteError deleteRequest
-        ]
-
-
-deleteModalFooter : Bool -> Remote.WebData () -> Html Msg
-deleteModalFooter confirmEnabled deleteRequest =
-    let
-        deleteButton =
-            case deleteRequest of
-                Remote.Loading ->
-                    button [ class "btn btn-primary", disabled True, onClick DoDelete ] [ spinner ]
-
-                _ ->
-                    button [ class "btn btn-primary", disabled (not confirmEnabled), onClick DoDelete ] [ text "Confirm" ]
-    in
-    div []
-        [ button [ class "btn secondary", onClick CancelDeleteDialog ] [ text "Cancel" ]
-        , deleteButton
         ]
