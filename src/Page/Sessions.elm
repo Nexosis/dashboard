@@ -40,7 +40,7 @@ type alias Model =
 
 loadSessionList : Config -> Int -> Int -> Cmd Msg
 loadSessionList config pageNo pageSize =
-    Request.Session.get config pageNo
+    Request.Session.get config pageNo pageSize
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
 

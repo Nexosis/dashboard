@@ -6,15 +6,15 @@ import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 
 
-get : Config -> Int -> Http.Request SessionList
-get { baseUrl, token } page =
+get : Config -> Int -> Int -> Http.Request SessionList
+get { baseUrl, token } page pageSize =
     let
         expect =
             decodeSessionList
                 |> Http.expectJson
 
         params =
-            pageParams page Config.pageSize
+            pageParams page pageSize
     in
     (baseUrl ++ "/sessions")
         |> HttpBuilder.get
