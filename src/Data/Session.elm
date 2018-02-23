@@ -63,7 +63,7 @@ decodeSession =
         |> required "statusHistory" (Decode.list decodeHistoryRecord)
         |> required "extraParameters" (Decode.dict (Decode.oneOf [ Decode.string, Decode.bool |> Decode.andThen (\b -> succeed (toString b)) ]))
         |> required "messages" (Decode.list (Decode.dict Decode.string))
-        |> optional "name" Decode.string ""
+        |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> required "targetColumn" Decode.string
 

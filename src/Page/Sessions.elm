@@ -24,9 +24,7 @@ import View.Pager as Pager
 
 
 type alias Model =
-    { pageTitle : String
-    , pageBody : String
-    , sessionList : Remote.WebData SessionList
+    { sessionList : Remote.WebData SessionList
     , tableState : Table.State
     , config : Config
     , deleteDialogSetting : Maybe String
@@ -37,17 +35,17 @@ type alias Model =
     }
 
 
-loadSessionList : Config -> Cmd Msg
-loadSessionList config =
-    Request.Session.get config 0
+loadSessionList : Config -> Int -> Cmd Msg
+loadSessionList config pageNo =
+    Request.Session.get config pageNo
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
 
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model "Sessions" "This is the list of Sessions" Remote.Loading (Table.initialSort "name") config Nothing Remote.NotAsked False Set.empty ""
-        => loadSessionList config
+    Model Remote.Loading (Table.initialSort "name") config Nothing Remote.NotAsked False Set.empty ""
+        => loadSessionList config 0
 
 
 
@@ -118,7 +116,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadSessionList model.config
+                        => loadSessionList model.config 0
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -130,10 +128,7 @@ update msg model =
 
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading }
-                => (Request.Session.get model.config pgNum
-                        |> Remote.sendRequest
-                        |> Cmd.map SessionListResponse
-                   )
+                => loadSessionList model.config pgNum
 
 
 
