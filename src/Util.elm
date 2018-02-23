@@ -1,7 +1,8 @@
-module Util exposing ((=>), isJust, toShortDateString)
+module Util exposing ((=>), isJust, spinner, toShortDateString)
 
-import Time.DateTime exposing(DateTime, year, month, day)
--- toTuple
+import Html
+import Html.Attributes
+import Time.DateTime exposing (DateTime, day, month, year)
 
 
 (=>) : a -> b -> ( a, b )
@@ -24,13 +25,15 @@ isJust m =
         Just _ ->
             True
 
+
 toShortDateString : DateTime -> String
 toShortDateString time =
-        padded (month time)
+    padded (month time)
         ++ "/"
         ++ padded (day time)
         ++ "/"
         ++ toString (year time)
+
 
 padded : Int -> String
 padded n =
@@ -38,3 +41,8 @@ padded n =
         "0" ++ toString n
     else
         toString n
+
+
+spinner : Html.Html msg
+spinner =
+    Html.i [ Html.Attributes.class "fa fa-spinner fa-spin fa-2x fa-fw" ] []

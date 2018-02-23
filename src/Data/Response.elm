@@ -2,6 +2,7 @@ module Data.Response exposing (Message, Response, ResponseError, Severity(..), d
 
 import AppRoutes exposing (Route)
 import Dict exposing (Dict)
+import Http
 import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, string, succeed)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
@@ -21,7 +22,7 @@ type alias Response =
 type alias ResponseError =
     { statusCode : Int
     , message : String
-    , errorType : String
+    , errorType : Maybe String
     , errorDetails : Dict String String
     }
 
@@ -103,15 +104,21 @@ decodeSeverity =
             )
 
 
-responseErrorDecoder : String -> Result String ResponseError
+responseErrorDecoder : Http.Response String -> ResponseError
 responseErrorDecoder responseError =
-    decodeString decodeResponseError responseError
+    decodeString decodeResponseBodyError responseError.body
+        |> Result.withDefault
+            { statusCode = responseError.status.code
+            , message = responseError.status.message
+            , errorType = Nothing
+            , errorDetails = Dict.empty
+            }
 
 
-decodeResponseError : Decoder ResponseError
-decodeResponseError =
+decodeResponseBodyError : Decoder ResponseError
+decodeResponseBodyError =
     decode ResponseError
         |> required "statusCode" int
         |> required "message" string
-        |> required "errorType" string
+        |> optional "errorType" (nullable string) Nothing
         |> optional "errorDetails" (dict string) Dict.empty
