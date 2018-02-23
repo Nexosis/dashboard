@@ -17,6 +17,7 @@ import Util exposing ((=>), spinner, toShortDateString)
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
+import View.PageSize as PageSize
 import View.Pager as Pager
 
 
@@ -32,11 +33,13 @@ type alias Model =
     , deleteConfirmEnabled : Bool
     , deleteCascadeOptions : Set String
     , deleteConfirmInput : String
+    , pageSize : Int
+    , currentPage : Int
     }
 
 
-loadSessionList : Config -> Int -> Cmd Msg
-loadSessionList config pageNo =
+loadSessionList : Config -> Int -> Int -> Cmd Msg
+loadSessionList config pageNo pageSize =
     Request.Session.get config pageNo
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
@@ -44,8 +47,8 @@ loadSessionList config pageNo =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model Remote.Loading (Table.initialSort "name") config Nothing Remote.NotAsked False Set.empty ""
-        => loadSessionList config 0
+    Model Remote.Loading (Table.initialSort "name") config Nothing Remote.NotAsked False Set.empty "" 10 0
+        => loadSessionList config 0 10
 
 
 
@@ -61,6 +64,7 @@ type Msg
     | CancelDeleteDialog
     | DeleteResponse (Remote.WebData ())
     | ChangePage Int
+    | ChangePageSize Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -116,7 +120,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadSessionList model.config 0
+                        => loadSessionList model.config model.currentPage model.pageSize
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -127,8 +131,12 @@ update msg model =
                         => Cmd.none
 
         ChangePage pgNum ->
-            { model | sessionList = Remote.Loading }
-                => loadSessionList model.config pgNum
+            { model | sessionList = Remote.Loading, currentPage = pgNum }
+                => loadSessionList model.config pgNum model.pageSize
+
+        ChangePageSize pageSize ->
+            { model | pageSize = pageSize, currentPage = 0 }
+                => loadSessionList model.config 0 pageSize
 
 
 
@@ -153,17 +161,7 @@ view model =
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ] [ h3 [] [ text "Session Explainer" ] ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ div [ class "form-inline mr5" ]
-                            -- change items per page
-                            [ label [] [ text "View" ]
-                            , select [ class "form-control" ]
-                                [ option [] [ text "10" ]
-                                , option [] [ text "25" ]
-                                , option [] [ text "50" ]
-                                , option [] [ text "100" ]
-                                ]
-                            ]
-                        ]
+                        [ PageSize.view ChangePageSize ]
                     ]
                 , div []
                     [ Grid.view .items (config model.config.toolTips) model.tableState model.sessionList
