@@ -24,19 +24,10 @@ viewHttpError : Error -> Html msg
 viewHttpError error =
     case error of
         Http.BadStatus badResponse ->
-            let
-                parsedError =
-                    responseErrorDecoder badResponse.body
-
-                httpError =
-                    case parsedError of
-                        Ok e ->
-                            formatApiError e
-
-                        Err e ->
-                            text "Unable to parse error response."
-            in
-            div [] [ httpError ]
+            responseErrorDecoder badResponse
+                |> formatApiError
+                |> List.singleton
+                |> div []
 
         Http.Timeout ->
             div [] [ text "The request timed out.  Please check your connection and try again." ]
