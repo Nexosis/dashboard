@@ -1,20 +1,20 @@
-module Request.Model exposing (get, delete, getOne)
+module Request.Model exposing (delete, get, getOne)
 
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.Model exposing (ModelList, ModelData, decodeModelList, decodeModel)
+import Data.Model exposing (ModelData, ModelList, decodeModel, decodeModelList)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 
 
-get : Config -> Int -> Http.Request ModelList
-get { baseUrl, token } page =
+get : Config -> Int -> Int -> Http.Request ModelList
+get { baseUrl, token } page pageSize =
     let
         expect =
             decodeModelList
                 |> Http.expectJson
 
         params =
-            pageParams page Config.pageSize
+            pageParams page pageSize
     in
     (baseUrl ++ "/models")
         |> HttpBuilder.get
@@ -30,12 +30,14 @@ pageParams page pageSize =
     , ( "pageSize", pageSize |> toString )
     ]
 
+
 delete : Config -> String -> Http.Request ()
 delete { baseUrl, token } modelId =
     (baseUrl ++ "/models/" ++ modelId)
         |> HttpBuilder.delete
         |> withAuthorization token
         |> HttpBuilder.toRequest
+
 
 getOne : Config -> String -> Http.Request ModelData
 getOne { baseUrl, token } modelId =
