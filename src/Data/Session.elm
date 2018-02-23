@@ -11,6 +11,7 @@ type SessionStatus
     = Requested
     | Started
     | Completed
+    | Failed
 
 
 type alias HistoryRecord =
@@ -25,9 +26,9 @@ type alias SessionData =
     , predictionDomain : PredictionDomain
     , columns : List ColumnMetadata
     , availablePredictionIntervals : List String
-    , startDate : String
-    , endDate : String
-    , resultInterval : String
+    , startDate : Maybe String
+    , endDate : Maybe String
+    , resultInterval : Maybe String
     , requestedDate : String
     , statusHistory : List HistoryRecord
     , extraParameters : Dict String String
@@ -55,12 +56,12 @@ decodeSession =
         |> required "predictionDomain" decodePredictionDomain
         |> required "columns" decodeColumnMetadata
         |> required "availablePredictionIntervals" (Decode.list Decode.string)
-        |> required "startDate" Decode.string
-        |> required "endDate" Decode.string
-        |> required "resultInterval" Decode.string
+        |> optional "startDate" (Decode.map Just string) Nothing
+        |> optional "endDate" (Decode.map Just string) Nothing
+        |> optional "resultInterval" (Decode.map Just string) Nothing
         |> required "requestedDate" Decode.string
         |> required "statusHistory" (Decode.list decodeHistoryRecord)
-        |> required "extraParameters" (Decode.dict Decode.string)
+        |> required "extraParameters" (Decode.dict (Decode.oneOf [ Decode.string, Decode.bool |> Decode.andThen (\b -> succeed (toString b)) ]))
         |> required "messages" (Decode.list (Decode.dict Decode.string))
         |> optional "name" Decode.string ""
         |> required "dataSourceName" Decode.string
@@ -98,6 +99,9 @@ decodeSessionStatus =
 
                     "completed" ->
                         succeed Completed
+
+                    "failed" ->
+                        succeed Failed
 
                     unknown ->
                         fail <| "Unknown session status: " ++ unknown

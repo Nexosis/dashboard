@@ -16,7 +16,7 @@ get { baseUrl, token } page =
         params =
             pageParams page Config.pageSize
     in
-    (baseUrl ++ "/models")
+    (baseUrl ++ "/sessions")
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params

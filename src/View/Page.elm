@@ -18,6 +18,7 @@ type ActivePage
     | DataSetAdd
     | Imports
     | Sessions
+    | SessionDetail
     | Models
     | ModelDetail
 

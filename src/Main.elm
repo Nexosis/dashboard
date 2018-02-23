@@ -16,9 +16,10 @@ import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
 import Page.Imports as Imports
-import Page.Models as Models
 import Page.ModelDetail as ModelDetail
+import Page.Models as Models
 import Page.NotFound as NotFound
+import Page.SessionDetail as SessionDetail
 import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
@@ -59,6 +60,7 @@ type Page
     | DataSetAdd DataSetAdd.Model
     | Imports Imports.Model
     | Sessions Sessions.Model
+    | SessionDetail SessionDetail.Model
     | Models Models.Model
     | ModelDetail ModelDetail.Model
 
@@ -75,6 +77,7 @@ type Msg
     | DataSetAddMsg DataSetAdd.Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
+    | SessionDetailMsg SessionDetail.Msg
     | ModelsMsg Models.Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
@@ -154,11 +157,13 @@ setRoute route app =
                             Models.init app.config
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
-                Just (AppRoutes.ModelDetail id) -> 
+
+                Just (AppRoutes.ModelDetail id) ->
                     let
-                        (pageModel, initCmd) = ModelDetail.init app.config id
+                        ( pageModel, initCmd ) =
+                            ModelDetail.init app.config id
                     in
-                        ( { app | page = ModelDetail pageModel}, Cmd.map ModelDetailMsg initCmd)
+                    ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -206,8 +211,14 @@ updatePage page msg app =
         ( ModelsMsg subMsg, Models subModel ) ->
             toPage Models ModelsMsg Models.update subMsg subModel
 
-        (ModelDetailMsg subMsg, ModelDetail subModel ) -> 
+        ( ModelDetailMsg subMsg, ModelDetail subModel ) ->
             toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
+
+        ( SessionsMsg subMsg, Sessions subModel ) ->
+            toPage Sessions SessionsMsg Sessions.update subMsg subModel
+
+        ( SessionDetailMsg subMsg, SessionDetail subModel ) ->
+            toPage SessionDetail SessionDetailMsg SessionDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             { app
@@ -338,15 +349,22 @@ view model =
                         |> layout Page.Sessions
                         |> Html.map SessionsMsg
 
+                SessionDetail subModel ->
+                    SessionDetail.view subModel
+                        |> layout Page.SessionDetail
+                        |> Html.map SessionDetailMsg
+
                 Models subModel ->
                     Models.view subModel
                         |> layout Page.Models
                         |> Html.map ModelsMsg
 
-                ModelDetail subModel -> 
+                ModelDetail subModel ->
                     ModelDetail.view subModel
                         |> layout Page.ModelDetail
                         |> Html.map ModelDetailMsg
+
+
 
 ---- SUBSCRIPTIONS ----
 
