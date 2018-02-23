@@ -1,8 +1,9 @@
-module Page.Models exposing (Model, Msg, init, update, view)
+module Page.Models exposing (Model, Msg, init, typeCell, typeColumn, update, view)
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
 import Data.Model exposing (ModelData, ModelList)
+import Data.PredictionDomain exposing (PredictionDomain)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)

@@ -147,9 +147,9 @@ setRoute route app =
                     --todo: change this route to point to an individual session.
                     let
                         ( pageModel, initCmd ) =
-                            Sessions.init app.config
+                            SessionDetail.init app.config id
                     in
-                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+                    ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
 
                 Just AppRoutes.Models ->
                     let

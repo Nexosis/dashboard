@@ -29,3 +29,25 @@ pageParams page pageSize =
     [ ( "page", page |> toString )
     , ( "pageSize", pageSize |> toString )
     ]
+
+
+delete : Config -> String -> Http.Request ()
+delete { baseUrl, token } sessionId =
+    (baseUrl ++ "/sessions/" ++ sessionId)
+        |> HttpBuilder.delete
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+getOne : Config -> String -> Http.Request SessionData
+getOne { baseUrl, token } sessionId =
+    let
+        expect =
+            decodeSession
+                |> Http.expectJson
+    in
+    (baseUrl ++ "/sessions/" ++ sessionId)
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
