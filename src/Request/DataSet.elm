@@ -7,15 +7,15 @@ import HttpBuilder exposing (RequestBuilder, withExpect)
 import Set
 
 
-get : Config -> Int -> Http.Request DataSetList
-get { baseUrl, token } page =
+get : Config -> Int -> Int -> Http.Request DataSetList
+get { baseUrl, token } page pageSize =
     let
         expect =
             DataSet.decodeDataSetList
                 |> Http.expectJson
 
         params =
-            pageParams page Config.pageSize
+            pageParams page pageSize
     in
     (baseUrl ++ "/data")
         |> HttpBuilder.get

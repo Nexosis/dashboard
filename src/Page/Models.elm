@@ -16,6 +16,7 @@ import Util exposing ((=>), spinner, toShortDateString)
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
+import View.PageSize as PageSize
 import View.Pager as Pager
 
 
@@ -23,11 +24,11 @@ import View.Pager as Pager
 
 
 type alias Model =
-    { pageTitle : String
-    , pageBody : String
-    , modelList : Remote.WebData ModelList
+    { modelList : Remote.WebData ModelList
     , tableState : Table.State
     , config : Config
+    , currentPage : Int
+    , pageSize : Int
     , deleteDialogSetting : Maybe String
     , deleteRequest : Remote.WebData ()
     , deleteConfirmEnabled : Bool
@@ -36,17 +37,17 @@ type alias Model =
     }
 
 
-loadModelList : Config -> Cmd Msg
-loadModelList config =
-    Request.Model.get config 0
+loadModelList : Config -> Int -> Int -> Cmd Msg
+loadModelList config page pageSize =
+    Request.Model.get config page pageSize
         |> Remote.sendRequest
         |> Cmd.map ModelListResponse
 
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model "Models" "This is the list of Models" Remote.Loading (Table.initialSort "createdDate") config Nothing Remote.NotAsked False Set.empty ""
-        => loadModelList config
+    Model Remote.Loading (Table.initialSort "createdDate") config 0 10 Nothing Remote.NotAsked False Set.empty ""
+        => loadModelList config 0 10
 
 
 
@@ -62,6 +63,7 @@ type Msg
     | CancelDeleteDialog
     | DeleteResponse (Remote.WebData ())
     | ChangePage Int
+    | ChangePageSize Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -117,7 +119,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadModelList model.config
+                        => loadModelList model.config model.currentPage model.pageSize
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -128,11 +130,12 @@ update msg model =
                         => Cmd.none
 
         ChangePage pgNum ->
-            { model | modelList = Remote.Loading }
-                => (Request.Model.get model.config pgNum
-                        |> Remote.sendRequest
-                        |> Cmd.map ModelListResponse
-                   )
+            { model | modelList = Remote.Loading, currentPage = pgNum }
+                => loadModelList model.config pgNum model.pageSize
+
+        ChangePageSize pageSize ->
+            { model | pageSize = pageSize, currentPage = 0 }
+                => loadModelList model.config 0 pageSize
 
 
 
@@ -179,17 +182,7 @@ view model =
                                 ]
                             ]
                         , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                            [ div [ class "form-inline mr5" ]
-                                -- change items per page
-                                [ label [] [ text "View" ]
-                                , select [ class "form-control" ]
-                                    [ option [] [ text "10" ]
-                                    , option [] [ text "25" ]
-                                    , option [] [ text "50" ]
-                                    , option [] [ text "100" ]
-                                    ]
-                                ]
-                            ]
+                            [ PageSize.view ChangePageSize ]
                         ]
                     ]
                 ]

@@ -17,6 +17,7 @@ import Util exposing ((=>), isJust, spinner)
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
+import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
 
@@ -25,10 +26,9 @@ import View.Tooltip exposing (helpIcon)
 
 
 type alias Model =
-    { pageTitle : String
-    , pageBody : String
-    , dataSetList : Remote.WebData DataSetList
+    { dataSetList : Remote.WebData DataSetList
     , currentPage : Int
+    , pageSize : Int
     , tableState : Table.State
     , config : Config
     , deleteDataSetPrompt : Maybe DataSetName
@@ -39,17 +39,17 @@ type alias Model =
     }
 
 
-loadDataSetList : Config -> Int -> Cmd Msg
-loadDataSetList config pageNum =
-    Request.DataSet.get config pageNum
+loadDataSetList : Config -> Int -> Int -> Cmd Msg
+loadDataSetList config pageNum pageSize =
+    Request.DataSet.get config pageNum pageSize
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model "DataSets" "This is the list of DataSets" Remote.Loading 0 (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
-        => loadDataSetList config 0
+    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
+        => loadDataSetList config 0 10
 
 
 
@@ -60,6 +60,7 @@ type Msg
     = DataSetListResponse (Remote.WebData DataSetList)
     | SetTableState Table.State
     | ChangePage Int
+    | ChangePageSize Int
     | ShowDeleteDialog DataSet
     | CancelDeleteDialog
     | DeleteTextBoxChanged String
@@ -80,10 +81,11 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => (Request.DataSet.get model.config pgNum
-                        |> Remote.sendRequest
-                        |> Cmd.map DataSetListResponse
-                   )
+                => loadDataSetList model.config pgNum model.pageSize
+
+        ChangePageSize pageSize ->
+            { model | pageSize = pageSize, currentPage = 0 }
+                => loadDataSetList model.config 0 pageSize
 
         ShowDeleteDialog dataSet ->
             { model | deleteDataSetPrompt = Just dataSet.dataSetName } => Cmd.none
@@ -140,7 +142,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadDataSetList model.config model.currentPage
+                        => loadDataSetList model.config model.currentPage model.pageSize
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -176,15 +178,7 @@ view model =
                         [ h3 [] [ text "Dataset explainer" ]
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ div [ class "mr5" ]
-                            -- change items per page
-                            [ label [] [ text "View" ]
-                            , select []
-                                [ option [] [ text "10" ]
-                                , option [] [ text "25" ]
-                                ]
-                            ]
-                        ]
+                        [ PageSize.view ChangePageSize ]
                     ]
                 , Grid.view .items (config model.config.toolTips) model.tableState model.dataSetList
                 , hr [] []
