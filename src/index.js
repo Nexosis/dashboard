@@ -76,6 +76,42 @@ fetch('./config.json').then(function (response) {
             });
         });
 
+
+        app.ports.uploadFileSelected.subscribe(function (id) {
+
+            var node = document.getElementById(id);
+            if (node === null) {
+                return;
+            }
+
+            var file = node.files[0];
+            var reader = new FileReader();
+
+            reader.onload = (function (event) {
+                try {
+
+                    var fileContent = event.target.result;
+
+                    var portData = {
+                        contents: fileContent,
+                        filename: file.name,
+                        status: 'Success'
+                    };
+
+                    app.ports.fileContentRead.send(portData);
+                }
+                catch (e) {
+                    app.ports.fileContentRead.send({ status: 'ReadFail' })
+                }
+            });
+
+            reader.onerror = (function (event) {
+                app.ports.fileContentRead.send({ status: 'ReadFail' })
+            });
+
+            reader.readAsText(file);
+        });
+
         Intercept.addResponseCallback(function (xhr) {
 
             if (xhr.url.startsWith(config.url)) {

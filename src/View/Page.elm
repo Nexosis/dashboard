@@ -15,9 +15,11 @@ type ActivePage
     | Home
     | DataSets
     | DataSetData
+    | DataSetAdd
     | Imports
     | Sessions
     | Models
+    | ModelDetail
 
 
 type alias PageValues a =

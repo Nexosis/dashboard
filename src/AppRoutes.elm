@@ -1,4 +1,4 @@
-module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl)
+module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, routeToString)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
@@ -15,10 +15,12 @@ type Route
     = Home
     | DataSets
     | DataSetDetail DataSet.DataSetName
+    | DataSetAdd
     | Imports
     | Sessions
     | SessionDetail String
     | Models
+    | ModelDetail String
 
 
 
@@ -37,15 +39,17 @@ routeMatcher =
         [ route Home (static "")
         , route DataSets (static "data")
         , route DataSetDetail (static "data" </> custom DataSet.dataSetNameParser)
+        , route DataSetAdd (static "addData")
         , route Imports (static "imports")
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
         , route Models (static "models")
+        , route ModelDetail (static "models" </> string)
         ]
 
 
 
--- INTERNAL --
+-- PUBLIC HELPERS --
 
 
 routeToString : Route -> String
@@ -62,6 +66,9 @@ routeToString page =
                 DataSetDetail name ->
                     [ "data", DataSet.dataSetNameToString name ]
 
+                DataSetAdd ->
+                    [ "addData" ]
+
                 Imports ->
                     [ "imports" ]
 
@@ -74,15 +81,14 @@ routeToString page =
                 Models ->
                     [ "models" ]
 
+                ModelDetail id ->
+                    [ "models", id ]
+
         --    When needing parameters on the form base/item/3
         --                    Item id ->
         --                    [ "item",  id ]
     in
     "#/" ++ String.join "/" pagePath
-
-
-
--- PUBLIC HELPERS --
 
 
 href : Route -> Attribute msg

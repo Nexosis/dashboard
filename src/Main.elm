@@ -10,12 +10,14 @@ import Json.Decode as Decode exposing (Value, decodeValue)
 import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Navigation exposing (Location)
+import Page.DataSetAdd as DataSetAdd
 import Page.DataSetDetail as DataSetDetail
 import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
 import Page.Imports as Imports
 import Page.Models as Models
+import Page.ModelDetail as ModelDetail
 import Page.NotFound as NotFound
 import Page.Sessions as Sessions
 import Ports
@@ -54,9 +56,11 @@ type Page
     | Home Home.Model
     | DataSets DataSets.Model
     | DataSetDetail DataSetDetail.Model
+    | DataSetAdd DataSetAdd.Model
     | Imports Imports.Model
     | Sessions Sessions.Model
     | Models Models.Model
+    | ModelDetail ModelDetail.Model
 
 
 
@@ -68,12 +72,14 @@ type Msg
     | HomeMsg Home.Msg
     | DataSetsMsg DataSets.Msg
     | DataSetDetailMsg DataSetDetail.Msg
+    | DataSetAddMsg DataSetAdd.Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | ModelsMsg Models.Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
     | RenewToken (Result Http.Error NexosisToken)
+    | ModelDetailMsg ModelDetail.Msg
 
 
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
@@ -113,6 +119,13 @@ setRoute route app =
                     in
                     { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
+                Just AppRoutes.DataSetAdd ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSetAdd.init app.config
+                    in
+                    { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd
+
                 Just AppRoutes.Imports ->
                     let
                         ( pageModel, initCmd ) =
@@ -141,6 +154,11 @@ setRoute route app =
                             Models.init app.config
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
+                Just (AppRoutes.ModelDetail id) -> 
+                    let
+                        (pageModel, initCmd) = ModelDetail.init app.config id
+                    in
+                        ( { app | page = ModelDetail pageModel}, Cmd.map ModelDetailMsg initCmd)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -182,8 +200,14 @@ updatePage page msg app =
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
 
+        ( DataSetAddMsg subMsg, DataSetAdd subModel ) ->
+            toPage DataSetAdd DataSetAddMsg DataSetAdd.update subMsg subModel
+
         ( ModelsMsg subMsg, Models subModel ) ->
             toPage Models ModelsMsg Models.update subMsg subModel
+
+        (ModelDetailMsg subMsg, ModelDetail subModel ) -> 
+            toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             { app
@@ -299,6 +323,11 @@ view model =
                         |> layout Page.DataSetData
                         |> Html.map DataSetDetailMsg
 
+                DataSetAdd subModel ->
+                    DataSetAdd.view subModel
+                        |> layout Page.DataSetAdd
+                        |> Html.map DataSetAddMsg
+
                 Imports subModel ->
                     Imports.view subModel
                         |> layout Page.Imports
@@ -314,7 +343,10 @@ view model =
                         |> layout Page.Models
                         |> Html.map ModelsMsg
 
-
+                ModelDetail subModel -> 
+                    ModelDetail.view subModel
+                        |> layout Page.ModelDetail
+                        |> Html.map ModelDetailMsg
 
 ---- SUBSCRIPTIONS ----
 
@@ -326,9 +358,21 @@ subscriptions model =
             Sub.batch
                 [ Ports.responseReceived (Response.decodeXhrResponse app.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
+                , pageSubscriptions app.page
                 ]
 
         InitializationError _ ->
+            Sub.none
+
+
+pageSubscriptions : Page -> Sub Msg
+pageSubscriptions page =
+    case page of
+        DataSetAdd subModel ->
+            DataSetAdd.subscriptions subModel
+                |> Sub.map DataSetAddMsg
+
+        _ ->
             Sub.none
 
 

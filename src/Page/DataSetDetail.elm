@@ -213,6 +213,7 @@ view model =
                 ]
             ]
         , viewNameRow model
+        , viewIdRow model
         , hr [] []
         , viewDetailsRow model
         , hr [] []
@@ -242,11 +243,15 @@ viewNameRow model =
             -- link to the start session route when it exists
             [ a [ href "#", class "btn mt10" ] [ text "Start Session" ]
             ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-8" ] []
-            , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs secondary", onClick DeleteDataSet ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
-                ]
+        ]
+
+
+viewIdRow : Model -> Html Msg
+viewIdRow model =
+    div [ class "row" ]
+        [ div [ class "col-sm-8" ] []
+        , div [ class "col-sm-4 right" ]
+            [ button [ class "btn btn-xs secondary", onClick DeleteDataSet ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
             ]
         ]
 

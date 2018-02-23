@@ -13,7 +13,7 @@ import Request.DataSet
 import Request.Log as Log
 import Set exposing (Set)
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), isJust)
+import Util exposing ((=>), isJust, spinner)
 import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
 import View.Modal as Modal
@@ -27,8 +27,8 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { pageTitle : String
     , pageBody : String
-    , errors : List String
     , dataSetList : Remote.WebData DataSetList
+    , currentPage : Int
     , tableState : Table.State
     , config : Config
     , deleteDataSetPrompt : Maybe DataSetName
@@ -39,17 +39,17 @@ type alias Model =
     }
 
 
-loadDataSetList : Config -> Cmd Msg
-loadDataSetList config =
-    Request.DataSet.get config 0
+loadDataSetList : Config -> Int -> Cmd Msg
+loadDataSetList config pageNum =
+    Request.DataSet.get config pageNum
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model "DataSets" "This is the list of DataSets" [] Remote.Loading (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
-        => loadDataSetList config
+    Model "DataSets" "This is the list of DataSets" Remote.Loading 0 (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
+        => loadDataSetList config 0
 
 
 
@@ -79,7 +79,7 @@ update msg model =
                 => Cmd.none
 
         ChangePage pgNum ->
-            { model | dataSetList = Remote.Loading }
+            { model | dataSetList = Remote.Loading, currentPage = pgNum }
                 => (Request.DataSet.get model.config pgNum
                         |> Remote.sendRequest
                         |> Cmd.map DataSetListResponse
@@ -140,7 +140,7 @@ update msg model =
                         , deleteConfirmEnabled = False
                         , deleteRequest = Remote.NotAsked
                     }
-                        => loadDataSetList model.config
+                        => loadDataSetList model.config model.currentPage
 
                 Remote.Failure err ->
                     { model | deleteRequest = response }
@@ -165,8 +165,7 @@ view model =
                 [ h2 [ class "mt10" ] [ text "Datasets" ]
                 ]
             , div [ class "col-sm-6 right" ]
-                [ -- todo - link somewhere
-                  a [ href "#", class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
                 ]
             ]
         , hr [] []
@@ -331,7 +330,7 @@ deleteModalFooter confirmEnabled deleteRequest =
         deleteButton =
             case deleteRequest of
                 Remote.Loading ->
-                    button [ class "btn btn-primary", disabled True, onClick DeleteDataSet ] [ i [ class "fa fa-spinner fa-spin fa-2x fa-fw" ] [] ]
+                    button [ class "btn btn-primary", disabled True, onClick DeleteDataSet ] [ spinner ]
 
                 _ ->
                     button [ class "btn btn-primary", disabled (not confirmEnabled), onClick DeleteDataSet ] [ text "Confirm" ]
