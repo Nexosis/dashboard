@@ -76,8 +76,8 @@ update msg model =
 
         DeleteDialogMsg subMsg ->
             let
-                ignoreCascadeParams cmd _ =
-                    cmd
+                ignoreCascadeParams request _ =
+                    request
 
                 pendingDeleteCmd =
                     Request.Model.delete model.config >> ignoreCascadeParams
