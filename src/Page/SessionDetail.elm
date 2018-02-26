@@ -3,12 +3,13 @@ module Page.SessionDetail exposing (Model, Msg, init, update, view)
 import Data.Config exposing (Config)
 import Data.Session exposing (..)
 import Html exposing (..)
+import Html.Attributes exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Request.Session exposing (..)
 import Util exposing ((=>))
-
+import AppRoutes
 
 type alias Model =
     { sessionId : String
@@ -38,9 +39,18 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ h2 [] [ text ("This is detail for session " ++ model.sessionId) ]
+    p [ class "breadcrumb" ]
+    [ span []
+        [ a [ AppRoutes.href AppRoutes.Home ]
+            [ text "API Dashboard" ]
         ]
+    , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
+        []
+    , span []
+        [ a [ AppRoutes.href AppRoutes.Sessions ]
+            [ text "Sessions" ]
+        ]
+    ]
 
 
 init : Config -> String -> ( Model, Cmd Msg )
