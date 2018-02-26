@@ -1,6 +1,7 @@
 module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModel, decodeModelList)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.Link exposing (Link, linkDecoder)
 import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
@@ -23,7 +24,9 @@ type alias ModelData =
     , columns : List ColumnMetadata
     , createdDate : DateTime
     , algorithm : Algorithm
+    , modelName : String
     , metrics : Dict String Float
+    , links : List Link
     }
 
 
@@ -78,4 +81,6 @@ decodeModel =
         |> required "columns" decodeColumnMetadata
         |> required "createdDate" stringToDate
         |> required "algorithm" decodeAlgorithm
+        |> required "modelName" Decode.string
         |> required "metrics" (Decode.dict float)
+        |> required "links" (Decode.list linkDecoder)
