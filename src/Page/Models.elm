@@ -226,9 +226,9 @@ config toolTips =
 nameColumn : Grid.Column ModelData Msg
 nameColumn =
     Grid.veryCustomColumn
-        { name = "Datasource Name"
+        { name = "Name"
         , viewData = modelNameCell
-        , sorter = Table.increasingOrDecreasingBy .dataSourceName
+        , sorter = Table.increasingOrDecreasingBy .modelName
         , headAttributes = [ class "left per30" ]
         , headHtml = []
         }
@@ -237,7 +237,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails Msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text model.dataSourceName ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text model.modelName ]
         ]
 
 

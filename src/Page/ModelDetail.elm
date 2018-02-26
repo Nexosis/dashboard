@@ -14,6 +14,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Util exposing ((=>))
+import View.RelatedLinks as Related exposing (view)
 
 
 type alias Model =
@@ -97,7 +98,7 @@ view model =
         , div [ class "row" ]
             [ div [ class "col-sm-4" ] (detailRow model)
             , div [ class "col-sm-5" ] []
-            , div [ class "col-sm-3" ] []
+            , Related.view model.modelResponse
             ]
         ]
 
