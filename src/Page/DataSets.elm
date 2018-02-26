@@ -3,20 +3,17 @@ module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, vi
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString)
+import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Log as Log
-import Set exposing (Set)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), isJust, spinner)
-import View.Error exposing (viewRemoteError)
+import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
-import View.Modal as Modal
 import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
@@ -31,11 +28,7 @@ type alias Model =
     , pageSize : Int
     , tableState : Table.State
     , config : Config
-    , deleteDataSetPrompt : Maybe DataSetName
-    , deleteConfirmInput : String
-    , deleteConfirmEnabled : Bool
-    , deleteCascadeOptions : Set String
-    , deleteRequest : Remote.WebData ()
+    , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
@@ -48,7 +41,7 @@ loadDataSetList config pageNum pageSize =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing "" False Set.empty Remote.NotAsked
+    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing
         => loadDataSetList config 0 10
 
 
@@ -62,11 +55,7 @@ type Msg
     | ChangePage Int
     | ChangePageSize Int
     | ShowDeleteDialog DataSet
-    | CancelDeleteDialog
-    | DeleteTextBoxChanged String
-    | CheckCascadeOption Cascade.Cascade Bool
-    | DeleteDataSet
-    | DeleteResponse (Remote.WebData ())
+    | DeleteDialogMsg DeleteDialog.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -88,69 +77,30 @@ update msg model =
                 => loadDataSetList model.config 0 pageSize
 
         ShowDeleteDialog dataSet ->
-            { model | deleteDataSetPrompt = Just dataSet.dataSetName } => Cmd.none
-
-        CancelDeleteDialog ->
-            { model
-                | deleteDataSetPrompt = Nothing
-                , deleteCascadeOptions = Set.empty
-                , deleteConfirmInput = ""
-                , deleteConfirmEnabled = False
-            }
-                => Cmd.none
-
-        DeleteTextBoxChanged content ->
             let
-                isEnabled =
-                    content == "DELETE"
+                dsName =
+                    dataSetNameToString dataSet.dataSetName
             in
-            { model
-                | deleteConfirmInput = content
-                , deleteConfirmEnabled = isEnabled
-            }
-                => Cmd.none
+            { model | deleteDialogModel = Just (DeleteDialog.init dsName dsName) } => Cmd.none
 
-        CheckCascadeOption cascade checked ->
+        DeleteDialogMsg subMsg ->
             let
-                cascadeOptions =
-                    if checked then
-                        Set.insert (toString cascade) model.deleteCascadeOptions
-                    else
-                        Set.remove (toString cascade) model.deleteCascadeOptions
+                pendingDeleteCmd =
+                    toDataSetName >> Request.DataSet.delete model.config
+
+                ( ( deleteModel, cmd ), msgFromDialog ) =
+                    DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
+
+                closeCmd =
+                    case msgFromDialog of
+                        DeleteDialog.NoOp ->
+                            Cmd.none
+
+                        DeleteDialog.Confirmed ->
+                            loadDataSetList model.config model.currentPage model.pageSize
             in
-            { model | deleteCascadeOptions = cascadeOptions } => Cmd.none
-
-        DeleteDataSet ->
-            case model.deleteDataSetPrompt of
-                Just dataSetName ->
-                    model
-                        => (Request.DataSet.delete model.config dataSetName model.deleteCascadeOptions
-                                |> Remote.sendRequest
-                                |> Cmd.map DeleteResponse
-                           )
-
-                Nothing ->
-                    model => Cmd.none
-
-        DeleteResponse response ->
-            case response of
-                Remote.Success () ->
-                    { model
-                        | deleteDataSetPrompt = Nothing
-                        , deleteCascadeOptions = Set.empty
-                        , deleteConfirmInput = ""
-                        , deleteConfirmEnabled = False
-                        , deleteRequest = Remote.NotAsked
-                    }
-                        => loadDataSetList model.config model.currentPage model.pageSize
-
-                Remote.Failure err ->
-                    { model | deleteRequest = response }
-                        => Log.logHttpError err
-
-                _ ->
-                    { model | deleteRequest = response }
-                        => Cmd.none
+            { model | deleteDialogModel = deleteModel }
+                ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
 
@@ -186,19 +136,12 @@ view model =
                     [ Pager.view model.dataSetList ChangePage ]
                 ]
             ]
-        , Modal.view
-            (case model.deleteDataSetPrompt of
-                Just toDeleteDataSet ->
-                    Just
-                        { closeMessage = CancelDeleteDialog
-                        , header = Just deleteModalHeader
-                        , body = Just (deleteModalBody toDeleteDataSet model.deleteRequest)
-                        , footer = Just (deleteModalFooter model.deleteConfirmEnabled model.deleteRequest)
-                        }
-
-                Nothing ->
-                    Nothing
-            )
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete DataSet"
+            , bodyMessage = Just "This action cannot be undone but you can always upload it again in the future."
+            , associatedAssets = [ Cascade.View, Cascade.Session, Cascade.Model, Cascade.Vocabulary ]
+            }
+            |> Html.map DeleteDialogMsg
         ]
 
 
@@ -279,57 +222,3 @@ sizeToString dataSet =
         "-"
     else
         toString dataSet.dataSetSize ++ "B"
-
-
-deleteModalHeader : Html Msg
-deleteModalHeader =
-    h4 [ class "modal-title", style [ ( "color", "#fff" ), ( "font-weight", "700" ) ] ] [ text "Delete DataSet" ]
-
-
-deleteModalBody : DataSetName -> Remote.WebData () -> Html Msg
-deleteModalBody dataSetName deleteRequest =
-    div []
-        [ h5 []
-            [ text "Are you sure you want to delete "
-            , strong [] [ text (dataSetNameToString dataSetName) ]
-            , text "?"
-            ]
-        , p [] [ text "This action cannot be undone but you can always upload it again in the future." ]
-        , p [] [ text "Type ", strong [] [ text "\"DELETE\"" ], text "and then press \"confirm\" to delete." ]
-        , div [ class "row m10" ]
-            [ div [ class "col-sm-4" ]
-                [ div [ class "form-group" ]
-                    [ input [ class "form-control", placeholder "DELETE", onInput DeleteTextBoxChanged ] []
-                    ]
-                ]
-            ]
-        , div [ class "form-group" ]
-            [ p [ class "small" ] [ text "Do you want to delete associated assets?" ]
-            , div [ class "checkbox ml25" ]
-                [ label [] [ input [ type_ "checkbox", onCheck (CheckCascadeOption Cascade.View) ] [], text "Views" ] ]
-            , div [ class "checkbox ml25" ]
-                [ label [] [ input [ type_ "checkbox", onCheck (CheckCascadeOption Cascade.Session) ] [], text "Sessions" ] ]
-            , div [ class "checkbox ml25" ]
-                [ label [] [ input [ type_ "checkbox", onCheck (CheckCascadeOption Cascade.Model) ] [], text "Models" ] ]
-            , div [ class "checkbox ml25" ]
-                [ label [] [ input [ type_ "checkbox", onCheck (CheckCascadeOption Cascade.Vocabulary) ] [], text "Vocabulary" ] ]
-            ]
-        , viewRemoteError deleteRequest
-        ]
-
-
-deleteModalFooter : Bool -> Remote.WebData () -> Html Msg
-deleteModalFooter confirmEnabled deleteRequest =
-    let
-        deleteButton =
-            case deleteRequest of
-                Remote.Loading ->
-                    button [ class "btn btn-primary", disabled True, onClick DeleteDataSet ] [ spinner ]
-
-                _ ->
-                    button [ class "btn btn-primary", disabled (not confirmEnabled), onClick DeleteDataSet ] [ text "Confirm" ]
-    in
-    div []
-        [ button [ class "btn secondary", onClick CancelDeleteDialog ] [ text "Cancel" ]
-        , deleteButton
-        ]

@@ -65,7 +65,7 @@ decodeSession =
         |> required "messages" (Decode.list (Decode.dict Decode.string))
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
-        |> required "targetColumn" Decode.string
+        |> optional "targetColumn" Decode.string ""
 
 
 decodeSessionList : Decoder SessionList

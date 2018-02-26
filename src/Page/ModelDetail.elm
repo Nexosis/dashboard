@@ -9,11 +9,13 @@ import Data.PredictionDomain exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import List.Extra exposing (find)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Util exposing ((=>))
+import View.DeleteDialog as DeleteDialog
 import View.RelatedLinks as Related exposing (view)
 
 
@@ -22,6 +24,7 @@ type alias Model =
     , modelResponse : Remote.WebData ModelData
     , config : Config
     , modelType : PredictionDomain
+    , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
@@ -33,11 +36,13 @@ init config modelId =
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading config Regression => loadModelDetail
+    Model modelId Remote.Loading config Regression Nothing => loadModelDetail
 
 
 type Msg
     = ModelResponse (Remote.WebData ModelData)
+    | ShowDeleteDialog
+    | DeleteDialogMsg DeleteDialog.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -53,6 +58,35 @@ update msg model =
 
                 _ ->
                     model => Cmd.none
+
+        ShowDeleteDialog ->
+            let
+                modelName =
+                    "model " ++ model.modelId
+            in
+            { model | deleteDialogModel = Just (DeleteDialog.init modelName model.modelId) } => Cmd.none
+
+        DeleteDialogMsg subMsg ->
+            let
+                ignoreCascadeParams request _ =
+                    request
+
+                pendingDeleteCmd =
+                    Request.Model.delete model.config >> ignoreCascadeParams
+
+                ( ( deleteModel, cmd ), msgFromDialog ) =
+                    DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
+
+                closeCmd =
+                    case msgFromDialog of
+                        DeleteDialog.NoOp ->
+                            Cmd.none
+
+                        DeleteDialog.Confirmed ->
+                            Routes.modifyUrl Routes.Models
+            in
+            { model | deleteDialogModel = deleteModel }
+                ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
 view : Model -> Html Msg
@@ -88,7 +122,7 @@ view model =
                     ]
                 ]
             , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs secondary" ]
+                [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ]
                     [ i [ class "fa fa-trash-o mr5" ] []
                     , text "Delete"
                     ]
@@ -100,6 +134,12 @@ view model =
             , div [ class "col-sm-5" ] []
             , Related.view model.modelResponse
             ]
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Model"
+            , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
         ]
 
 
