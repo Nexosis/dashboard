@@ -1,8 +1,10 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
+import AppRoutes
+import Data.Cascade as Cascade
 import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats)
+import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
@@ -16,6 +18,7 @@ import Request.Log as Log
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
+import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
@@ -33,6 +36,7 @@ type alias Model =
     , columnResponse : Remote.WebData ColumnMetadataListing
     , tableState : Table.State
     , config : Config
+    , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
@@ -59,7 +63,7 @@ init config dataSetName =
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
     in
-    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config
+    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing
         => loadDataSetList
 
 
@@ -114,8 +118,9 @@ type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
     | StatsResponse (Remote.WebData DataSetStats)
     | SetTableState Table.State
-    | DeleteDataSet
     | ChangePage Int
+    | ShowDeleteDialog
+    | DeleteDialogMsg DeleteDialog.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -164,16 +169,38 @@ update msg model =
             { model | tableState = newState }
                 => Cmd.none
 
-        DeleteDataSet ->
-            -- show delete dialog here
-            model => Cmd.none
-
         ChangePage pageNumber ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnResponse
             in
             { model | columnResponse = columnListing } => cmd
+
+        ShowDeleteDialog ->
+            let
+                dsName =
+                    dataSetNameToString model.dataSetName
+            in
+            { model | deleteDialogModel = Just (DeleteDialog.init dsName dsName) } => Cmd.none
+
+        DeleteDialogMsg subMsg ->
+            let
+                pendingDeleteCmd =
+                    toDataSetName >> Request.DataSet.delete model.config
+
+                ( ( deleteModel, cmd ), msgFromDialog ) =
+                    DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
+
+                closeCmd =
+                    case msgFromDialog of
+                        DeleteDialog.NoOp ->
+                            Cmd.none
+
+                        DeleteDialog.Confirmed ->
+                            AppRoutes.modifyUrl AppRoutes.DataSets
+            in
+            { model | deleteDialogModel = deleteModel }
+                ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
@@ -231,6 +258,12 @@ view model =
                 , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
                 ]
             ]
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete DataSet"
+            , bodyMessage = Just "This action cannot be undone but you can always upload it again in the future."
+            , associatedAssets = [ Cascade.View, Cascade.Session, Cascade.Model, Cascade.Vocabulary ]
+            }
+            |> Html.map DeleteDialogMsg
         ]
 
 
@@ -251,7 +284,7 @@ viewIdRow model =
     div [ class "row" ]
         [ div [ class "col-sm-8" ] []
         , div [ class "col-sm-4 right" ]
-            [ button [ class "btn btn-xs secondary", onClick DeleteDataSet ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
+            [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
             ]
         ]
 
