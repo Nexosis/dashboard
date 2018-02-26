@@ -23,7 +23,7 @@ type alias SessionData =
     , messages : List (Dict String String)
     , name : String
     , dataSourceName : String
-    , targetColumn : String
+    , targetColumn : Maybe String
     }
 
 
@@ -54,6 +54,7 @@ decodeSession =
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
+        
 
 
 decodeSessionList : Decoder SessionList
