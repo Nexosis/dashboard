@@ -132,7 +132,7 @@ view model =
         , div [ class "row" ]
             [ div [ class "col-sm-4" ] (detailRow model)
             , div [ class "col-sm-5" ] []
-            , Related.view model.modelResponse
+            , Related.view model.config model.modelResponse
             ]
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"

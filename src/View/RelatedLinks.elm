@@ -1,9 +1,12 @@
 module View.RelatedLinks exposing (..)
 
+import AppRoutes as Routes exposing (fromApiUrl, routeToString)
+import Data.Config exposing (Config)
 import Data.Link exposing (Link)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import RemoteData as Remote
+import String.Extra as Extras exposing (replace)
 
 
 type alias LinkContainer a =
@@ -12,8 +15,8 @@ type alias LinkContainer a =
     }
 
 
-view : Remote.WebData (LinkContainer a) -> Html msg
-view linkedEntityResponse =
+view : Config -> Remote.WebData (LinkContainer a) -> Html msg
+view config linkedEntityResponse =
     case linkedEntityResponse of
         Remote.Success entity ->
             div [ class "col-sm-3", id "related" ]
@@ -28,7 +31,7 @@ view linkedEntityResponse =
                         , div [ class "panel-collapse collapse in" ]
                             [ div [ class "panel-body" ]
                                 [ ul []
-                                    (List.map linkList entity.links)
+                                    (List.map (linkList config) entity.links)
                                 ]
                             ]
                         ]
@@ -39,11 +42,31 @@ view linkedEntityResponse =
             span [] []
 
 
-linkList : Link -> Html msg
-linkList link =
+linkList : Config -> Link -> Html msg
+linkList config link =
     case link.rel of
         "train" ->
-            li [] [ a [ href link.href ] [ text "session" ] ]
+            listItem config link "session"
+
+        "data" ->
+            listItem config link "datasource"
 
         _ ->
             li [] []
+
+
+listItem : Config -> Link -> String -> Html msg
+listItem config link input =
+    li []
+        [ a [ href (linkTransform config link) ] [ text input ]
+        ]
+
+
+linkTransform : Config -> Link -> String
+linkTransform config link =
+    case fromApiUrl (Extras.replace "v2" "v1" config.baseUrl) link.href of
+        Just route ->
+            routeToString route
+
+        Nothing ->
+            ""
