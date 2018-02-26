@@ -17,29 +17,43 @@ type alias LinkContainer a =
 
 view : Config -> Remote.WebData (LinkContainer a) -> Html msg
 view config linkedEntityResponse =
+    div [ class "col-sm-3", id "related" ]
+        [ h5 [ class "mt15 mb15" ] [ text "Related" ]
+        , div [ class "accordion" ]
+            [ div [ class "panel" ]
+                [ div [ class "panel-heading" ] (layout config linkedEntityResponse)
+                ]
+            ]
+        ]
+
+
+layout : Config -> Remote.WebData (LinkContainer a) -> List (Html msg)
+layout config linkedEntityResponse =
     case linkedEntityResponse of
         Remote.Success entity ->
-            div [ class "col-sm-3", id "related" ]
-                [ h5 [ class "mt15 mb15" ] [ text "Related" ]
-                , div [ class "accordion" ]
-                    [ div [ class "panel" ]
-                        [ div [ class "panel-heading" ]
-                            [ h4 [ class "related-section" ]
-                                [ a [ href "#imports" ] [ i [ class "fa fa-plus-circle" ] [], text "Sessions" ]
-                                ]
-                            ]
-                        , div [ class "panel-collapse collapse in" ]
-                            [ div [ class "panel-body" ]
-                                [ ul []
-                                    (List.map (linkList config) entity.links)
-                                ]
-                            ]
-                        ]
+            [ h4 [ class "related-section" ]
+                [ a
+                    [ href "#imports" ]
+                    [ i [ class "fa fa-plus-circle" ] [], text "Sessions" ]
+                ]
+            , div [ class "panel-collapse collapse in" ]
+                [ div [ class "panel-body" ]
+                    [ ul []
+                        (List.map (linkList config) entity.links)
                     ]
                 ]
+            ]
+
+        Remote.Loading ->
+            [ h4 [ class "related-section" ]
+                [ a
+                    [ href "#imports" ]
+                    []
+                ]
+            ]
 
         _ ->
-            span [] []
+            []
 
 
 linkList : Config -> Link -> Html msg
