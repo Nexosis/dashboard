@@ -3,7 +3,7 @@ module Data.Response exposing (Message, Response, ResponseError, Severity(..), d
 import AppRoutes exposing (Route)
 import Dict exposing (Dict)
 import Http
-import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, string, succeed)
+import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, oneOf, string, succeed)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 
@@ -121,4 +121,9 @@ decodeResponseBodyError =
         |> required "statusCode" int
         |> required "message" string
         |> optional "errorType" (nullable string) Nothing
-        |> optional "errorDetails" (dict string) Dict.empty
+        |> optional "errorDetails" (dict decodeErrorDetailValue) Dict.empty
+
+
+decodeErrorDetailValue : Decoder String
+decodeErrorDetailValue =
+    oneOf [ string, list string |> andThen (\l -> succeed (toString l)) ]

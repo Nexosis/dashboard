@@ -34,8 +34,17 @@ type alias Model =
     , fileName : String
     , fileUploadType : FileUploadType
     , fileUploadErrorOccurred : Bool
+    , importUrl : String
     , uploadResponse : Remote.WebData ()
     }
+
+
+type UploadType
+    = FileUpload
+    | UrlUpload
+    | PasteIn
+    | Azure
+    | AWS
 
 
 type Step
@@ -44,9 +53,9 @@ type Step
 
 
 type Tab
-    = Upload
-    | Import
-    | PasteIn
+    = FileUploadTab
+    | UrlImportTab
+    | PasteInTab
 
 
 type FileReadStatus
@@ -110,7 +119,7 @@ init config =
         steps =
             Ziplist.create ChooseUploadType [ SetKey ]
     in
-    Model config steps False "" "" Upload "" "" Other False Remote.NotAsked
+    Model config steps False "" "" FileUploadTab "" "" Other False "" Remote.NotAsked
         => Cmd.none
 
 
@@ -143,6 +152,7 @@ type Msg
     | ChangeTab Tab
     | FileSelected
     | FileContentRead Json.Decode.Value
+    | ImportUrlInputChange String
     | CreateDataSet
     | UploadDataSetResponse (Remote.WebData ())
 
@@ -196,6 +206,9 @@ update msg model =
                             { model | fileUploadErrorOccurred = True }
             in
             m => Cmd.none
+
+        ( ChooseUploadType, ImportUrlInputChange url ) ->
+            { model | importUrl = url } => Cmd.none
 
         ( SetKey, ChangeKey key ) ->
             { model | key = key } => Cmd.none
@@ -327,9 +340,9 @@ viewTabControl : Model -> Html Msg
 viewTabControl model =
     let
         tabHeaders =
-            [ li [ classList [ ( "active", model.activeTab == Upload ) ] ] [ a [ onClick (ChangeTab Upload) ] [ text "Upload" ] ]
-            , li [ classList [ ( "active", model.activeTab == Import ) ] ] [ a [ onClick (ChangeTab Import) ] [ text "Import from URL" ] ]
-            , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ onClick (ChangeTab PasteIn) ] [ text "Paste DataSet" ] ]
+            [ li [ classList [ ( "active", model.activeTab == FileUploadTab ) ] ] [ a [ onClick (ChangeTab FileUploadTab) ] [ text "Upload" ] ]
+            , li [ classList [ ( "active", model.activeTab == FileUploadTab ) ] ] [ a [ onClick (ChangeTab FileUploadTab) ] [ text "Import from URL" ] ]
+            , li [ classList [ ( "active", model.activeTab == PasteInTab ) ] ] [ a [ onClick (ChangeTab PasteInTab) ] [ text "Paste DataSet" ] ]
             ]
     in
     ul [ class "nav nav-tabs", attribute "role" "tablist" ]
@@ -341,13 +354,13 @@ viewTabContent model =
     let
         content =
             case model.activeTab of
-                Upload ->
+                FileUploadTab ->
                     viewUploadTab model
 
-                Import ->
+                UrlImportTab ->
                     viewImportUrlTab model
 
-                PasteIn ->
+                PasteInTab ->
                     viewPasteInTab model
     in
     div [ class "tab-content" ]
@@ -392,9 +405,17 @@ viewImportUrlTab : Model -> Html Msg
 viewImportUrlTab model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            []
+            [ div [ class "form-group col-sm-8" ]
+                [ label [] [ text "File URL" ]
+                , input [ class "form-control", onInput ImportUrlInputChange ] []
+                ]
+            ]
         , div [ class "col-sm-6" ]
-            []
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "How to import from a URL" ]
+                , p [] [ text "URL instructions go here" ]
+                ]
+            ]
         ]
 
 
