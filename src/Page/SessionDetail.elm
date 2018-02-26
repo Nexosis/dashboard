@@ -39,19 +39,36 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    p [ class "breadcrumb" ]
-    [ span []
-        [ a [ AppRoutes.href AppRoutes.Home ]
-            [ text "API Dashboard" ]
+    div[]
+    [
+        p [ class "breadcrumb" ]
+        [ span []
+            [ a [ AppRoutes.href AppRoutes.Home ]
+                [ text "API Dashboard" ]
+            ]
+        , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
+            []
+        , span []
+            [ a [ AppRoutes.href AppRoutes.Sessions ]
+                [ text "Sessions" ]
+            ]
         ]
-    , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
-        []
-    , span []
-        [ a [ AppRoutes.href AppRoutes.Sessions ]
-            [ text "Sessions" ]
+        , div [class "row"]
+        [ viewSessionName model
         ]
     ]
 
+viewSessionName : Model -> Html Msg
+viewSessionName model = 
+    case model.sessionResponse of
+        Remote.Success resp ->
+            div [class "col-sm-9"]
+                [h2 [class "mt10"][text resp.name]
+            ]
+        Remote.Loading ->
+                div [ class "loading--line" ] [] 
+        _ ->
+                div [] []
 
 init : Config -> String -> ( Model, Cmd Msg )
 init config sessionId =
