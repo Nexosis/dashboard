@@ -80,7 +80,7 @@ update msg model =
                 => loadSessionList model.config 0 pageSize
 
         ShowDeleteDialog sessionData ->
-            { model | deleteDialogModel = Just (DeleteDialog.init sessionData.sessionId sessionData.name) }
+            { model | deleteDialogModel = Just (DeleteDialog.init sessionData.name sessionData.sessionId) }
                 => Cmd.none
 
         DeleteDialogMsg subMsg ->
