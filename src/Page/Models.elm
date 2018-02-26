@@ -71,7 +71,7 @@ update msg model =
                 displayName =
                     "model " ++ modelData.modelId
             in
-            { model | deleteDialogModel = Just (DeleteDialog.init modelData.modelId displayName) }
+            { model | deleteDialogModel = Just (DeleteDialog.init displayName modelData.modelId) }
                 => Cmd.none
 
         DeleteDialogMsg subMsg ->

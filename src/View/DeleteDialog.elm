@@ -10,7 +10,7 @@ import Request.Log as Log
 import Set
 import Util exposing ((=>), spinner)
 import View.Error exposing (viewRemoteError)
-import View.Extra exposing (viewJust)
+import View.Extra exposing (viewIfElements, viewJust)
 import View.Modal as Modal
 
 
@@ -163,11 +163,15 @@ deleteModalBody model deleteConfig =
                     ]
                 ]
             ]
-        , div [ class "form-group" ]
-            [ p [ class "small" ] <|
-                text "Do you want to delete associated assets?"
-                    :: List.map cascadeCheckbox deleteConfig.associatedAssets
-            ]
+        , viewIfElements
+            (\() ->
+                div [ class "form-group" ]
+                    [ p [ class "small" ] <|
+                        text "Do you want to delete associated assets?"
+                            :: List.map cascadeCheckbox deleteConfig.associatedAssets
+                    ]
+            )
+            deleteConfig.associatedAssets
         , viewRemoteError model.deleteResponse
         ]
 
