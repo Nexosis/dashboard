@@ -1,6 +1,7 @@
 module Data.Session exposing (..)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.Link exposing (..)
 import Data.PredictionDomain exposing (..)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, float, int, list, map2, string, succeed)
@@ -36,6 +37,7 @@ type alias SessionData =
     , name : String
     , dataSourceName : String
     , targetColumn : String
+    , links : List Link
     }
 
 
@@ -66,6 +68,7 @@ decodeSession =
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
+        |> required "links" (Decode.list linkDecoder)
 
 
 decodeSessionList : Decoder SessionList

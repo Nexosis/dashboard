@@ -65,6 +65,9 @@ linkList config link =
         "data" ->
             listItem config link "datasource"
 
+        "model" ->
+            listItem config link "model"
+
         _ ->
             li [] []
 

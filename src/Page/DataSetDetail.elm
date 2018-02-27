@@ -5,6 +5,8 @@ import Data.Cascade as Cascade
 import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.Link exposing (Link, linkDecoder)
+import Data.Session exposing (SessionData, SessionList)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
@@ -15,6 +17,7 @@ import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log
+import Request.Session exposing (getForDataset)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
@@ -37,6 +40,7 @@ type alias Model =
     , tableState : Table.State
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
+    , sessionLinks : List Link
     }
 
 
@@ -58,13 +62,16 @@ type alias ColumnInfo =
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
-        loadDataSetList =
-            Request.DataSet.getRetrieveDetail config dataSetName
-                |> Remote.sendRequest
-                |> Cmd.map DataSetDataResponse
+        loadData =
+            Cmd.batch
+                [ Request.DataSet.getRetrieveDetail config dataSetName
+                    |> Remote.sendRequest
+                    |> Cmd.map DataSetDataResponse
+                , loadRelatedSessions config dataSetName
+                ]
     in
-    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing
-        => loadDataSetList
+    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing []
+        => loadData
 
 
 mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
@@ -110,6 +117,13 @@ mergeListingAndStats metadataListing stats =
     { metadataListing | metadataList = updatedListing }
 
 
+loadRelatedSessions : Config -> DataSetName -> Cmd Msg
+loadRelatedSessions config dataset =
+    getForDataset config dataset
+        |> Remote.sendRequest
+        |> Cmd.map SessionDataListResponse
+
+
 
 -- UPDATE --
 
@@ -121,6 +135,7 @@ type Msg
     | ChangePage Int
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
+    | SessionDataListResponse (Remote.WebData SessionList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -201,6 +216,23 @@ update msg model =
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
+
+        SessionDataListResponse listResp ->
+            case listResp of
+                Remote.Success sessionList ->
+                    let
+                        subList =
+                            List.map (\s -> s.links) sessionList.items
+                                |> List.concat
+                                |> List.filter (\l -> l.rel == "self")
+                    in
+                    { model | sessionLinks = subList } => Cmd.none
+
+                Remote.Failure err ->
+                    model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
+
+                _ ->
+                    model => Cmd.none
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
