@@ -24,6 +24,7 @@ import VegaLite exposing (Spec)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.Pager as Pager
+import View.RelatedLinks as Related exposing (view)
 import View.Tooltip exposing (helpIcon)
 
 
@@ -40,7 +41,7 @@ type alias Model =
     , tableState : Table.State
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
-    , sessionLinks : List Link
+    , sessionLinks : SessionLinks
     }
 
 
@@ -59,6 +60,11 @@ type alias ColumnInfo =
     }
 
 
+type alias SessionLinks =
+    { links : List Link
+    }
+
+
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
@@ -70,7 +76,7 @@ init config dataSetName =
                 , loadRelatedSessions config dataSetName
                 ]
     in
-    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing []
+    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing (SessionLinks [])
         => loadData
 
 
@@ -226,7 +232,7 @@ update msg model =
                                 |> List.concat
                                 |> List.filter (\l -> l.rel == "self")
                     in
-                    { model | sessionLinks = subList } => Cmd.none
+                    { model | sessionLinks = SessionLinks subList } => Cmd.none
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
@@ -326,7 +332,7 @@ viewDetailsRow model =
     div [ class "row" ]
         [ viewRolesCol model
         , viewDetailsCol model
-        , viewRelatedCol model
+        , Related.view model.config (Remote.succeed model.sessionLinks)
         ]
 
 
@@ -460,16 +466,6 @@ viewDetailsCol model =
             [ strong [] [ text "Modified: " ]
             , modified
             ]
-        ]
-
-
-viewRelatedCol : Model -> Html Msg
-viewRelatedCol model =
-    div [ class "col-sm-3", id "related" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Related" ]
-
-        -- todo : accordion thing
-        , div [] []
         ]
 
 
