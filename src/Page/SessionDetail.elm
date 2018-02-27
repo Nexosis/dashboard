@@ -53,40 +53,60 @@ view model =
                 [ text "Sessions" ]
             ]
         ]
-        , div [class "row"]
-        [ viewSessionName model
-        ,div [ class "col-sm-3" ]
-            [ div [ class "mt10 right" ]
-                [ button [ class "btn" ]
-                    [ text "Predict" ]
-                ]
-            ]
-        ]
-        , div [ class "row" ]
-            [ viewSessionId model
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong []
-                        [ text "Session Type:" ]
-                    , text "Classification"
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs other" ]
-                    [ i [ class "fa fa-repeat mr5" ]
-                        []
-                    , text "Iterate session"
-                    ]
-                , button [ class "btn btn-xs secondary" ]
-                    [ i [ class "fa fa-trash-o mr5" ]
-                        []
-                    , text "Delete"
-                    ]
-                ]
-            ]
+        , viewSessionHeader model
+        , viewSessionDetails model
     ]
-loadingOr : Remote.WebData SessionData -> (SessionData -> Html Msg) -> Html Msg
-loadingOr request view =
+
+viewSessionDetails : Model -> Html Msg
+viewSessionDetails model = 
+    div [class "row"]
+        [
+            
+        ]
+
+
+viewSessionHeader : Model -> Html Msg
+viewSessionHeader model = 
+    let 
+        loadingOr = loadingOrView model.sessionResponse
+    in
+        div[]
+        [
+        div [class "row"]
+            [ loadingOr viewSessionName
+            ,div [ class "col-sm-3" ]
+                [ div [ class "mt10 right" ]
+                    [ button [ class "btn" ]
+                        [ text "Predict" ]
+                    ]
+                ]
+            ]
+            , div [ class "row" ]
+                [ loadingOr viewSessionId
+                , div [ class "col-sm-4" ]
+                    [ p [ class "small" ]
+                        [ strong []
+                            [ text "Session Type:" ]
+                        , text "Classification"
+                        ]
+                    ]
+                , div [ class "col-sm-4 right" ]
+                    [ button [ class "btn btn-xs other" ]
+                        [ i [ class "fa fa-repeat mr5" ]
+                            []
+                        , text "Iterate session"
+                        ]
+                    , button [ class "btn btn-xs secondary" ]
+                        [ i [ class "fa fa-trash-o mr5" ]
+                            []
+                        , text "Delete"
+                        ]
+                    ]
+                ]
+        ]
+
+loadingOrView : Remote.WebData SessionData -> (SessionData -> Html Msg) -> Html Msg
+loadingOrView request view =
     case request of
         Remote.Success resp ->
             view resp
@@ -96,32 +116,27 @@ loadingOr request view =
         _ ->
             div [] []
 
-viewSessionName : Model -> Html Msg
-viewSessionName model = 
-    let 
-        name resp =
-            div [class "col-sm-9"]
-                [h2 [class "mt10"][text resp.name]
-            ]
-    in
-        loadingOr model.sessionResponse name
+
+viewSessionName : SessionData -> Html Msg
+viewSessionName resp = 
+    div [class "col-sm-9"]
+        [h2 [class "mt10"][text resp.name]
+    ]
     
 
-viewSessionId model = 
-    let
-        id resp = div [ class "col-sm-4" ]
-                    [ p [ class "small" ]
-                        [ strong []
-                            [ text "Session ID:" ]
-                        , text resp.sessionId
-                        , a []
-                            [ i [ class "fa fa-copy color-mediumGray" ]
-                                []
-                            ]
-                        ]
-                    ]
-    in
-        loadingOr model.sessionResponse id
+viewSessionId : SessionData -> Html Msg
+viewSessionId resp = 
+    div [ class "col-sm-4" ]
+        [ p [ class "small" ]
+            [ strong []
+                [ text "Session ID:" ]
+            , text resp.sessionId
+            , a []
+                [ i [ class "fa fa-copy color-mediumGray" ]
+                    []
+                ]
+            ]
+        ]
 
 init : Config -> String -> ( Model, Cmd Msg )
 init config sessionId =
