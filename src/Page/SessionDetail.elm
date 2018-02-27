@@ -55,20 +55,73 @@ view model =
         ]
         , div [class "row"]
         [ viewSessionName model
+        ,div [ class "col-sm-3" ]
+            [ div [ class "mt10 right" ]
+                [ button [ class "btn" ]
+                    [ text "Predict" ]
+                ]
+            ]
         ]
+        , div [ class "row" ]
+            [ viewSessionId model
+            , div [ class "col-sm-4" ]
+                [ p [ class "small" ]
+                    [ strong []
+                        [ text "Session Type:" ]
+                    , text "Classification"
+                    ]
+                ]
+            , div [ class "col-sm-4 right" ]
+                [ button [ class "btn btn-xs other" ]
+                    [ i [ class "fa fa-repeat mr5" ]
+                        []
+                    , text "Iterate session"
+                    ]
+                , button [ class "btn btn-xs secondary" ]
+                    [ i [ class "fa fa-trash-o mr5" ]
+                        []
+                    , text "Delete"
+                    ]
+                ]
+            ]
     ]
+loadingOr : Remote.WebData SessionData -> (SessionData -> Html Msg) -> Html Msg
+loadingOr request view =
+    case request of
+        Remote.Success resp ->
+            view resp
+
+        Remote.Loading ->
+            div [ class "loading--line" ] [] 
+        _ ->
+            div [] []
 
 viewSessionName : Model -> Html Msg
 viewSessionName model = 
-    case model.sessionResponse of
-        Remote.Success resp ->
+    let 
+        name resp =
             div [class "col-sm-9"]
                 [h2 [class "mt10"][text resp.name]
             ]
-        Remote.Loading ->
-                div [ class "loading--line" ] [] 
-        _ ->
-                div [] []
+    in
+        loadingOr model.sessionResponse name
+    
+
+viewSessionId model = 
+    let
+        id resp = div [ class "col-sm-4" ]
+                    [ p [ class "small" ]
+                        [ strong []
+                            [ text "Session ID:" ]
+                        , text resp.sessionId
+                        , a []
+                            [ i [ class "fa fa-copy color-mediumGray" ]
+                                []
+                            ]
+                        ]
+                    ]
+    in
+        loadingOr model.sessionResponse id
 
 init : Config -> String -> ( Model, Cmd Msg )
 init config sessionId =
