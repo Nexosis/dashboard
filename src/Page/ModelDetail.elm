@@ -9,7 +9,9 @@ import Data.PredictionDomain exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import List.Extra exposing (find)
+import Page.ModelPredict as ModelPredict
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
@@ -24,27 +26,8 @@ type alias Model =
     , config : Config
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
+    , predictModel : Maybe ModelPredict.Model
     }
-
-
-type Tab
-    = Upload
-    | Import
-
-
-
---    | PasteIn
-
-
-type FileReadStatus
-    = ReadError
-    | Success String String
-
-
-type FileUploadType
-    = Json
-    | Csv
-    | Other
 
 
 init : Config -> String -> ( Model, Cmd Msg )
@@ -55,12 +38,13 @@ init config modelId =
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading config Regression => loadModelDetail
+    Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
 
 
 type Msg
     = ModelResponse (Remote.WebData ModelData)
     | TogglePredict
+    | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
 
@@ -78,6 +62,30 @@ update msg model =
 
                 _ ->
                     model => Cmd.none
+
+        TogglePredict ->
+            let
+                predictModel =
+                    case model.predictModel of
+                        Nothing ->
+                            Just (ModelPredict.init model.modelId)
+
+                        Just _ ->
+                            Nothing
+            in
+            { model | predictModel = predictModel } => Cmd.none
+
+        ModelPredictMsg subMsg ->
+            let
+                ( predictModel, cmd ) =
+                    case model.predictModel of
+                        Just predictModel ->
+                            ModelPredict.update subMsg predictModel |> Tuple.mapFirst Just
+
+                        Nothing ->
+                            ( Nothing, Cmd.none )
+            in
+            { model | predictModel = predictModel } => Cmd.map ModelPredictMsg cmd
 
         ShowDeleteDialog ->
             let
@@ -107,9 +115,6 @@ update msg model =
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
-
-        TogglePredict ->
-            { model | predictShown = not model.predictShown } => Cmd.none
 
 
 view : Model -> Html Msg
@@ -157,7 +162,25 @@ view model =
             , div [ class "col-sm-5" ] []
             , Related.view model.config model.modelResponse
             ]
+        , hr [] []
+        , renderPredict model
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Model"
+            , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
         ]
+
+
+renderPredict : Model -> Html Msg
+renderPredict model =
+    case model.predictModel of
+        Just predictModel ->
+            ModelPredict.view predictModel |> Html.map ModelPredictMsg
+
+        Nothing ->
+            div [] []
 
 
 dataSourceName : Model -> Html Msg
@@ -202,111 +225,6 @@ detailRow model =
 
         _ ->
             [ text "Not found" ]
-
-
-viewTabControl : Model -> Html Msg
-viewTabControl model =
-    let
-        tabHeaders =
-            [ li [ classList [ ( "active", model.activeTab == Upload ) ] ] [ a [ onClick (ChangeTab Upload) ] [ text "Upload" ] ]
-            , li [ classList [ ( "active", model.activeTab == Import ) ] ] [ a [ onClick (ChangeTab Import) ] [ text "Import from URL" ] ]
-
-            --, li [ classList [ ( "active", model.activeTab == PasteIn) ] ] [ a [ onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
-            ]
-    in
-    ul [ class "nav nav-tabs", attribute "role" "tablist" ]
-        tabHeaders
-
-
-viewTabContent : Model -> Html Msg
-viewTabContent model =
-    let
-        content =
-            case model.activeTab of
-                Upload ->
-                    viewUploadTab model
-
-                Import ->
-                    viewImportUrlTab model
-
-        -- PasteIn ->
-        --     viewPasteInTab model
-    in
-    div [ class "tab-content" ]
-        [ div [ class "tab-pane active" ]
-            [ content ]
-        ]
-
-
-viewUploadTab : Model -> Html Msg
-viewUploadTab model =
-    div [ class "row" ]
-        [ div [ class "col-sm-6" ]
-            [ div [ class "form-group col-sm-8" ]
-                [ input [ class "upload-dataset", id "upload-dataset", type_ "file" ]
-                    []
-                , label [ for "upload-dataset" ]
-                    [ text "Select your file" ]
-                ]
-            ]
-        , div [ class "col-sm-6" ]
-            [ div [ class "alert alert-info" ]
-                [ h5 []
-                    [ text "How to upload a CSV" ]
-                , p []
-                    [ text "CSV instructions go here" ]
-                ]
-            ]
-        ]
-
-
-viewImportUrlTab : Model -> Html Msg
-viewImportUrlTab model =
-    div [ class "row" ]
-        [ div [ class "col-sm-6" ]
-            [ div [ class "form-group col-sm-8" ]
-                [ label []
-                    [ text "File URL" ]
-                , input [ class "form-control", type_ "text" ]
-                    []
-                ]
-            , div [ class "form-group col-sm-8" ]
-                [ button [ class "btn" ]
-                    [ i [ class "fa fa-upload mr5" ]
-                        []
-                    , text "Import"
-                    ]
-                ]
-            ]
-        , div [ class "col-sm-6" ]
-            [ div [ class "alert alert-info" ]
-                [ h5 []
-                    [ text "How to import from a URL" ]
-                , p []
-                    [ text "URL instructions go here" ]
-                ]
-            ]
-        ]
-
-
-predictWizard : Model -> List (Html Msg)
-predictWizard model =
-    if model.predictShown then
-        [ div [ class "collapse in", id "predict" ]
-            [ div [ class "row" ]
-                [ div [ class "col-sm-12" ]
-                    [ h3 [ class "mt0" ]
-                        [ text "Choose prediction file" ]
-                    ]
-                , div [ class "col-sm-12" ]
-                    [ viewTabControl model
-                    , viewTabContent model
-                    ]
-                ]
-            ]
-        ]
-    else
-        [ div [] [] ]
 
 
 metricsList : Dict String Float -> Html Msg
