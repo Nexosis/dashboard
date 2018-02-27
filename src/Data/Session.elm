@@ -24,6 +24,7 @@ type alias SessionData =
     , name : String
     , dataSourceName : String
     , targetColumn : Maybe String
+    , modelId : Maybe String
     }
 
 
@@ -54,6 +55,7 @@ decodeSession =
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
+        |> optional "modelId" (Decode.map Just string) Nothing
         
 
 

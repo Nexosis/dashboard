@@ -13,6 +13,7 @@ import AppRoutes
 import List exposing (head, filter)
 import Data.Columns exposing (ColumnMetadata)
 import Data.Columns as Role exposing (Role)
+import Data.DataSet exposing (toDataSetName)
 
 type alias Model =
     { sessionId : String
@@ -80,7 +81,7 @@ viewSessionHeader model =
             ,div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
                     [ button [ class "btn" ]
-                        [ text "Predict" ]
+                        [ text "(TODO) Predict" ]
                     ]
                 ]
             ]
@@ -138,6 +139,21 @@ viewPendingSession session =
     h5 [ class "mb15" ]
     [ text "Session Status" ]
 
+modelLink : SessionData -> Html Msg
+modelLink session =
+    case session.modelId of
+        Nothing ->
+            div [][]
+        Just modelId ->
+            p []
+            [ strong []
+                [ text "Model: " ]
+            , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
+                [ text session.name ]
+            ]
+        
+
+
 viewCompletedSession : SessionData -> Html Msg
 viewCompletedSession session = 
     let
@@ -170,16 +186,11 @@ viewCompletedSession session =
         div []
         [ h5 [ class "mt15 mb15" ]
             [ text "Details" ]
-        , p []
-            [ strong []
-                [ text "Model: " ]
-            , a [ href "#" ]
-                [ text "{ModelName}" ]
-            ]
+        , modelLink session
         , p []
             [ strong []
                 [ text "Source: " ]
-            , a [ href "#" ]
+            , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
                 [ text session.dataSourceName ]
             ]
         , p []
