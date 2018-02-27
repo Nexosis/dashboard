@@ -3,16 +3,13 @@ module Data.Session exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
+import Data.Algorithm exposing (..)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, float, int, list, map2, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
-type alias Algorithm = 
-    { key : Maybe String
-    , name : String
-    , description : String
-    }
+
 
 type alias SessionData =
     { sessionId : String
@@ -65,14 +62,6 @@ decodeSession =
         |> optional "modelId" (Decode.map Just string) Nothing
         |> required "algorithm" (decodeAlgorithm)
         
-
-decodeAlgorithm : Decoder Algorithm
-decodeAlgorithm = 
-    decode Algorithm
-        |> optional "key" (Decode.map Just string) Nothing
-        |> required "name" Decode.string
-        |> required "description" Decode.string
-
 
 decodeSessionList : Decoder SessionList
 decodeSessionList =
