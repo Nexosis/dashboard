@@ -6,7 +6,6 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (getOne)
 import Request.Session exposing (..)
 import Util exposing ((=>))
 import AppRoutes

@@ -30,7 +30,6 @@ import Time.DateTime as DateTime
 import Util exposing ((=>))
 import View.Page as Page
 
-
 ---- MODEL ----
 
 
