@@ -3,35 +3,42 @@ module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view
 import Data.Config exposing (Config)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Json.Decode exposing (succeed)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import RemoteData as Remote
+import Request.Model exposing (predict)
 import Util exposing ((=>))
 
 
 type alias Model =
-    { modelId : String
+    { config : Config
+    , modelId : String
     , activeTab : Tab
+    , inputType : InputType
     , fileContent : String
     , fileName : String
-    , fileUploadType : FileUploadType
     , fileUploadErrorOccurred : Bool
+    , dataInput : Maybe String
+    , canProceedWithPrediction : Bool
     , uploadResponse : Remote.WebData ()
     }
 
 
-init : String -> Model
-init modelId =
-    Model modelId Upload "" "" Csv False Remote.NotAsked
+init : Config -> String -> Model
+init config modelId =
+    Model config modelId Upload Json "" "" False Nothing False Remote.NotAsked
 
 
 type Msg
     = ChangeTab Tab
     | FileSelected
     | FileContentRead Json.Decode.Value
+    | InputTypeSelected InputType
+    | DataInputChanged String
     | DataEntered
     | PredictionStarted
+    | PredictResponse (Remote.WebData ())
 
 
 type Tab
@@ -44,7 +51,7 @@ type FileReadStatus
     | Success String String
 
 
-type FileUploadType
+type InputType
     = Json
     | Csv
     | Other
@@ -67,7 +74,7 @@ fileReadStatusDecoder =
             )
 
 
-filenameToType : String -> FileUploadType
+filenameToType : String -> InputType
 filenameToType name =
     let
         lowerString =
@@ -81,8 +88,8 @@ filenameToType name =
         Other
 
 
-fileUploadTypeToContentType : FileUploadType -> String
-fileUploadTypeToContentType uploadType =
+inputTypeToContentType : InputType -> String
+inputTypeToContentType uploadType =
     case uploadType of
         Json ->
             "application/json"
@@ -98,7 +105,22 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         ChangeTab tab ->
-            { model | activeTab = tab } => Cmd.none
+            -- if we are switching to `Upload`, it's not available, if switching to `PasteIn`, it is available if content is available
+            let
+                hasData =
+                    case tab of
+                        Upload ->
+                            False
+
+                        PasteIn ->
+                            case model.dataInput of
+                                Just _ ->
+                                    True
+
+                                Nothing ->
+                                    False
+            in
+            { model | activeTab = tab, canProceedWithPrediction = hasData } => Cmd.none
 
         FileSelected ->
             model => Cmd.none
@@ -106,10 +128,40 @@ update msg model =
         FileContentRead content ->
             model => Cmd.none
 
+        InputTypeSelected selection ->
+            { model | inputType = selection } => Cmd.none
+
+        DataInputChanged content ->
+            let
+                value =
+                    if String.isEmpty content then
+                        Nothing
+                    else
+                        Just content
+            in
+            { model | dataInput = value, canProceedWithPrediction = not (String.isEmpty content) } => Cmd.none
+
         DataEntered ->
             model => Cmd.none
 
         PredictionStarted ->
+            let
+                value =
+                    case model.dataInput of
+                        Just input ->
+                            input
+
+                        Nothing ->
+                            ""
+
+                predictRequest =
+                    predict model.config model.modelId value (inputTypeToContentType model.inputType)
+                        |> Remote.sendRequest
+                        |> Cmd.map PredictResponse
+            in
+            { model | uploadResponse = Remote.Loading } => predictRequest
+
+        PredictResponse response ->
             model => Cmd.none
 
 
@@ -121,7 +173,12 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div [ class "row" ]
-        [ div [ class "col-sm-12" ] (predictWizard model) ]
+        [ div [ class "col-sm-12" ] (predictWizard model)
+        , div [ class "col-sm-12" ]
+            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick PredictionStarted ]
+                [ text "Start predictions" ]
+            ]
+        ]
 
 
 predictWizard : Model -> List (Html Msg)
@@ -194,20 +251,22 @@ viewUploadTab model =
 
 viewPasteData : Model -> Html Msg
 viewPasteData model =
+    let
+        value =
+            case model.dataInput of
+                Just input ->
+                    input
+
+                Nothing ->
+                    ""
+    in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            [ div [ class "form-group col-sm-8" ]
+            [ div [ class "form-group" ]
                 [ label []
-                    [ text "File URL" ]
-                , input [ class "form-control", type_ "text" ]
-                    []
-                ]
-            , div [ class "form-group col-sm-8" ]
-                [ button [ class "btn" ]
-                    [ i [ class "fa fa-upload mr5" ]
-                        []
-                    , text "Import"
-                    ]
+                    [ text "Enter Data" ]
+                , textarea [ class "form-control", rows 20, cols 75, onInput DataInputChanged ]
+                    [ text value ]
                 ]
             ]
         , div [ class "col-sm-6" ]
@@ -215,7 +274,7 @@ viewPasteData model =
                 [ h5 []
                     [ text "How to enter data" ]
                 , p []
-                    [ text "Past instructions go here" ]
+                    [ text "Paste instructions go here" ]
                 ]
             ]
         ]

@@ -68,7 +68,7 @@ update msg model =
                 predictModel =
                     case model.predictModel of
                         Nothing ->
-                            Just (ModelPredict.init model.modelId)
+                            Just (ModelPredict.init model.config model.modelId)
 
                         Just _ ->
                             Nothing
