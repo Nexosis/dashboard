@@ -24,7 +24,7 @@ type alias ModelData =
     , columns : List ColumnMetadata
     , createdDate : DateTime
     , algorithm : Algorithm
-    , modelName : String
+    , modelName : Maybe String
     , metrics : Dict String Float
     , links : List Link
     }
@@ -81,6 +81,6 @@ decodeModel =
         |> required "columns" decodeColumnMetadata
         |> required "createdDate" stringToDate
         |> required "algorithm" decodeAlgorithm
-        |> required "modelName" Decode.string
+        |> optional "modelName" (Decode.map Just string) Nothing
         |> required "metrics" (Decode.dict float)
         |> required "links" (Decode.list linkDecoder)

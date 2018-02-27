@@ -188,7 +188,7 @@ nameColumn =
     Grid.veryCustomColumn
         { name = "Name"
         , viewData = modelNameCell
-        , sorter = Table.increasingOrDecreasingBy .modelName
+        , sorter = Table.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
         , headAttributes = [ class "left per30" ]
         , headHtml = []
         }
@@ -197,8 +197,18 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails Msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text model.modelName ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
         ]
+
+
+modelOrDataSourceName : ModelData -> String
+modelOrDataSourceName model =
+    case model.modelName of
+        Just name ->
+            name
+
+        Nothing ->
+            model.dataSourceName
 
 
 predictActionColumn : Grid.Column ModelData Msg
