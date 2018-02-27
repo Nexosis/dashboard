@@ -1,22 +1,22 @@
-module Request.Model exposing (delete, get, getOne)
+module Request.Session exposing (..)
 
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.Model exposing (ModelData, ModelList, decodeModel, decodeModelList)
+import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 
 
-get : Config -> Int -> Int -> Http.Request ModelList
+get : Config -> Int -> Int -> Http.Request SessionList
 get { baseUrl, token } page pageSize =
     let
         expect =
-            decodeModelList
+            decodeSessionList
                 |> Http.expectJson
 
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/models")
+    (baseUrl ++ "/sessions")
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> HttpBuilder.withQueryParams params
@@ -32,21 +32,21 @@ pageParams page pageSize =
 
 
 delete : Config -> String -> Http.Request ()
-delete { baseUrl, token } modelId =
-    (baseUrl ++ "/models/" ++ modelId)
+delete { baseUrl, token } sessionId =
+    (baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.delete
         |> withAuthorization token
         |> HttpBuilder.toRequest
 
 
-getOne : Config -> String -> Http.Request ModelData
-getOne { baseUrl, token } modelId =
+getOne : Config -> String -> Http.Request SessionData
+getOne { baseUrl, token } sessionId =
     let
         expect =
-            decodeModel
+            decodeSession
                 |> Http.expectJson
     in
-    (baseUrl ++ "/models/" ++ modelId)
+    (baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> withAuthorization token
