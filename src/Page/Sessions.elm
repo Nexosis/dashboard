@@ -4,20 +4,17 @@ import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.Session exposing (..)
+import Data.Status exposing (Status(..))
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import RemoteData as Remote
-import Request.Log as Log
 import Request.Session exposing (get)
-import Set exposing (Set)
 import Table
 import Util exposing ((=>), spinner, toShortDateString)
 import View.DeleteDialog as DeleteDialog
-import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
-import View.Modal as Modal
 import View.PageSize as PageSize
 import View.Pager as Pager
 
@@ -225,6 +222,12 @@ statusDisplay model =
 
             Failed ->
                 coloredStatusButton (toString model.status) "danger"
+
+            Cancelled ->
+                coloredStatusButton (toString model.status) "dark"
+
+            CancellationPending ->
+                coloredStatusButton "cancellation pending" "dark"
         ]
 
 

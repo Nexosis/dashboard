@@ -45,7 +45,7 @@ type alias App =
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
-    , messages : List Response.Message
+    , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     }
 

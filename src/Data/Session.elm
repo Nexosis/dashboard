@@ -2,27 +2,15 @@ module Data.Session exposing (..)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.PredictionDomain exposing (..)
+import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, float, int, list, map2, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
-type SessionStatus
-    = Requested
-    | Started
-    | Completed
-    | Failed
-
-
-type alias HistoryRecord =
-    { date : String
-    , status : SessionStatus
-    }
-
-
 type alias SessionData =
     { sessionId : String
-    , status : SessionStatus
+    , status : Status
     , predictionDomain : PredictionDomain
     , columns : List ColumnMetadata
     , availablePredictionIntervals : List String
@@ -52,7 +40,7 @@ decodeSession : Decode.Decoder SessionData
 decodeSession =
     Json.Decode.Pipeline.decode SessionData
         |> required "sessionId" Decode.string
-        |> required "status" decodeSessionStatus
+        |> required "status" decodeStatus
         |> required "predictionDomain" decodePredictionDomain
         |> required "columns" decodeColumnMetadata
         |> required "availablePredictionIntervals" (Decode.list Decode.string)
@@ -76,33 +64,3 @@ decodeSessionList =
         |> required "totalPages" Decode.int
         |> required "pageSize" Decode.int
         |> required "totalCount" Decode.int
-
-
-decodeHistoryRecord : Decoder HistoryRecord
-decodeHistoryRecord =
-    map2 HistoryRecord
-        (field "date" Decode.string)
-        (field "status" decodeSessionStatus)
-
-
-decodeSessionStatus : Decoder SessionStatus
-decodeSessionStatus =
-    Decode.string
-        |> andThen
-            (\n ->
-                case n of
-                    "requested" ->
-                        succeed Requested
-
-                    "started" ->
-                        succeed Started
-
-                    "completed" ->
-                        succeed Completed
-
-                    "failed" ->
-                        succeed Failed
-
-                    unknown ->
-                        fail <| "Unknown session status: " ++ unknown
-            )
