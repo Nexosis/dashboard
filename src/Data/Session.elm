@@ -8,6 +8,12 @@ import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, floa
 import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
+type alias Algorithm = 
+    { key : Maybe String
+    , name : String
+    , description : String
+    }
+
 type alias SessionData =
     { sessionId : String
     , status : Status
@@ -25,6 +31,7 @@ type alias SessionData =
     , dataSourceName : String
     , targetColumn : Maybe String
     , modelId : Maybe String
+    , algorithm : Algorithm
     }
 
 
@@ -56,7 +63,15 @@ decodeSession =
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
         |> optional "modelId" (Decode.map Just string) Nothing
+        |> required "algorithm" (decodeAlgorithm)
         
+
+decodeAlgorithm : Decoder Algorithm
+decodeAlgorithm = 
+    decode Algorithm
+        |> optional "key" (Decode.map Just string) Nothing
+        |> required "name" Decode.string
+        |> required "description" Decode.string
 
 
 decodeSessionList : Decoder SessionList

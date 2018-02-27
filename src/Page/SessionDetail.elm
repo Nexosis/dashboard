@@ -201,7 +201,7 @@ viewCompletedSession session =
         , p []
             [ strong []
                 [ text "Algorithm: " ]
-            , text "{AlgorithmName}"
+            , text session.algorithm.name
             ]
         , p [ class "small" ]
             [ strong []
