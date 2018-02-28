@@ -44,7 +44,7 @@ update msg model =
                            )
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Session details response failure: " ++ toString err) Log.Error)
+                    model => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -55,7 +55,7 @@ update msg model =
                     { model | resultsResponse = response } => Cmd.none
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Session results response failure: " ++ toString err) Log.Error)
+                    model => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
