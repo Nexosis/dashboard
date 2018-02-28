@@ -19,6 +19,7 @@ type Route
     | Imports
     | Sessions
     | SessionDetail String
+    | SessionStart DataSet.DataSetName
     | Models
     | ModelDetail String
 
@@ -43,6 +44,7 @@ routeMatcher =
         , route Imports (static "imports")
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
+        , route SessionStart (static "startSession" </> custom DataSet.dataSetNameParser)
         , route Models (static "models")
         , route ModelDetail (static "models" </> string)
         ]
@@ -77,6 +79,9 @@ routeToString page =
 
                 SessionDetail id ->
                     [ "sessions", id ]
+
+                SessionStart dataSetName ->
+                    [ "startSession", DataSet.dataSetNameToString dataSetName ]
 
                 Models ->
                     [ "models" ]

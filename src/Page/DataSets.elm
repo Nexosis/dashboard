@@ -196,7 +196,7 @@ dataSetActionButton dataSet =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         --todo - Change the button text and color based on the status
-        [ button [ class "btn btn-sm" ] [ text "Start Session" ] ]
+        [ a [ class "btn btn-sm", AppRoutes.href (AppRoutes.SessionStart dataSet.dataSetName) ] [ text "Start Session" ] ]
 
 
 deleteColumn : Grid.Column DataSet Msg
