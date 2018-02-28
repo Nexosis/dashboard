@@ -3,12 +3,13 @@ module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view
 import Data.Config exposing (Config)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import RemoteData as Remote
 import Request.Model exposing (predict)
 import Util exposing ((=>))
+import View.Extra exposing (viewIf)
 
 
 type alias Model =
@@ -16,7 +17,6 @@ type alias Model =
     , modelId : String
     , activeTab : Tab
     , inputType : InputType
-    , fileContent : String
     , fileName : String
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
@@ -27,7 +27,7 @@ type alias Model =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId Upload Json "" "" False Nothing False Remote.NotAsked
+    Model config modelId Upload Json "" False Nothing False Remote.NotAsked
 
 
 type Msg
@@ -107,7 +107,7 @@ update msg model =
         ChangeTab tab ->
             -- if we are switching to `Upload`, it's not available, if switching to `PasteIn`, it is available if content is available
             let
-                hasData =
+                canProceed =
                     case tab of
                         Upload ->
                             False
@@ -120,13 +120,46 @@ update msg model =
                                 Nothing ->
                                     False
             in
-            { model | activeTab = tab, canProceedWithPrediction = hasData } => Cmd.none
+            { model | activeTab = tab, canProceedWithPrediction = canProceed } => Cmd.none
 
         FileSelected ->
-            model => Cmd.none
+            model => Ports.uploadFileSelected "upload-predict"
 
-        FileContentRead content ->
-            model => Cmd.none
+        FileContentRead readResult ->
+            let
+                readStatus =
+                    Json.Decode.decodeValue fileReadStatusDecoder readResult
+                        |> Result.withDefault ReadError
+
+                m =
+                    case readStatus of
+                        Success fileName content ->
+                            case filenameToType fileName of
+                                Json ->
+                                    { model
+                                        | dataInput = Just content
+                                        , inputType = Json
+                                        , fileName = fileName
+                                        , fileUploadErrorOccurred = False
+                                        , canProceedWithPrediction = True
+                                    }
+
+                                Csv ->
+                                    { model
+                                        | dataInput = Just content
+                                        , inputType = Csv
+                                        , fileName = fileName
+                                        , fileUploadErrorOccurred = False
+                                        , canProceedWithPrediction = True
+                                    }
+
+                                Other ->
+                                    { model | fileUploadErrorOccurred = True }
+
+                        ReadError ->
+                            { model | fileUploadErrorOccurred = True }
+            in
+            m => Cmd.none
 
         InputTypeSelected selection ->
             { model | inputType = selection } => Cmd.none
@@ -229,13 +262,25 @@ viewTabContent model =
 
 viewUploadTab : Model -> Html Msg
 viewUploadTab model =
+    let
+        uploadButtonText =
+            if String.isEmpty model.fileName then
+                "Select your file"
+            else
+                model.fileName
+    in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
-                [ input [ class "upload-dataset", id "upload-dataset", type_ "file" ]
+                [ input
+                    [ id "upload-predict"
+                    , class "upload-predict"
+                    , type_ "file"
+                    , on "change" (succeed FileSelected)
+                    ]
                     []
-                , label [ for "upload-dataset" ]
-                    [ text "Select your file" ]
+                , label [ for "upload-predict" ] [ text uploadButtonText ]
+                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) model.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]

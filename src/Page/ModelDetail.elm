@@ -1,4 +1,4 @@
-module Page.ModelDetail exposing (Model, Msg, init, update, view)
+module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
@@ -39,6 +39,17 @@ init config modelId =
                 |> Cmd.map ModelResponse
     in
     Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model.predictModel of
+        Just predictModel ->
+            ModelPredict.subscriptions predictModel
+                |> Sub.map ModelPredictMsg
+
+        Nothing ->
+            Sub.none
 
 
 type Msg
