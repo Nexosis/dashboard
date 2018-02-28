@@ -28,7 +28,7 @@ type alias SessionData =
     , dataSourceName : String
     , targetColumn : Maybe String
     , modelId : Maybe String
-    , algorithm : Algorithm
+    , algorithm : Maybe Algorithm
     }
 
 
@@ -60,7 +60,7 @@ decodeSession =
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
         |> optional "modelId" (Decode.map Just string) Nothing
-        |> required "algorithm" (decodeAlgorithm)
+        |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
         
 
 decodeSessionList : Decoder SessionList

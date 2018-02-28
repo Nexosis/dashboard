@@ -7,22 +7,28 @@ import Html.Attributes exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
+import Request.Contest
 import Util exposing ((=>))
 import AppRoutes
 import List exposing (head, filter)
 import Data.Columns exposing (ColumnMetadata)
 import Data.Columns as Role exposing (Role)
 import Data.DataSet exposing (toDataSetName)
+import Data.Contest exposing (Contest)
+import Data.Algorithm exposing (..)
 
 type alias Model =
     { sessionId : String
     , sessionResponse : Remote.WebData SessionData
+    , contestResponse : Remote.WebData Contest
     , config : Config
     }
 
 
 type Msg
     = SessionResponse (Remote.WebData SessionData)
+    | ContestResponse (Remote.WebData Contest)
+
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -31,10 +37,24 @@ update msg model =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId } => Cmd.none
+                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId } => (Request.Contest.get model.config model.sessionId
+                        |> Remote.sendRequest
+                        |> Cmd.map ContestResponse)
 
-                Remote.Failure err ->
+                Remote.Failure err -> 
                     model => (Log.logMessage <| Log.LogMessage ("Session details response failure: " ++ toString err) Log.Error)
+
+                _ ->
+                    model => Cmd.none
+
+
+        ContestResponse response ->
+            case response of
+                Remote.Success contestInfo ->
+                    {model | contestResponse = response} => Cmd.none
+                
+                Remote.Failure err ->
+                     model => (Log.logMessage <| Log.LogMessage ("Session contest response failure: " ++ toString err) Log.Error)
 
                 _ ->
                     model => Cmd.none
@@ -180,6 +200,11 @@ viewCompletedSession session =
                 Nothing -> ""
                 Just c -> c.name
             
+        algorithmName : Maybe Algorithm -> String
+        algorithmName algo =
+            case algo of
+                Nothing -> ""
+                Just a -> a.name
 
     in
         div []
@@ -200,7 +225,7 @@ viewCompletedSession session =
         , p []
             [ strong []
                 [ text "Algorithm: " ]
-            , text session.algorithm.name
+            , text (algorithmName session.algorithm)
             ]
         , p [ class "small" ]
             [ strong []
@@ -276,4 +301,4 @@ init config sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading config => loadModelDetail
+    Model sessionId Remote.Loading Remote.NotAsked config => loadModelDetail
