@@ -14,6 +14,17 @@ sessionIsCompleted session =
     session.status == Completed ||
     session.status == Failed
 
+type alias Message = {
+    severity : Severity
+    , message : String
+}
+
+type Severity
+    = Debug
+    | Informational
+    | Warning
+    | Error
+
 type alias SessionData =
     { sessionId : String
     , status : Status
@@ -26,7 +37,7 @@ type alias SessionData =
     , requestedDate : String
     , statusHistory : List HistoryRecord
     , extraParameters : Dict String String
-    , messages : List (Dict String String)
+    , messages : List Message
     , name : String
     , dataSourceName : String
     , targetColumn : Maybe String
@@ -58,13 +69,44 @@ decodeSession =
         |> required "requestedDate" Decode.string
         |> required "statusHistory" (Decode.list decodeHistoryRecord)
         |> required "extraParameters" (Decode.dict (Decode.oneOf [ Decode.string, Decode.bool |> Decode.andThen (\b -> succeed (toString b)) ]))
-        |> required "messages" (Decode.list (Decode.dict Decode.string))
+        |> required "messages" (Decode.list decodeMessage)
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
         |> optional "modelId" (Decode.map Just string) Nothing
         |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
         
+
+
+
+decodeMessage : Decoder Message
+decodeMessage =
+    decode Message
+        |> required "severity"     decodeMessageSeverity 
+        |> required "message" Decode.string
+
+
+decodeMessageSeverity : Decoder Severity
+decodeMessageSeverity =
+    Decode.string
+    |> andThen
+        (\n ->
+            case n of
+                "debug" ->
+                    succeed Debug
+
+                "informational" ->
+                    succeed Informational
+
+                "warning" ->
+                    succeed Warning
+
+                "error" ->
+                    succeed Error
+
+                unknown ->
+                    fail <| "Unknown Severity: " ++ unknown
+        )
 
 decodeSessionList : Decoder SessionList
 decodeSessionList =
