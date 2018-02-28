@@ -17,7 +17,7 @@ import Json.Encode
 import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
-import Request.Log as Log
+import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
@@ -182,7 +182,7 @@ update msg model =
                     { model | columnResponse = updatedColumnInfo } => Cmd.none
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
+                    model => logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -236,7 +236,7 @@ update msg model =
                     { model | sessionLinks = SessionLinks subList } => Cmd.none
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
+                    model => logHttpError err
 
                 _ ->
                     model => Cmd.none
