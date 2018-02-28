@@ -2,7 +2,9 @@ module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
+import Data.DataFormat as DataFormat
 import Data.DataSet
+import Data.File as File
 import Data.Import
 import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
@@ -44,7 +46,7 @@ type alias Model =
 type alias FileUploadEntry =
     { fileContent : String
     , fileName : String
-    , fileUploadType : FileUploadType
+    , fileUploadType : DataFormat.DataFormat
     , fileUploadErrorOccurred : Bool
     }
 
@@ -63,22 +65,11 @@ type Tab
     | UrlImportTab UrlImportEntry
 
 
-type FileReadStatus
-    = ReadError
-    | Success String String
-
-
-type FileUploadType
-    = Json
-    | Csv
-    | Other
-
-
 initFileUploadTab : FileUploadEntry
 initFileUploadTab =
     { fileContent = ""
     , fileName = ""
-    , fileUploadType = Other
+    , fileUploadType = DataFormat.Other
     , fileUploadErrorOccurred = False
     }
 
@@ -86,50 +77,6 @@ initFileUploadTab =
 initImportTab : UrlImportEntry
 initImportTab =
     { importUrl = "" }
-
-
-fileReadStatusDecoder : Json.Decode.Decoder FileReadStatus
-fileReadStatusDecoder =
-    Json.Decode.field "status" Json.Decode.string
-        |> Json.Decode.andThen
-            (\status ->
-                case status of
-                    "Success" ->
-                        Json.Decode.map2
-                            (\f c -> Success f c)
-                            (Json.Decode.field "filename" Json.Decode.string)
-                            (Json.Decode.field "contents" Json.Decode.string)
-
-                    _ ->
-                        Json.Decode.succeed ReadError
-            )
-
-
-filenameToType : String -> FileUploadType
-filenameToType name =
-    let
-        lowerString =
-            String.toLower name
-    in
-    if String.endsWith ".json" lowerString then
-        Json
-    else if String.endsWith ".csv" lowerString then
-        Csv
-    else
-        Other
-
-
-fileUploadTypeToContentType : FileUploadType -> String
-fileUploadTypeToContentType uploadType =
-    case uploadType of
-        Json ->
-            "application/json"
-
-        Csv ->
-            "text/csv"
-
-        _ ->
-            ""
 
 
 init : Config -> ( Model, Cmd Msg )
@@ -239,7 +186,7 @@ update msg model =
                 FileUploadTab uploadInfo ->
                     let
                         putRequest =
-                            put model.config model.name uploadInfo.fileContent (fileUploadTypeToContentType uploadInfo.fileUploadType)
+                            put model.config model.name uploadInfo.fileContent (File.dataFormatToContentType uploadInfo.fileUploadType)
                                 |> Remote.sendRequest
                                 |> Cmd.map UploadDataSetResponse
                     in
@@ -317,31 +264,31 @@ updateTabContents model msg =
                 ( FileUploadTab fileUploadEntry, FileContentRead readResult ) ->
                     let
                         readStatus =
-                            Json.Decode.decodeValue fileReadStatusDecoder readResult
-                                |> Result.withDefault ReadError
+                            Json.Decode.decodeValue File.fileReadStatusDecoder readResult
+                                |> Result.withDefault File.ReadError
 
                         m =
                             case readStatus of
-                                Success fileName content ->
-                                    case filenameToType fileName of
-                                        Json ->
+                                File.Success fileName content ->
+                                    case File.filenameToType fileName of
+                                        DataFormat.Json ->
                                             { fileContent = content
                                             , fileName = fileName
-                                            , fileUploadType = Json
+                                            , fileUploadType = DataFormat.Json
                                             , fileUploadErrorOccurred = False
                                             }
 
-                                        Csv ->
+                                        DataFormat.Csv ->
                                             { fileContent = content
                                             , fileName = fileName
-                                            , fileUploadType = Csv
+                                            , fileUploadType = DataFormat.Csv
                                             , fileUploadErrorOccurred = False
                                             }
 
-                                        Other ->
+                                        DataFormat.Other ->
                                             { fileUploadEntry | fileUploadErrorOccurred = True }
 
-                                ReadError ->
+                                File.ReadError ->
                                     { fileUploadEntry | fileUploadErrorOccurred = True }
 
                         valid =

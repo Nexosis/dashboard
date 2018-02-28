@@ -1,6 +1,8 @@
 module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view)
 
 import Data.Config exposing (Config)
+import Data.DataFormat as DataFormat
+import Data.File as File
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
@@ -16,7 +18,7 @@ type alias Model =
     { config : Config
     , modelId : String
     , activeTab : Tab
-    , inputType : InputType
+    , inputType : DataFormat.DataFormat
     , fileName : String
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
@@ -27,78 +29,21 @@ type alias Model =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId Upload Json "" False Nothing False Remote.NotAsked
+    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked
 
 
 type Msg
     = ChangeTab Tab
     | FileSelected
     | FileContentRead Json.Decode.Value
-    | InputTypeSelected InputType
     | DataInputChanged String
-    | DataEntered
     | PredictionStarted
     | PredictResponse (Remote.WebData ())
 
 
 type Tab
-    = Upload
+    = UploadFile
     | PasteIn
-
-
-type FileReadStatus
-    = ReadError
-    | Success String String
-
-
-type InputType
-    = Json
-    | Csv
-    | Other
-
-
-fileReadStatusDecoder : Json.Decode.Decoder FileReadStatus
-fileReadStatusDecoder =
-    Json.Decode.field "status" Json.Decode.string
-        |> Json.Decode.andThen
-            (\status ->
-                case status of
-                    "Success" ->
-                        Json.Decode.map2
-                            (\f c -> Success f c)
-                            (Json.Decode.field "filename" Json.Decode.string)
-                            (Json.Decode.field "contents" Json.Decode.string)
-
-                    _ ->
-                        Json.Decode.succeed ReadError
-            )
-
-
-filenameToType : String -> InputType
-filenameToType name =
-    let
-        lowerString =
-            String.toLower name
-    in
-    if String.endsWith ".json" lowerString then
-        Json
-    else if String.endsWith ".csv" lowerString then
-        Csv
-    else
-        Other
-
-
-inputTypeToContentType : InputType -> String
-inputTypeToContentType uploadType =
-    case uploadType of
-        Json ->
-            "application/json"
-
-        Csv ->
-            "text/csv"
-
-        _ ->
-            ""
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -109,7 +54,7 @@ update msg model =
             let
                 canProceed =
                     case tab of
-                        Upload ->
+                        UploadFile ->
                             False
 
                         PasteIn ->
@@ -128,54 +73,58 @@ update msg model =
         FileContentRead readResult ->
             let
                 readStatus =
-                    Json.Decode.decodeValue fileReadStatusDecoder readResult
-                        |> Result.withDefault ReadError
+                    Json.Decode.decodeValue File.fileReadStatusDecoder readResult
+                        |> Result.withDefault File.ReadError
 
                 m =
                     case readStatus of
-                        Success fileName content ->
-                            case filenameToType fileName of
-                                Json ->
+                        File.Success fileName content ->
+                            case File.filenameToType fileName of
+                                DataFormat.Json ->
                                     { model
                                         | dataInput = Just content
-                                        , inputType = Json
+                                        , inputType = DataFormat.Json
                                         , fileName = fileName
                                         , fileUploadErrorOccurred = False
                                         , canProceedWithPrediction = True
                                     }
 
-                                Csv ->
+                                DataFormat.Csv ->
                                     { model
                                         | dataInput = Just content
-                                        , inputType = Csv
+                                        , inputType = DataFormat.Csv
                                         , fileName = fileName
                                         , fileUploadErrorOccurred = False
                                         , canProceedWithPrediction = True
                                     }
 
-                                Other ->
+                                DataFormat.Other ->
                                     { model | fileUploadErrorOccurred = True }
 
-                        ReadError ->
+                        File.ReadError ->
                             { model | fileUploadErrorOccurred = True }
             in
             m => Cmd.none
 
-        InputTypeSelected selection ->
-            { model | inputType = selection } => Cmd.none
-
         DataInputChanged content ->
             let
+                trimmed =
+                    content |> String.trim
+
                 value =
-                    if String.isEmpty content then
+                    if String.isEmpty trimmed then
                         Nothing
                     else
-                        Just content
-            in
-            { model | dataInput = value, canProceedWithPrediction = not (String.isEmpty content) } => Cmd.none
+                        Just trimmed
 
-        DataEntered ->
-            model => Cmd.none
+                -- uses first non-whitespace character to see if it's JSON
+                inputType =
+                    if trimmed |> String.startsWith "{" then
+                        DataFormat.Json
+                    else
+                        DataFormat.Csv
+            in
+            { model | dataInput = value, inputType = inputType, canProceedWithPrediction = not (String.isEmpty content) } => Cmd.none
 
         PredictionStarted ->
             let
@@ -188,7 +137,7 @@ update msg model =
                             ""
 
                 predictRequest =
-                    predict model.config model.modelId value (inputTypeToContentType model.inputType)
+                    predict model.config model.modelId value (File.dataFormatToContentType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
@@ -235,7 +184,7 @@ viewTabControl : Model -> Html Msg
 viewTabControl model =
     let
         tabHeaders =
-            [ li [ classList [ ( "active", model.activeTab == Upload ) ] ] [ a [ onClick (ChangeTab Upload) ] [ text "Upload" ] ]
+            [ li [ classList [ ( "active", model.activeTab == UploadFile ) ] ] [ a [ onClick (ChangeTab UploadFile) ] [ text "Upload" ] ]
             , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
             ]
     in
@@ -248,7 +197,7 @@ viewTabContent model =
     let
         content =
             case model.activeTab of
-                Upload ->
+                UploadFile ->
                     viewUploadTab model
 
                 PasteIn ->
