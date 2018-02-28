@@ -104,10 +104,11 @@ viewSessionDetails model =
         [ div [ class "col-sm-4" ]
             [ loadingOr pendingOrCompleted
             , loadingOrView model.resultsResponse viewMetricsList
-            , p []
-                [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
-                    [ text "(TODO) View algorithm contestants" ]
-                ]
+
+            --, p []
+            --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+            --        [ text "(TODO) View algorithm contestants" ]
+            --    ]
             ]
         , div [ class "col-sm-5" ]
             [ --loadingOr statusHistoryOrMessages
