@@ -3,7 +3,6 @@ module Page.Sessions exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
-import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
 import Data.Status exposing (Status(..))
 import Dict exposing (Dict)
