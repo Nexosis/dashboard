@@ -78,6 +78,7 @@ view model =
             ]
         ]
         , viewSessionHeader model
+        , hr [] []
         , viewSessionDetails model
     ]
 
