@@ -45,6 +45,11 @@ type alias SessionData =
     , algorithm : Maybe Algorithm
     }
 
+type alias SessionResults = 
+    { metrics : Dict String Float
+
+    }
+
 
 type alias SessionList =
     { items : List SessionData
@@ -53,6 +58,11 @@ type alias SessionList =
     , pageSize : Int
     , totalCount : Int
     }
+
+decodeSessionResults : Decode.Decoder SessionResults
+decodeSessionResults =
+    decode SessionResults
+        |> required "metrics" (Decode.dict Decode.float)
 
 
 decodeSession : Decode.Decoder SessionData

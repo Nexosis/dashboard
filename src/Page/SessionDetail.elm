@@ -7,7 +7,6 @@ import Html.Attributes exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
-import Request.Contest
 import Util exposing ((=>))
 import AppRoutes
 import List exposing (head, filter, foldr)
@@ -15,20 +14,19 @@ import Dict
 import Data.Columns exposing (ColumnMetadata)
 import Data.Columns as Role exposing (Role)
 import Data.DataSet exposing (toDataSetName)
-import Data.Contest exposing (Contest)
 import Data.Algorithm exposing (..)
 
 type alias Model =
     { sessionId : String
     , sessionResponse : Remote.WebData SessionData
-    , contestResponse : Remote.WebData Contest
+    , resultsResponse : Remote.WebData SessionResults
     , config : Config
     }
 
 
 type Msg
     = SessionResponse (Remote.WebData SessionData)
-    | ContestResponse (Remote.WebData Contest)
+    | ResultsResponse (Remote.WebData SessionResults)
 
 
 
@@ -38,9 +36,9 @@ update msg model =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId } => (Request.Contest.get model.config model.sessionId
+                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId } => (Request.Session.results model.config model.sessionId 1 1
                         |> Remote.sendRequest
-                        |> Cmd.map ContestResponse)
+                        |> Cmd.map ResultsResponse)
 
                 Remote.Failure err -> 
                     model => (Log.logMessage <| Log.LogMessage ("Session details response failure: " ++ toString err) Log.Error)
@@ -49,13 +47,13 @@ update msg model =
                     model => Cmd.none
 
 
-        ContestResponse response ->
+        ResultsResponse response ->
             case response of
                 Remote.Success contestInfo ->
-                    {model | contestResponse = response} => Cmd.none
+                    {model | resultsResponse = response} => Cmd.none
                 
                 Remote.Failure err ->
-                     model => (Log.logMessage <| Log.LogMessage ("Session contest response failure: " ++ toString err) Log.Error)
+                     model => (Log.logMessage <| Log.LogMessage ("Session results response failure: " ++ toString err) Log.Error)
 
                 _ ->
                     model => Cmd.none
@@ -104,7 +102,7 @@ viewSessionDetails model =
                 div [class "col-sm-4"]
                     [
                         loadingOr pendingOrCompleted
-                        , loadingOrView model.contestResponse viewMetricsList
+                        , loadingOrView model.resultsResponse viewMetricsList
                         , p []
                             [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
                                 [ text "(TODO) View algorithm contestants" ]
@@ -334,8 +332,8 @@ viewCompletedSession session =
             ]
         ]
 
-viewMetricsList : Contest -> Html Msg
-viewMetricsList contest =
+viewMetricsList : SessionResults -> Html Msg
+viewMetricsList results =
     let
         listMetric key value =
             li []
@@ -354,7 +352,7 @@ viewMetricsList contest =
                 ]
                 
             , ul [ class "small algorithm-metrics" ]
-                (Dict.foldr (\key val html -> (listMetric key (toString val)) :: html) [] contest.champion.metrics)
+                (Dict.foldr (\key val html -> (listMetric key (toString val)) :: html) [] results.metrics)
         ]
     
 
