@@ -390,6 +390,10 @@ pageSubscriptions page =
             DataSetAdd.subscriptions subModel
                 |> Sub.map DataSetAddMsg
 
+        ModelDetail subModel ->
+            ModelDetail.subscriptions subModel
+                |> Sub.map ModelDetailMsg
+
         _ ->
             Sub.none
 
