@@ -1,4 +1,4 @@
-module Data.DisplayDate exposing (dateDecoder, toShortDateString)
+module Data.DisplayDate exposing (dateDecoder, toShortDateString, toShortDateStringOrEmpty)
 
 import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
 import Time.TimeZones exposing (etc_universal)
@@ -27,6 +27,16 @@ toShortDateString time =
         ++ padded (day time)
         ++ "/"
         ++ toString (year time)
+
+
+toShortDateStringOrEmpty : Maybe ZonedDateTime -> String
+toShortDateStringOrEmpty maybeTime =
+    case maybeTime of
+        Just time ->
+            toShortDateString time
+
+        Nothing ->
+            ""
 
 
 padded : Int -> String

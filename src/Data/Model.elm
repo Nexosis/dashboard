@@ -26,6 +26,7 @@ type alias ModelData =
     , createdDate : ZonedDateTime
     , algorithm : Algorithm
     , modelName : Maybe String
+    , lastUsedDate : Maybe ZonedDateTime
     , metrics : Dict String Float
     , links : List Link
     }
@@ -69,5 +70,6 @@ decodeModel =
         |> required "createdDate" dateDecoder
         |> required "algorithm" decodeAlgorithm
         |> optional "modelName" (Decode.map Just string) Nothing
+        |> optional "lastUsedDate" (Decode.map Just dateDecoder) Nothing
         |> required "metrics" (Decode.dict float)
         |> required "links" (Decode.list linkDecoder)

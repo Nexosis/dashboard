@@ -2,7 +2,7 @@ module Page.Models exposing (Model, Msg, init, update, view)
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
-import Data.DisplayDate exposing (toShortDateString)
+import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -268,7 +268,7 @@ createdCell model =
 
 lastUsedColumn : Grid.Column ModelData Msg
 lastUsedColumn =
-    Grid.stringColumn "Last used" (\a -> "?")
+    Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
 
 
 deleteColumn : Grid.Column ModelData Msg
