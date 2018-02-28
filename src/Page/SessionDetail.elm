@@ -38,7 +38,7 @@ update msg model =
             case response of
                 Remote.Success sessionInfo ->
                     { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                        => (Request.Session.results model.config model.sessionId 1 1
+                        => (Request.Session.results model.config model.sessionId 0 1
                                 |> Remote.sendRequest
                                 |> Cmd.map ResultsResponse
                            )
