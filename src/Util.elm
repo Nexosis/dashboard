@@ -1,8 +1,7 @@
-module Util exposing ((=>), isJust, spinner, toShortDateString)
+module Util exposing ((=>), isJust, spinner)
 
 import Html
 import Html.Attributes
-import Time.DateTime exposing (DateTime, day, month, year)
 
 
 (=>) : a -> b -> ( a, b )
@@ -24,23 +23,6 @@ isJust m =
 
         Just _ ->
             True
-
-
-toShortDateString : DateTime -> String
-toShortDateString time =
-    padded (month time)
-        ++ "/"
-        ++ padded (day time)
-        ++ "/"
-        ++ toString (year time)
-
-
-padded : Int -> String
-padded n =
-    if n < 10 then
-        "0" ++ toString n
-    else
-        toString n
 
 
 spinner : Html.Html msg

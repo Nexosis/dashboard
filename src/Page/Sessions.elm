@@ -3,21 +3,18 @@ module Page.Sessions exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import RemoteData as Remote
-import Request.Log as Log
 import Request.Session exposing (get)
-import Set exposing (Set)
 import Table
-import Util exposing ((=>), spinner, toShortDateString)
+import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
-import View.Error exposing (viewRemoteError)
 import View.Grid as Grid
-import View.Modal as Modal
 import View.PageSize as PageSize
 import View.Pager as Pager
 

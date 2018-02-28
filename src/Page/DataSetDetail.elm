@@ -5,6 +5,7 @@ import Data.Cascade as Cascade
 import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
 import Dict exposing (Dict)
@@ -426,10 +427,10 @@ viewDetailsCol model =
                             text <| toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
 
                         createdDisplay =
-                            text "?"
+                            text <| toShortDateString resp.dateCreated
 
                         modifiedDisplay =
-                            text "?"
+                            text <| toShortDateString resp.lastModified
                     in
                     ( sizeDisplay, shapeDisplay, createdDisplay, modifiedDisplay )
 
