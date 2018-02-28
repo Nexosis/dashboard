@@ -1,4 +1,4 @@
-module Page.ModelDetail exposing (Model, Msg, init, update, view)
+module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
@@ -11,6 +11,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
+import Page.ModelPredict as ModelPredict
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
@@ -25,6 +26,7 @@ type alias Model =
     , config : Config
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
+    , predictModel : Maybe ModelPredict.Model
     }
 
 
@@ -36,11 +38,24 @@ init config modelId =
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading config Regression Nothing => loadModelDetail
+    Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model.predictModel of
+        Just predictModel ->
+            ModelPredict.subscriptions predictModel
+                |> Sub.map ModelPredictMsg
+
+        Nothing ->
+            Sub.none
 
 
 type Msg
     = ModelResponse (Remote.WebData ModelData)
+    | TogglePredict
+    | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
 
@@ -58,6 +73,30 @@ update msg model =
 
                 _ ->
                     model => Cmd.none
+
+        TogglePredict ->
+            let
+                predictModel =
+                    case model.predictModel of
+                        Nothing ->
+                            Just (ModelPredict.init model.config model.modelId)
+
+                        Just _ ->
+                            Nothing
+            in
+            { model | predictModel = predictModel } => Cmd.none
+
+        ModelPredictMsg subMsg ->
+            let
+                ( predictModel, cmd ) =
+                    case model.predictModel of
+                        Just predictModel ->
+                            ModelPredict.update subMsg predictModel |> Tuple.mapFirst Just
+
+                        Nothing ->
+                            ( Nothing, Cmd.none )
+            in
+            { model | predictModel = predictModel } => Cmd.map ModelPredictMsg cmd
 
         ShowDeleteDialog ->
             let
@@ -103,7 +142,7 @@ view model =
             [ dataSourceName model
             , div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
-                    [ button [ class "btn", href "#/predict" ] [ text "Predict" ]
+                    [ button [ class "btn", onClick TogglePredict ] [ text "Predict" ]
                     ]
                 ]
             ]
@@ -134,6 +173,8 @@ view model =
             , div [ class "col-sm-5" ] []
             , Related.view model.config model.modelResponse
             ]
+        , hr [] []
+        , renderPredict model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
             , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
@@ -141,6 +182,16 @@ view model =
             }
             |> Html.map DeleteDialogMsg
         ]
+
+
+renderPredict : Model -> Html Msg
+renderPredict model =
+    case model.predictModel of
+        Just predictModel ->
+            ModelPredict.view predictModel |> Html.map ModelPredictMsg
+
+        Nothing ->
+            div [] []
 
 
 dataSourceName : Model -> Html Msg

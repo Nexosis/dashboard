@@ -45,7 +45,7 @@ type alias App =
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
-    , messages : List Response.Message
+    , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     }
 
@@ -389,6 +389,10 @@ pageSubscriptions page =
         DataSetAdd subModel ->
             DataSetAdd.subscriptions subModel
                 |> Sub.map DataSetAddMsg
+
+        ModelDetail subModel ->
+            ModelDetail.subscriptions subModel
+                |> Sub.map ModelDetailMsg
 
         _ ->
             Sub.none

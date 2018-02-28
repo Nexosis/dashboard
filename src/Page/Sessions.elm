@@ -5,6 +5,7 @@ import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
+import Data.Status exposing (Status(..))
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -222,6 +223,12 @@ statusDisplay model =
 
             Failed ->
                 coloredStatusButton (toString model.status) "danger"
+
+            Cancelled ->
+                coloredStatusButton (toString model.status) "dark"
+
+            CancellationPending ->
+                coloredStatusButton "cancellation pending" "dark"
         ]
 
 

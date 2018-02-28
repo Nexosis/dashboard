@@ -1,5 +1,6 @@
-module View.Error exposing (viewRemoteError)
+module View.Error exposing (viewMessagesAsError, viewRemoteError)
 
+import Data.Message as Message exposing (Message)
 import Data.Response exposing (ResponseError, responseErrorDecoder)
 import Dict
 import Html exposing (..)
@@ -72,3 +73,16 @@ detailItem ( key, value ) =
         [ strong [] [ text <| key ++ ": " ]
         , text value
         ]
+
+
+viewMessagesAsError : List Message -> Html msg
+viewMessagesAsError messages =
+    let
+        errorMessages =
+            List.filter (\m -> m.severity == Message.Error) messages
+    in
+    div [ class "alert alert-danger" ]
+        (List.map
+            (\e -> p [] [ text e.message ])
+            errorMessages
+        )
