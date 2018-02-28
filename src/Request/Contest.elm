@@ -14,7 +14,7 @@ get { baseUrl, token } sessionId =
             decodeContest
                 |> Http.expectJson
     in
-    (baseUrl ++ "/contest/" ++ sessionId)
+    (baseUrl ++ "/sessions/" ++ sessionId ++ "/contest" )
         |> HttpBuilder.get
         |> HttpBuilder.withExpect expect
         |> withAuthorization token

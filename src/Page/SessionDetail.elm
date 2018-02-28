@@ -10,7 +10,8 @@ import Request.Session exposing (..)
 import Request.Contest
 import Util exposing ((=>))
 import AppRoutes
-import List exposing (head, filter)
+import List exposing (head, filter, foldr)
+import Dict
 import Data.Columns exposing (ColumnMetadata)
 import Data.Columns as Role exposing (Role)
 import Data.DataSet exposing (toDataSetName)
@@ -82,10 +83,34 @@ view model =
 
 viewSessionDetails : Model -> Html Msg
 viewSessionDetails model = 
-    div [class "row"]
-        [
-            
-        ]
+    let 
+        loadingOr = loadingOrView model.sessionResponse
+        pendingOrCompleted session =
+            if session.status == Completed then
+                viewCompletedSession session
+            else
+                viewPendingSession session
+    in
+        div [class "row"]
+            [
+                div [class "col-sm-4"]
+                    [
+                        loadingOr pendingOrCompleted
+                        , loadingOrView model.contestResponse viewMetricsList
+                        , p []
+                            [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+                                [ text "View algorithm contestants" ]
+                            ]
+                    ]
+                , div [class "col-sm-4"]
+                    [
+                        
+                    ]
+                , div [class "col-sm-4"]
+                    [
+                        
+                    ]
+            ]
 
 
 viewSessionHeader : Model -> Html Msg
@@ -125,21 +150,6 @@ viewSessionHeader model =
                         , text "Delete"
                         ]
                     ]
-                ]
-            , div [class "row"]
-                [
-                    div [class "col-sm-4"]
-                        [
-                            loadingOr viewSessionDetail
-                        ]
-                    , div [class "col-sm-4"]
-                        [
-                            
-                        ]
-                    , div [class "col-sm-4"]
-                        [
-                            
-                        ]
                 ]
         ]
 
@@ -227,38 +237,31 @@ viewCompletedSession session =
                 [ text "Algorithm: " ]
             , text (algorithmName session.algorithm)
             ]
-        , p [ class "small" ]
-            [ strong []
-                [ text "Metrics" ]
-            ]
-        , ul [ class "small algorithm-metrics" ]
-            [ li []
-                [ strong []
-                    [ text "meanAbsoluteError:" ]
-                , br []
-                    []
-                , text "1715319610074.247"
-                ]
-            , li []
-                [ strong []
-                    [ text "meanAbsolutePercentError:" ]
-                , br []
-                    []
-                , text "150408208493.396"
-                ]
-            , li []
-                [ strong []
-                    [ text "rootMeanSquareError:" ]
-                , br []
-                    []
-                , text "10855736798156.244"
-                ]
-            ]
-        , p []
-            [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
-                [ text "View algorithm contestants" ]
-            ]
         ]
+
+viewMetricsList : Contest -> Html Msg
+viewMetricsList contest =
+    let
+        listMetric key value =
+            li []
+                [ strong []
+                    [ text key ]
+                , br []
+                    []
+                , text value
+                ]
+    in
+        div []
+        [
+            p [ class "small" ]
+                [ strong []
+                    [ text "Metrics" ]
+                ]
+                
+            , ul [ class "small algorithm-metrics" ]
+                (Dict.foldr (\key val html -> (listMetric key (toString val)) :: html) [] contest.champion.metrics)
+        ]
+    
 
 viewSessionName : SessionData -> Html Msg
 viewSessionName session = 
@@ -281,7 +284,9 @@ viewSessionId session =
             ]
         ]
 
-loadingOrView : Remote.WebData SessionData -> (SessionData -> Html Msg) -> Html Msg
+
+
+loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =
     case request of
         Remote.Success resp ->
