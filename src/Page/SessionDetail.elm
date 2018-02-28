@@ -91,6 +91,13 @@ viewSessionDetails model =
                 viewCompletedSession session
             else
                 viewPendingSession session
+
+        statusHistoryOrMessages session = 
+            if sessionIsCompleted session then
+                viewMessages session
+            else
+                viewStatusHistory session
+
     in
         div [class "row"]
             [
@@ -103,15 +110,60 @@ viewSessionDetails model =
                                 [ text "View algorithm contestants" ]
                             ]
                     ]
-                , div [class "col-sm-4"]
+                , div [class "col-sm-5"]
                     [
-                        
+                        --loadingOr statusHistoryOrMessages
+                        loadingOr viewMessages
+                        , loadingOr viewStatusHistory
                     ]
-                , div [class "col-sm-4"]
+                , div [class "col-sm-3"]
                     [
                         
                     ]
             ]
+
+viewMessages : SessionData -> Html Msg
+viewMessages session =
+    div [] []
+
+viewStatusHistory : SessionData -> Html Msg
+viewStatusHistory session =
+    let
+
+        labelType status =
+            case status.status of
+                Requested -> "info"
+                Started -> "warning"
+                Completed -> "success"
+                Failed -> "error"
+                
+
+        statusEntry status = 
+            tr []
+                    [ td [ class "small" ]
+                        [ text status.date ]
+                    , td [ class "left" ]
+                        [ span [ class ("label label-" ++ (labelType status) ++ " mr5") ]
+                            [ text (toString status.status) ]
+                        ]
+                    ]
+    in
+        div [ ]
+        [ h5 [ class "mt15 mb15" ]
+            [ text "Status History" ]
+        , table [ class "table table-striped" ]
+            [ thead []
+                [ tr []
+                    [ th [ class "per10" ]
+                        [ text "Date" ]
+                    , th [ class "per15" ]
+                        [ text "Status" ]
+                    ]
+                ]
+            , tbody []
+                (List.map statusEntry session.statusHistory)
+            ]
+        ]
 
 
 viewSessionHeader : Model -> Html Msg

@@ -9,7 +9,10 @@ import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, floa
 import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
-
+sessionIsCompleted : SessionData -> Bool
+sessionIsCompleted session =
+    session.status == Completed ||
+    session.status == Failed
 
 type alias SessionData =
     { sessionId : String
