@@ -2,7 +2,7 @@ module Data.DisplayDate exposing (dateDecoder, toShortDateString)
 
 import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
 import Time.TimeZones exposing (etc_universal)
-import Time.ZonedDateTime exposing (ZonedDateTime, day, fromISO8601, month, toISO8601, year)
+import Time.ZonedDateTime exposing (ZonedDateTime, day, fromDateTime, fromISO8601, month, toISO8601, year)
 
 
 dateDecoder : Decoder ZonedDateTime

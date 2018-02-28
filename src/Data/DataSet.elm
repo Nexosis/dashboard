@@ -41,6 +41,7 @@ type alias DataSetData =
     , totalCount : Int
     , dateCreated : ZonedDateTime
     , lastModified : ZonedDateTime
+    , rowCount : Int
     }
 
 
@@ -57,6 +58,9 @@ type alias DataSet =
     { dataSetName : DataSetName
     , dataSetSize : Int
     , isTimeSeries : Bool
+    , dateCreated : ZonedDateTime
+    , lastModified : ZonedDateTime
+    , rowCount : Int
     }
 
 
@@ -129,6 +133,9 @@ decodeDataSet =
         |> required "dataSetName" dataSetNameDecoder
         |> optional "dataSetSize" Decode.int 0
         |> required "isTimeSeries" Decode.bool
+        |> required "dateCreated" dateDecoder
+        |> required "lastModified" dateDecoder
+        |> optional "rowCount" Decode.int 0
 
 
 decodeDataSetData : Decoder DataSetData
@@ -145,6 +152,7 @@ decodeDataSetData =
         |> required "totalCount" Decode.int
         |> required "dateCreated" dateDecoder
         |> required "lastModified" dateDecoder
+        |> optional "rowCount" Decode.int 0
 
 
 decodeData : Decoder Data
