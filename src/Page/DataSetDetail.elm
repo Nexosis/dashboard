@@ -5,6 +5,9 @@ import Data.Cascade as Cascade
 import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
+import Data.Link exposing (Link, linkDecoder)
+import Data.Session exposing (SessionData, SessionList)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
@@ -14,13 +17,15 @@ import Json.Encode
 import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
-import Request.Log as Log
+import Request.Log as Log exposing (logHttpError)
+import Request.Session exposing (getForDataset)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.Pager as Pager
+import View.RelatedLinks as Related exposing (view)
 import View.Tooltip exposing (helpIcon)
 
 
@@ -37,6 +42,7 @@ type alias Model =
     , tableState : Table.State
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
+    , sessionLinks : SessionLinks
     }
 
 
@@ -55,16 +61,24 @@ type alias ColumnInfo =
     }
 
 
+type alias SessionLinks =
+    { links : List Link
+    }
+
+
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
-        loadDataSetList =
-            Request.DataSet.getRetrieveDetail config dataSetName
-                |> Remote.sendRequest
-                |> Cmd.map DataSetDataResponse
+        loadData =
+            Cmd.batch
+                [ Request.DataSet.getRetrieveDetail config dataSetName
+                    |> Remote.sendRequest
+                    |> Cmd.map DataSetDataResponse
+                , loadRelatedSessions config dataSetName
+                ]
     in
-    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing
-        => loadDataSetList
+    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing (SessionLinks [])
+        => loadData
 
 
 mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
@@ -110,6 +124,13 @@ mergeListingAndStats metadataListing stats =
     { metadataListing | metadataList = updatedListing }
 
 
+loadRelatedSessions : Config -> DataSetName -> Cmd Msg
+loadRelatedSessions config dataset =
+    getForDataset config dataset
+        |> Remote.sendRequest
+        |> Cmd.map SessionDataListResponse
+
+
 
 -- UPDATE --
 
@@ -121,6 +142,7 @@ type Msg
     | ChangePage Int
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
+    | SessionDataListResponse (Remote.WebData SessionList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -160,7 +182,7 @@ update msg model =
                     { model | columnResponse = updatedColumnInfo } => Cmd.none
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Stat response failure: " ++ toString err) Log.Error)
+                    model => logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -201,6 +223,23 @@ update msg model =
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
+
+        SessionDataListResponse listResp ->
+            case listResp of
+                Remote.Success sessionList ->
+                    let
+                        subList =
+                            List.map (\s -> s.links) sessionList.items
+                                |> List.concat
+                                |> List.filter (\l -> l.rel == "self")
+                    in
+                    { model | sessionLinks = SessionLinks subList } => Cmd.none
+
+                Remote.Failure err ->
+                    model => logHttpError err
+
+                _ ->
+                    model => Cmd.none
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
@@ -294,7 +333,7 @@ viewDetailsRow model =
     div [ class "row" ]
         [ viewRolesCol model
         , viewDetailsCol model
-        , viewRelatedCol model
+        , Related.view model.config (Remote.succeed model.sessionLinks)
         ]
 
 
@@ -388,10 +427,10 @@ viewDetailsCol model =
                             text <| toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
 
                         createdDisplay =
-                            text "?"
+                            text <| toShortDateString resp.dateCreated
 
                         modifiedDisplay =
-                            text "?"
+                            text <| toShortDateString resp.lastModified
                     in
                     ( sizeDisplay, shapeDisplay, createdDisplay, modifiedDisplay )
 
@@ -428,16 +467,6 @@ viewDetailsCol model =
             [ strong [] [ text "Modified: " ]
             , modified
             ]
-        ]
-
-
-viewRelatedCol : Model -> Html Msg
-viewRelatedCol model =
-    div [ class "col-sm-3", id "related" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Related" ]
-
-        -- todo : accordion thing
-        , div [] []
         ]
 
 

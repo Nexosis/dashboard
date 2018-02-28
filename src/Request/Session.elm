@@ -1,6 +1,7 @@
 module Request.Session exposing (..)
 
 import Data.Config as Config exposing (Config, withAuthorization)
+import Data.DataSet exposing (DataSetName, dataSetNameToString)
 import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
@@ -29,6 +30,24 @@ pageParams page pageSize =
     [ ( "page", page |> toString )
     , ( "pageSize", pageSize |> toString )
     ]
+
+
+getForDataset : Config -> DataSetName -> Http.Request SessionList
+getForDataset { baseUrl, token } dataSetName =
+    let
+        expect =
+            decodeSessionList
+                |> Http.expectJson
+
+        params =
+            [ ( "dataSetName", dataSetNameToString dataSetName ) ]
+    in
+    (baseUrl ++ "/sessions")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
 
 
 delete : Config -> String -> Http.Request ()

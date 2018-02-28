@@ -5,7 +5,6 @@ import Data.Session exposing (..)
 import Html exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (getOne)
 import Request.Session exposing (..)
 import Util exposing ((=>))
 

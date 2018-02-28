@@ -1,6 +1,7 @@
 module Data.Session exposing (..)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.Link exposing (..)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
@@ -24,6 +25,7 @@ type alias SessionData =
     , name : String
     , dataSourceName : String
     , targetColumn : String
+    , links : List Link
     }
 
 
@@ -54,6 +56,7 @@ decodeSession =
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" Decode.string ""
+        |> required "links" (Decode.list linkDecoder)
 
 
 decodeSessionList : Decoder SessionList
