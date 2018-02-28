@@ -1,9 +1,9 @@
 module Data.Session exposing (..)
 
+import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
-import Data.Algorithm exposing (..)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, field, float, int, list, map2, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
@@ -11,19 +11,32 @@ import Json.Decode.Pipeline exposing (decode, optional, required)
 
 sessionIsCompleted : SessionData -> Bool
 sessionIsCompleted session =
-    session.status == Data.Status.Completed ||
-    session.status == Data.Status.Failed
+    case session.status of
+        Data.Status.Completed ->
+            True
 
-type alias Message = {
-    severity : Severity
+        Data.Status.Failed ->
+            True
+
+        Data.Status.Cancelled ->
+            True
+
+        _ ->
+            False
+
+
+type alias Message =
+    { severity : Severity
     , message : String
-}
+    }
+
 
 type Severity
     = Debug
     | Informational
     | Warning
     | Error
+
 
 type alias SessionData =
     { sessionId : String
@@ -45,9 +58,9 @@ type alias SessionData =
     , algorithm : Maybe Algorithm
     }
 
-type alias SessionResults = 
-    { metrics : Dict String Float
 
+type alias SessionResults =
+    { metrics : Dict String Float
     }
 
 
@@ -58,6 +71,7 @@ type alias SessionList =
     , pageSize : Int
     , totalCount : Int
     }
+
 
 decodeSessionResults : Decode.Decoder SessionResults
 decodeSessionResults =
@@ -85,44 +99,50 @@ decodeSession =
         |> optional "targetColumn" (Decode.map Just string) Nothing
         |> optional "modelId" (Decode.map Just string) Nothing
         |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
-        
+
 
 canPredictSession : SessionData -> Bool
-canPredictSession session = 
+canPredictSession session =
     case session.predictionDomain of
-        Forecast -> False
-        Impact -> False
-        _ -> True
+        Forecast ->
+            False
+
+        Impact ->
+            False
+
+        _ ->
+            True
 
 
 decodeMessage : Decoder Message
 decodeMessage =
     decode Message
-        |> required "severity"     decodeMessageSeverity 
+        |> required "severity" decodeMessageSeverity
         |> required "message" Decode.string
 
 
 decodeMessageSeverity : Decoder Severity
 decodeMessageSeverity =
     Decode.string
-    |> andThen
-        (\n ->
-            case n of
-                "debug" ->
-                    succeed Debug
+        |> andThen
+            (\n ->
+                case n of
+                    "debug" ->
+                        succeed Debug
 
-                "informational" ->
-                    succeed Informational
+                    "informational" ->
+                        succeed Informational
 
-                "warning" ->
-                    succeed Warning
+                    "warning" ->
+                        succeed Warning
 
-                "error" ->
-                    succeed Error
+                    "error" ->
+                        succeed Error
 
-                unknown ->
-                    fail <| "Unknown Severity: " ++ unknown
-        )
+                    unknown ->
+                        fail <| "Unknown Severity: " ++ unknown
+            )
+
 
 decodeSessionList : Decoder SessionList
 decodeSessionList =

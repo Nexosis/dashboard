@@ -1,21 +1,21 @@
 module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
+import AppRoutes
+import Data.Algorithm exposing (..)
+import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
+import Data.DataSet exposing (toDataSetName)
 import Data.Session exposing (..)
 import Data.Status exposing (Status)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import List exposing (filter, foldr, head)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
 import Util exposing ((=>))
-import AppRoutes
-import List exposing (head, filter, foldr)
-import Dict
-import Data.Columns exposing (ColumnMetadata)
-import Data.Columns as Role exposing (Role)
-import Data.DataSet exposing (toDataSetName)
-import Data.Algorithm exposing (..)
+
 
 type alias Model =
     { sessionId : String
@@ -30,31 +30,31 @@ type Msg
     | ResultsResponse (Remote.WebData SessionResults)
 
 
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId } => (Request.Session.results model.config model.sessionId 1 1
-                        |> Remote.sendRequest
-                        |> Cmd.map ResultsResponse)
+                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
+                        => (Request.Session.results model.config model.sessionId 1 1
+                                |> Remote.sendRequest
+                                |> Cmd.map ResultsResponse
+                           )
 
-                Remote.Failure err -> 
+                Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Session details response failure: " ++ toString err) Log.Error)
 
                 _ ->
                     model => Cmd.none
 
-
         ResultsResponse response ->
             case response of
                 Remote.Success contestInfo ->
-                    {model | resultsResponse = response} => Cmd.none
-                
+                    { model | resultsResponse = response } => Cmd.none
+
                 Remote.Failure err ->
-                     model => (Log.logMessage <| Log.LogMessage ("Session results response failure: " ++ toString err) Log.Error)
+                    model => (Log.logMessage <| Log.LogMessage ("Session results response failure: " ++ toString err) Log.Error)
 
                 _ ->
                     model => Cmd.none
@@ -62,64 +62,61 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div[]
-    [
-        p [ class "breadcrumb" ]
-        [ span []
-            [ a [ AppRoutes.href AppRoutes.Home ]
-                [ text "API Dashboard" ]
+    div []
+        [ p [ class "breadcrumb" ]
+            [ span []
+                [ a [ AppRoutes.href AppRoutes.Home ]
+                    [ text "API Dashboard" ]
+                ]
+            , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
+                []
+            , span []
+                [ a [ AppRoutes.href AppRoutes.Sessions ]
+                    [ text "Sessions" ]
+                ]
             ]
-        , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
-            []
-        , span []
-            [ a [ AppRoutes.href AppRoutes.Sessions ]
-                [ text "Sessions" ]
-            ]
-        ]
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
-    ]
+        ]
+
 
 viewSessionDetails : Model -> Html Msg
-viewSessionDetails model = 
-    let 
-        loadingOr = loadingOrView model.sessionResponse
+viewSessionDetails model =
+    let
+        loadingOr =
+            loadingOrView model.sessionResponse
+
         pendingOrCompleted session =
             if session.status == Data.Status.Completed then
                 viewCompletedSession session
             else
                 viewPendingSession session
 
-        statusHistoryOrMessages session = 
+        statusHistoryOrMessages session =
             if sessionIsCompleted session then
                 viewMessages session
             else
                 viewStatusHistory session
-
     in
-        div [class "row"]
-            [
-                div [class "col-sm-4"]
-                    [
-                        loadingOr pendingOrCompleted
-                        , loadingOrView model.resultsResponse viewMetricsList
-                        , p []
-                            [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
-                                [ text "(TODO) View algorithm contestants" ]
-                            ]
-                    ]
-                , div [class "col-sm-5"]
-                    [
-                        --loadingOr statusHistoryOrMessages
-                        loadingOr viewMessages
-                        , loadingOr viewStatusHistory
-                    ]
-                , div [class "col-sm-3"]
-                    [
-                        
-                    ]
+    div [ class "row" ]
+        [ div [ class "col-sm-4" ]
+            [ loadingOr pendingOrCompleted
+            , loadingOrView model.resultsResponse viewMetricsList
+            , p []
+                [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+                    [ text "(TODO) View algorithm contestants" ]
+                ]
             ]
+        , div [ class "col-sm-5" ]
+            [ --loadingOr statusHistoryOrMessages
+              loadingOr viewMessages
+            , loadingOr viewStatusHistory
+            ]
+        , div [ class "col-sm-3" ]
+            []
+        ]
+
 
 viewMessages : SessionData -> Html Msg
 viewMessages session =
@@ -127,24 +124,30 @@ viewMessages session =
         labelType : Message -> String
         labelType message =
             case message.severity of
-                Debug -> "info"
-                Informational -> "info"
-                Warning -> "warning"
-                Error -> "danger"
-                
+                Debug ->
+                    "info"
+
+                Informational ->
+                    "info"
+
+                Warning ->
+                    "warning"
+
+                Error ->
+                    "danger"
 
         messageEntry : Message -> Html Msg
-        messageEntry message = 
+        messageEntry message =
             tr []
-                    [td [ class "per10 left" ]
-                        [ span [ class ("label label-" ++ (labelType message) ++ " mr5") ]
-                            [ text (toString(message.severity)) ]
-                        ]
-                    , td [ class "left" ]
-                        [ text message.message ]
+                [ td [ class "per10 left" ]
+                    [ span [ class ("label label-" ++ labelType message ++ " mr5") ]
+                        [ text (toString message.severity) ]
                     ]
+                , td [ class "left" ]
+                    [ text message.message ]
+                ]
     in
-        div [ ]
+    div []
         [ h5 [ class "mt15 mb15" ]
             [ text "Messages" ]
         , table [ class "table table-striped" ]
@@ -156,36 +159,46 @@ viewMessages session =
                         [ text "Status" ]
                     ]
                 ]
-            , tbody [] 
+            , tbody []
                 (List.map messageEntry session.messages)
             ]
         ]
 
+
 viewStatusHistory : SessionData -> Html Msg
 viewStatusHistory session =
     let
-
         labelType status =
             case status.status of
-                Data.Status.Requested -> "info"
-                Data.Status.Started -> "warning"
-                Data.Status.CancellationPending -> "warning"
-                Data.Status.Cancelled -> "warning"
-                Data.Status.Completed -> "success"
-                Data.Status.Failed -> "error"
-                
+                Data.Status.Requested ->
+                    "info"
 
-        statusEntry status = 
+                Data.Status.Started ->
+                    "warning"
+
+                Data.Status.CancellationPending ->
+                    "warning"
+
+                Data.Status.Cancelled ->
+                    "warning"
+
+                Data.Status.Completed ->
+                    "success"
+
+                Data.Status.Failed ->
+                    "error"
+
+        statusEntry status =
             tr []
-                    [ td [ class "small" ]
-                        [ text status.date ]
-                    , td [ class "left" ]
-                        [ span [ class ("label label-" ++ (labelType status) ++ " mr5") ]
-                            [ text (toString status.status) ]
-                        ]
+                [ td [ class "small" ]
+                    [ text status.date ]
+                , td [ class "left" ]
+                    [ span [ class ("label label-" ++ labelType status ++ " mr5") ]
+                        [ text (toString status.status) ]
                     ]
+                ]
     in
-        div [ ]
+    div []
         [ h5 [ class "mt15 mb15" ]
             [ text "Status Log" ]
         , table [ class "table table-striped" ]
@@ -204,43 +217,44 @@ viewStatusHistory session =
 
 
 viewSessionHeader : Model -> Html Msg
-viewSessionHeader model = 
-    let 
-        loadingOr = loadingOrView model.sessionResponse
+viewSessionHeader model =
+    let
+        loadingOr =
+            loadingOrView model.sessionResponse
     in
-        div[]
-        [
-        div [class "row"]
+    div []
+        [ div [ class "row" ]
             [ loadingOr viewSessionName
-            ,div [ class "col-sm-3" ]
+            , div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
                     [ loadingOr viewPredictButton
                     ]
                 ]
             ]
-            , div [ class "row" ]
-                [ loadingOr viewSessionId
-                , div [ class "col-sm-4" ]
-                    [ p [ class "small" ]
-                        [ strong []
-                            [ text "Session Type:" ]
-                        , text "Classification"
-                        ]
-                    ]
-                , div [ class "col-sm-4 right" ]
-                    [ button [ class "btn btn-xs other" ]
-                        [ i [ class "fa fa-repeat mr5" ]
-                            []
-                        , text "(TODO) Iterate session"
-                        ]
-                    , button [ class "btn btn-xs secondary" ]
-                        [ i [ class "fa fa-trash-o mr5" ]
-                            []
-                        , text "(TODO) Delete"
-                        ]
+        , div [ class "row" ]
+            [ loadingOr viewSessionId
+            , div [ class "col-sm-4" ]
+                [ p [ class "small" ]
+                    [ strong []
+                        [ text "Session Type:" ]
+                    , text "Classification"
                     ]
                 ]
+            , div [ class "col-sm-4 right" ]
+                [ button [ class "btn btn-xs other" ]
+                    [ i [ class "fa fa-repeat mr5" ]
+                        []
+                    , text "(TODO) Iterate session"
+                    ]
+                , button [ class "btn btn-xs secondary" ]
+                    [ i [ class "fa fa-trash-o mr5" ]
+                        []
+                    , text "(TODO) Delete"
+                    ]
+                ]
+            ]
         ]
+
 
 viewPredictButton : SessionData -> Html Msg
 viewPredictButton session =
@@ -248,72 +262,79 @@ viewPredictButton session =
         button [ class "btn" ]
             [ text "(TODO) Predict" ]
     else
-        div [][]
+        div [] []
+
 
 viewSessionDetail : SessionData -> Html Msg
-viewSessionDetail session = 
+viewSessionDetail session =
     if session.status == Data.Status.Completed then
         viewCompletedSession session
     else
         viewPendingSession session
-        
 
 
 viewPendingSession : SessionData -> Html Msg
-viewPendingSession session = 
+viewPendingSession session =
     h5 [ class "mb15" ]
-    [ text "Session Status" ]
+        [ text "Session Status" ]
+
 
 modelLink : SessionData -> Html Msg
 modelLink session =
     case session.modelId of
         Nothing ->
-            div [][]
+            div [] []
+
         Just modelId ->
             p []
-            [ strong []
-                [ text "Model: " ]
-            , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
-                [ text session.name ]
-            ]
-        
+                [ strong []
+                    [ text "Model: " ]
+                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
+                    [ text session.name ]
+                ]
 
 
 viewCompletedSession : SessionData -> Html Msg
-viewCompletedSession session = 
+viewCompletedSession session =
     let
         isTarget : ColumnMetadata -> Bool
         isTarget column =
             column.role == Role.Target
 
         targetColumnFromColumns : SessionData -> String
-        targetColumnFromColumns session = 
+        targetColumnFromColumns session =
             filter isTarget session.columns
                 |> head
                 |> columnName
-        
+
         targetColumn : SessionData -> String
-        targetColumn session = 
+        targetColumn session =
             case session.targetColumn of
-                Just target -> 
+                Just target ->
                     target
-                Nothing -> 
+
+                Nothing ->
                     targetColumnFromColumns session
-        
+
         columnName : Maybe ColumnMetadata -> String
         columnName col =
             case col of
-                Nothing -> ""
-                Just c -> c.name
-            
+                Nothing ->
+                    ""
+
+                Just c ->
+                    c.name
+
         algorithmName : Maybe Algorithm -> String
         algorithmName algo =
             case algo of
-                Nothing -> ""
-                Just a -> a.name
+                Nothing ->
+                    ""
 
+                Just a ->
+                    a.name
     in
-        div []
+    div []
         [ h5 [ class "mt15 mb15" ]
             [ text "Details" ]
         , modelLink session
@@ -335,6 +356,7 @@ viewCompletedSession session =
             ]
         ]
 
+
 viewMetricsList : SessionResults -> Html Msg
 viewMetricsList results =
     let
@@ -347,27 +369,25 @@ viewMetricsList results =
                 , text value
                 ]
     in
-        div []
-        [
-            p [ class "small" ]
-                [ strong []
-                    [ text "Metrics" ]
-                ]
-                
-            , ul [ class "small algorithm-metrics" ]
-                (Dict.foldr (\key val html -> (listMetric key (toString val)) :: html) [] results.metrics)
+    div []
+        [ p [ class "small" ]
+            [ strong []
+                [ text "Metrics" ]
+            ]
+        , ul [ class "small algorithm-metrics" ]
+            (Dict.foldr (\key val html -> listMetric key (toString val) :: html) [] results.metrics)
         ]
-    
+
 
 viewSessionName : SessionData -> Html Msg
-viewSessionName session = 
-    div [class "col-sm-9"]
-        [h2 [class "mt10"][text session.name]
-    ]
-    
+viewSessionName session =
+    div [ class "col-sm-9" ]
+        [ h2 [ class "mt10" ] [ text session.name ]
+        ]
+
 
 viewSessionId : SessionData -> Html Msg
-viewSessionId session = 
+viewSessionId session =
     div [ class "col-sm-4" ]
         [ p [ class "small" ]
             [ strong []
@@ -381,7 +401,6 @@ viewSessionId session =
         ]
 
 
-
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =
     case request of
@@ -389,7 +408,8 @@ loadingOrView request view =
             view resp
 
         Remote.Loading ->
-            div [ class "loading--line" ] [] 
+            div [ class "loading--line" ] []
+
         _ ->
             div [] []
 
