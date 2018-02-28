@@ -1,4 +1,4 @@
-module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, routeToString)
+module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, newUrl, routeToString)
 
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
@@ -99,6 +99,11 @@ href route =
 modifyUrl : Route -> Cmd msg
 modifyUrl =
     routeToString >> Navigation.modifyUrl
+
+
+newUrl : Route -> Cmd msg
+newUrl =
+    routeToString >> Navigation.newUrl
 
 
 fromLocation : Location -> Maybe Route

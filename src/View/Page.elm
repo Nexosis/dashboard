@@ -2,7 +2,7 @@ module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
 import AppRoutes
 import Data.Config as Config exposing (Config)
-import Data.Response as Response exposing (Message, Response)
+import Data.Response as Response exposing (GlobalMessage, Response)
 import Feature exposing (Feature)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -27,7 +27,7 @@ type alias PageValues a =
     { a
         | lastRequest : String
         , lastResponse : Maybe Response
-        , messages : List Message
+        , messages : List GlobalMessage
         , config : Config
         , enabledFeatures : List Feature
     }
@@ -154,7 +154,7 @@ viewHeader navLinks =
         ]
 
 
-viewMessages : List Message -> Html msg
+viewMessages : List GlobalMessage -> Html msg
 viewMessages messages =
     div []
         [ viewIfElements
@@ -165,7 +165,7 @@ viewMessages messages =
         ]
 
 
-viewMessage : Message -> Html msg
+viewMessage : GlobalMessage -> Html msg
 viewMessage message =
     li []
         [ div []

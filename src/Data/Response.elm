@@ -1,9 +1,10 @@
-module Data.Response exposing (Message, Response, ResponseError, Severity(..), decodeResponse, decodeXhrResponse, responseErrorDecoder)
+module Data.Response exposing (GlobalMessage, Response, ResponseError, decodeResponse, decodeXhrResponse, responseErrorDecoder)
 
 import AppRoutes exposing (Route)
+import Data.Message exposing (Severity, decodeSeverity)
 import Dict exposing (Dict)
 import Http
-import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, string, succeed)
+import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, oneOf, string, succeed)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 
@@ -15,7 +16,7 @@ type alias Response =
     , method : String
     , url : String
     , timestamp : String
-    , messages : List Message
+    , messages : List GlobalMessage
     }
 
 
@@ -27,18 +28,11 @@ type alias ResponseError =
     }
 
 
-type alias Message =
+type alias GlobalMessage =
     { severity : Severity
     , message : String
     , routeToResource : Maybe Route
     }
-
-
-type Severity
-    = Debug
-    | Informational
-    | Warning
-    | Error
 
 
 decodeXhrResponse : String -> Value -> Result String Response
@@ -68,40 +62,17 @@ decodeResponse baseUrl =
             )
 
 
-nestedMessagesDecoder : Maybe Route -> Decoder (List Message)
+nestedMessagesDecoder : Maybe Route -> Decoder (List GlobalMessage)
 nestedMessagesDecoder route =
     doubleEncoded (field "messages" (list (decodeMessage route)) |> withDefault [])
 
 
-decodeMessage : Maybe Route -> Decoder Message
+decodeMessage : Maybe Route -> Decoder GlobalMessage
 decodeMessage route =
-    decode Message
+    decode GlobalMessage
         |> required "severity" decodeSeverity
         |> required "message" string
         |> hardcoded route
-
-
-decodeSeverity : Decoder Severity
-decodeSeverity =
-    string
-        |> andThen
-            (\severity ->
-                case severity of
-                    "debug" ->
-                        succeed Debug
-
-                    "informational" ->
-                        succeed Informational
-
-                    "warning" ->
-                        succeed Warning
-
-                    "error" ->
-                        succeed Error
-
-                    unknown ->
-                        fail <| "Unknown message severity: " ++ unknown
-            )
 
 
 responseErrorDecoder : Http.Response String -> ResponseError
@@ -121,4 +92,9 @@ decodeResponseBodyError =
         |> required "statusCode" int
         |> required "message" string
         |> optional "errorType" (nullable string) Nothing
-        |> optional "errorDetails" (dict string) Dict.empty
+        |> optional "errorDetails" (dict decodeErrorDetailValue) Dict.empty
+
+
+decodeErrorDetailValue : Decoder String
+decodeErrorDetailValue =
+    oneOf [ string, list string |> andThen (\l -> succeed (toString l)) ]
