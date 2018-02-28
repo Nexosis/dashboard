@@ -77,6 +77,12 @@ decodeSession =
         |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
         
 
+canPredictSession : SessionData -> Bool
+canPredictSession session = 
+    case session.predictionDomain of
+        Forecast -> False
+        Impact -> False
+        _ -> True
 
 
 decodeMessage : Decoder Message

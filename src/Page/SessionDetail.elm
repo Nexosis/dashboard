@@ -107,7 +107,7 @@ viewSessionDetails model =
                         , loadingOrView model.contestResponse viewMetricsList
                         , p []
                             [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
-                                [ text "View algorithm contestants" ]
+                                [ text "(TODO) View algorithm contestants" ]
                             ]
                     ]
                 , div [class "col-sm-5"]
@@ -213,8 +213,7 @@ viewSessionHeader model =
             [ loadingOr viewSessionName
             ,div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
-                    [ button [ class "btn" ]
-                        [ text "(TODO) Predict" ]
+                    [ loadingOr viewPredictButton
                     ]
                 ]
             ]
@@ -231,17 +230,24 @@ viewSessionHeader model =
                     [ button [ class "btn btn-xs other" ]
                         [ i [ class "fa fa-repeat mr5" ]
                             []
-                        , text "Iterate session"
+                        , text "(TODO) Iterate session"
                         ]
                     , button [ class "btn btn-xs secondary" ]
                         [ i [ class "fa fa-trash-o mr5" ]
                             []
-                        , text "Delete"
+                        , text "(TODO) Delete"
                         ]
                     ]
                 ]
         ]
 
+viewPredictButton : SessionData -> Html Msg
+viewPredictButton session =
+    if canPredictSession session then
+        button [ class "btn" ]
+            [ text "(TODO) Predict" ]
+    else
+        div [][]
 
 viewSessionDetail : SessionData -> Html Msg
 viewSessionDetail session = 
