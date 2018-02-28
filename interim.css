@@ -139,7 +139,7 @@ select {-webkit-appearance: menulist;}
 }
 .alert {border-radius: 5px;}
 
-input#upload-dataset {
+input.upload-file {
     width: 0.1px;
 	height: 0.1px;
 	opacity: 0;
@@ -148,7 +148,7 @@ input#upload-dataset {
 	z-index: -1;
 }
 
-input#upload-dataset + label {
+input.upload-file + label {
     color: #fff !important;
 	text-align: center;
 	border: #e20467 solid 1px;
@@ -164,8 +164,8 @@ input#upload-dataset + label {
     font-weight: 500;
 }
 
-input#upload-dataset:focus + label,
-input#upload-dataset + label:hover {
+input.upload-file:focus + label,
+input.upload-file+ label:hover {
     background-color: #f0f0f0;
     color: #e20467;
 }

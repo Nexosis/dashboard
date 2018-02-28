@@ -274,7 +274,7 @@ viewUploadTab model =
             [ div [ class "form-group col-sm-8" ]
                 [ input
                     [ id "upload-predict"
-                    , class "upload-predict"
+                    , class "upload-file"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
                     ]
