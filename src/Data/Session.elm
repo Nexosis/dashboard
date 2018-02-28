@@ -11,8 +11,8 @@ import Json.Decode.Pipeline exposing (decode, optional, required)
 
 sessionIsCompleted : SessionData -> Bool
 sessionIsCompleted session =
-    session.status == Completed ||
-    session.status == Failed
+    session.status == Data.Status.Completed ||
+    session.status == Data.Status.Failed
 
 type alias Message = {
     severity : Severity
@@ -82,7 +82,7 @@ decodeSession =
         |> required "messages" (Decode.list decodeMessage)
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
-        |> optional "targetColumn" Decode.string ""
+        |> optional "targetColumn" (Decode.map Just string) Nothing
         |> optional "modelId" (Decode.map Just string) Nothing
         |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
         

@@ -2,6 +2,7 @@ module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import Data.Config exposing (Config)
 import Data.Session exposing (..)
+import Data.Status exposing (Status)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import RemoteData as Remote
@@ -85,7 +86,7 @@ viewSessionDetails model =
     let 
         loadingOr = loadingOrView model.sessionResponse
         pendingOrCompleted session =
-            if session.status == Completed then
+            if session.status == Data.Status.Completed then
                 viewCompletedSession session
             else
                 viewPendingSession session
@@ -166,10 +167,12 @@ viewStatusHistory session =
 
         labelType status =
             case status.status of
-                Requested -> "info"
-                Started -> "warning"
-                Completed -> "success"
-                Failed -> "error"
+                Data.Status.Requested -> "info"
+                Data.Status.Started -> "warning"
+                Data.Status.CancellationPending -> "warning"
+                Data.Status.Cancelled -> "warning"
+                Data.Status.Completed -> "success"
+                Data.Status.Failed -> "error"
                 
 
         statusEntry status = 
@@ -249,7 +252,7 @@ viewPredictButton session =
 
 viewSessionDetail : SessionData -> Html Msg
 viewSessionDetail session = 
-    if session.status == Completed then
+    if session.status == Data.Status.Completed then
         viewCompletedSession session
     else
         viewPendingSession session
