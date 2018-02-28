@@ -2,6 +2,7 @@ module Data.Session exposing (..)
 
 import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.Message exposing (..)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
@@ -23,19 +24,6 @@ sessionIsCompleted session =
 
         _ ->
             False
-
-
-type alias Message =
-    { severity : Severity
-    , message : String
-    }
-
-
-type Severity
-    = Debug
-    | Informational
-    | Warning
-    | Error
 
 
 type alias SessionData =
@@ -112,36 +100,6 @@ canPredictSession session =
 
         _ ->
             True
-
-
-decodeMessage : Decoder Message
-decodeMessage =
-    decode Message
-        |> required "severity" decodeMessageSeverity
-        |> required "message" Decode.string
-
-
-decodeMessageSeverity : Decoder Severity
-decodeMessageSeverity =
-    Decode.string
-        |> andThen
-            (\n ->
-                case n of
-                    "debug" ->
-                        succeed Debug
-
-                    "informational" ->
-                        succeed Informational
-
-                    "warning" ->
-                        succeed Warning
-
-                    "error" ->
-                        succeed Error
-
-                    unknown ->
-                        fail <| "Unknown Severity: " ++ unknown
-            )
 
 
 decodeSessionList : Decoder SessionList

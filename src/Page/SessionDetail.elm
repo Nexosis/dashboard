@@ -5,6 +5,7 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
+import Data.Message exposing (..)
 import Data.Session exposing (..)
 import Data.Status exposing (Status)
 import Dict
