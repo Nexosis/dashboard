@@ -2,7 +2,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Cascade as Cascade
-import Data.Columns as Columns exposing (ColumnMetadata, Role)
+import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
@@ -21,43 +21,21 @@ import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>))
-import VegaLite exposing (Spec)
+import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
-import View.Grid as Grid
-import View.Pager as Pager
 import View.RelatedLinks as Related exposing (view)
-import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
 
 
 type alias Model =
-    { pageTitle : String
-    , pageBody : String
-    , errors : List String
-    , dataSetName : DataSetName
+    { dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
-    , columnResponse : Remote.WebData ColumnMetadataListing
-    , tableState : Table.State
+    , columnMetadataEditorModel : ColumnMetadataEditor.Model
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
-    }
-
-
-type alias ColumnMetadataListing =
-    { pageNumber : Int
-    , totalPages : Int
-    , pageSize : Int
-    , totalCount : Int
-    , metadataList : List ColumnInfo
-    }
-
-
-type alias ColumnInfo =
-    { metadata : ColumnMetadata
-    , stats : Maybe ColumnStats
     }
 
 
@@ -70,58 +48,18 @@ init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
         loadData =
-            Cmd.batch
-                [ Request.DataSet.getRetrieveDetail config dataSetName
-                    |> Remote.sendRequest
-                    |> Cmd.map DataSetDataResponse
-                , loadRelatedSessions config dataSetName
-                ]
+            Request.DataSet.getRetrieveDetail config dataSetName
+                |> Remote.sendRequest
+                |> Cmd.map DataSetDataResponse
+
+        ( editorModel, initCmd ) =
+            ColumnMetadataEditor.init config dataSetName
     in
-    Model "DataSets" "This is the list of DataSets" [] dataSetName Remote.Loading Remote.Loading (Table.initialSort "dataSetName") config Nothing (SessionLinks [])
-        => loadData
-
-
-mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
-mapColumnListToPagedListing columns =
-    let
-        count =
-            List.length columns
-
-        pageSize =
-            10
-    in
-    { pageNumber = 0
-    , totalPages = count // 10
-    , pageSize = pageSize
-    , totalCount = count
-    , metadataList =
-        List.map
-            (\m ->
-                { metadata = m
-                , stats = Nothing
-                }
-            )
-            columns
-    }
-
-
-mergeListingAndStats : ColumnMetadataListing -> DataSetStats -> ColumnMetadataListing
-mergeListingAndStats metadataListing stats =
-    let
-        -- Keys are currently lower case, but that could change in the future to match the column metadata exactly.
-        loweredKeys =
-            DictX.mapKeys String.toLower stats.columns
-
-        updatedListing =
-            metadataListing.metadataList
-                |> List.map
-                    (\i ->
-                        { metadata = i.metadata
-                        , stats = Dict.get (String.toLower i.metadata.name) loweredKeys
-                        }
-                    )
-    in
-    { metadataListing | metadataList = updatedListing }
+    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks [])
+        ! [ loadData
+          , loadRelatedSessions config dataSetName
+          , Cmd.map ColumnMetadataEditorMsg initCmd
+          ]
 
 
 loadRelatedSessions : Config -> DataSetName -> Cmd Msg
@@ -137,66 +75,25 @@ loadRelatedSessions config dataset =
 
 type Msg
     = DataSetDataResponse (Remote.WebData DataSetData)
-    | StatsResponse (Remote.WebData DataSetStats)
-    | SetTableState Table.State
-    | ChangePage Int
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
     | SessionDataListResponse (Remote.WebData SessionList)
+    | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetDataResponse resp ->
-            case resp of
-                Remote.Success dataSetDetail ->
-                    let
-                        vegaSpec =
-                            dataSetDetail.columns
-                                |> List.map generateVegaSpec
-                                |> Json.Encode.object
+            { model | dataSetResponse = resp } => Cmd.none
 
-                        columnListing =
-                            mapColumnListToPagedListing dataSetDetail.columns
-
-                        statsRequest =
-                            Request.DataSet.getStats model.config dataSetDetail.dataSetName
-                                |> Remote.sendRequest
-                                |> Cmd.map StatsResponse
-                    in
-                    -- Send ports when we want to draw the histogram.
-                    -- Ports.drawVegaChart vegaSpec
-                    { model | dataSetResponse = resp, columnResponse = Remote.succeed columnListing } => statsRequest
-
-                _ ->
-                    { model | dataSetResponse = resp } => Cmd.none
-
-        StatsResponse resp ->
-            case resp of
-                Remote.Success _ ->
-                    let
-                        updatedColumnInfo =
-                            Remote.map2 mergeListingAndStats model.columnResponse resp
-                    in
-                    { model | columnResponse = updatedColumnInfo } => Cmd.none
-
-                Remote.Failure err ->
-                    model => logHttpError err
-
-                _ ->
-                    model => Cmd.none
-
-        SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
-
-        ChangePage pageNumber ->
+        ColumnMetadataEditorMsg subMsg ->
             let
-                ( columnListing, cmd ) =
-                    Remote.update (updateColumnPageNumber pageNumber) model.columnResponse
+                ( newModel, cmd ) =
+                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel model.dataSetResponse
             in
-            { model | columnResponse = columnListing } => cmd
+            { model | columnMetadataEditorModel = newModel }
+                => Cmd.map ColumnMetadataEditorMsg cmd
 
         ShowDeleteDialog ->
             let
@@ -242,27 +139,6 @@ update msg model =
                     model => Cmd.none
 
 
-generateVegaSpec : ColumnMetadata -> ( String, Spec )
-generateVegaSpec column =
-    column.name
-        => VegaLite.toVegaLite
-            [ VegaLite.title column.name
-            , VegaLite.dataFromColumns [] <| VegaLite.dataColumn "x" (VegaLite.Numbers [ 10, 20, 30 ]) []
-            , VegaLite.mark VegaLite.Circle []
-            , VegaLite.encoding <| VegaLite.position VegaLite.X [ VegaLite.PName "x", VegaLite.PmType VegaLite.Quantitative ] []
-            ]
-
-
-updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
-updateColumnPageNumber pageNumber columnListing =
-    { columnListing | pageNumber = pageNumber } => Cmd.none
-
-
-updateColumnMetadata : List ColumnInfo -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
-updateColumnMetadata info columnListing =
-    { columnListing | metadataList = info } => Cmd.none
-
-
 
 -- VIEW --
 
@@ -285,17 +161,7 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-3" ]
-                        [ h3 [] [ text "Columns" ]
-                        ]
-                    , div [ class "col-sm-2 col-sm-offset-7 right" ]
-                        [--todo : page number changer
-                        ]
-                    ]
-                , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnResponse
-                , div [ class "center" ] [ Pager.view model.columnResponse ChangePage ]
-                ]
+                [ ColumnMetadataEditor.view model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg ]
             ]
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete DataSet"
@@ -340,18 +206,18 @@ viewRolesCol : Model -> Html Msg
 viewRolesCol model =
     let
         ( keyFormGroup, targetFormGroup ) =
-            case model.columnResponse of
+            case model.dataSetResponse of
                 Remote.Success resp ->
                     let
                         keyGroup =
-                            resp.metadataList
-                                |> ListX.find (\m -> m.metadata.role == Columns.Key)
+                            resp.columns
+                                |> ListX.find (\m -> m.role == Columns.Key)
                                 |> Maybe.map viewKeyFormGroup
                                 |> Maybe.withDefault (div [] [])
 
                         targetGroup =
-                            resp.metadataList
-                                |> ListX.find (\m -> m.metadata.role == Columns.Target)
+                            resp.columns
+                                |> ListX.find (\m -> m.role == Columns.Target)
                                 |> viewTargetFormGroup
                     in
                     ( keyGroup, targetGroup )
@@ -382,26 +248,24 @@ viewLoadingFormGroup =
         ]
 
 
-viewKeyFormGroup : ColumnInfo -> Html Msg
+viewKeyFormGroup : ColumnMetadata -> Html Msg
 viewKeyFormGroup key =
     div [ class "form-group" ]
         [ label [ class "control-label col-sm-3 mr0 pr0" ]
             [ text "Key"
             ]
         , div [ class "col-sm-8" ]
-            -- todo: what is there is no key?
-            -- not all datasets have a key at all.
-            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.metadata.name ]
+            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.name ]
             , p [ class "small color-mediumGray" ] [ text "The key role can only be set when importing a new dataset." ]
             ]
         ]
 
 
-viewTargetFormGroup : Maybe ColumnInfo -> Html Msg
+viewTargetFormGroup : Maybe ColumnMetadata -> Html Msg
 viewTargetFormGroup target =
     let
         targetText =
-            target |> Maybe.map (\t -> t.metadata.name) |> Maybe.withDefault ""
+            target |> Maybe.map (\t -> t.name) |> Maybe.withDefault ""
     in
     div [ class "form-group" ]
         [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
@@ -467,184 +331,3 @@ viewDetailsCol model =
             , modified
             ]
         ]
-
-
-filterColumnsToDisplay : ColumnMetadataListing -> List ColumnInfo
-filterColumnsToDisplay columnListing =
-    let
-        drop =
-            columnListing.pageSize * columnListing.pageNumber
-    in
-    columnListing.metadataList
-        |> List.drop drop
-        |> List.take columnListing.pageSize
-
-
-config : Dict String String -> Grid.Config ColumnInfo Msg
-config toolTips =
-    let
-        makeIcon =
-            helpIcon toolTips
-    in
-    Grid.config
-        { toId = \c -> c.metadata.name
-        , toMsg = SetTableState
-        , columns =
-            [ nameColumn
-            , typeColumn makeIcon
-            , roleColumn makeIcon
-            , imputationColumn makeIcon
-            , statsColumn
-            ]
-        }
-
-
-nameColumn : Grid.Column ColumnInfo Msg
-nameColumn =
-    Grid.veryCustomColumn
-        { name = "Column Name"
-        , viewData = columnNameCell
-        , sorter = Table.increasingOrDecreasingBy (\c -> c.metadata.name)
-        , headAttributes = [ class "left per25" ]
-        , headHtml = []
-        }
-
-
-columnNameCell : ColumnInfo -> Table.HtmlDetails Msg
-columnNameCell column =
-    Table.HtmlDetails [ class "name" ]
-        [ text column.metadata.name ]
-
-
-typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
-typeColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Type"
-        , viewData = dataTypeCell
-        , sorter = Table.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Type"
-        }
-
-
-dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
-dataTypeCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.dataType ]
-            ]
-        ]
-
-
-roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
-roleColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Role"
-        , viewData = roleCell
-        , sorter = Table.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Role"
-        }
-
-
-roleCell : ColumnInfo -> Table.HtmlDetails Msg
-roleCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.role ]
-            ]
-        ]
-
-
-imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
-imputationColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Imputation"
-        , viewData = imputationCell
-        , sorter = Table.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Imputation"
-        }
-
-
-imputationCell : ColumnInfo -> Table.HtmlDetails Msg
-imputationCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.imputation ]
-            ]
-        ]
-
-
-statsColumn : Grid.Column ColumnInfo Msg
-statsColumn =
-    Grid.veryCustomColumn
-        { name = "Stats"
-        , viewData = statsCell
-        , sorter = Table.unsortable
-        , headAttributes = [ class "per20", colspan 2 ]
-        , headHtml = []
-        }
-
-
-statsCell : ColumnInfo -> Table.HtmlDetails Msg
-statsCell column =
-    Table.HtmlDetails [ class "stats" ]
-        [ statsDisplay column.stats ]
-
-
-statsDisplay : Maybe ColumnStats -> Html Msg
-statsDisplay columnStats =
-    case columnStats of
-        Just stats ->
-            div [ class "row m0" ]
-                [ div [ class "col-sm-6 pl0 pr0" ]
-                    [ strong [] [ text "Min: " ]
-                    , text <| toString stats.min
-                    , br [] []
-                    , strong [] [ text "Max: " ]
-                    , text <| toString stats.max
-                    , br [] []
-                    , strong [] [ text "Standard Deviation: " ]
-                    , text <| toString stats.stddev
-                    , br [] []
-                    , strong [ class "text-danger" ] [ text "Errors: " ]
-                    , text <| toString stats.errors
-                    ]
-                , div [ class "col-sm-6 pl0 pr0" ]
-                    [ strong [] [ text "Value Count: " ]
-                    , text <| toString stats.row_count
-                    , br [] []
-                    , strong [ class "text-danger" ] [ text "# Missing: " ]
-                    , text <| toString stats.missing
-                    , br [] []
-                    , strong [] [ text "Mean: " ]
-                    , text <| toString stats.mean
-                    , br [] []
-                    , strong [] [ text "Median: " ]
-                    , text <| toString stats.median
-                    ]
-                ]
-
-        Nothing ->
-            div [ class "row m0" ]
-                [ div [ class "col-sm-6 pl0 pr0" ] []
-                , div [ class "col-sm-6 pl0 pr0" ] []
-                ]
-
-
-histogramColumn : Grid.Column ColumnInfo Msg
-histogramColumn =
-    Grid.veryCustomColumn
-        { name = "Distribution"
-        , viewData = histogram
-        , sorter = Table.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = []
-        }
-
-
-histogram : ColumnInfo -> Table.HtmlDetails Msg
-histogram column =
-    Table.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.metadata.name) ] [] ]
