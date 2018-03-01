@@ -1,16 +1,23 @@
 module Page.SessionStart exposing (Model, Msg, init, update, view)
 
 import AppRoutes exposing (Route)
+import Data.AggregationStrategy as Aggregate
+import Data.Columns as Columns
 import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSetData, DataSetName)
+import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
+import Data.ImputationStrategy as Imputation
+import Data.PredictionDomain as PredictionDomain
+import Data.Session exposing (SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Util exposing ((=>))
+import Request.Session exposing (postModel)
+import Util exposing ((=>), spinner)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
+import View.Error exposing (viewRemoteError)
 import View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
@@ -23,6 +30,7 @@ type alias Model =
     , canAdvance : Bool
     , sessionName : String
     , selectedSessionType : Maybe SessionType
+    , sessionStartRequest : Remote.WebData SessionData
     }
 
 
@@ -33,6 +41,8 @@ type Msg
     | SelectSessionType SessionType
     | DataSetDataResponse (Remote.WebData DataSetData)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
+    | StartTheSession
+    | StartSessionResponse (Remote.WebData SessionData)
 
 
 type Step
@@ -69,7 +79,7 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName
     in
-    Model config steps dataSetName Remote.Loading editorModel True "" Nothing
+    Model config steps dataSetName Remote.Loading editorModel True "" Nothing Remote.NotAsked
         ! [ loadDataSetRequest, Cmd.map ColumnMetadataEditorMsg initCmd ]
 
 
@@ -81,6 +91,45 @@ update msg model =
 
         ( SessionType, SelectSessionType sessionType ) ->
             { model | selectedSessionType = Just sessionType, canAdvance = True } => Cmd.none
+
+        ( StartSession, StartTheSession ) ->
+            let
+                sessionRequest =
+                    case model.selectedSessionType of
+                        Just Regression ->
+                            let
+                                modelRequestRec =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = ""
+                                    , predictionDomain = PredictionDomain.Regression
+                                    , columns = []
+                                    }
+                            in
+                            postModel model.config modelRequestRec
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        _ ->
+                            -- todo - Support all of the other types.
+                            Cmd.none
+            in
+            { model | sessionStartRequest = Remote.Loading }
+                => sessionRequest
+
+        ( _, StartSessionResponse resp ) ->
+            let
+                ( newModel, cmd ) =
+                    case resp of
+                        Remote.Success session ->
+                            { model | sessionStartRequest = resp }
+                                => AppRoutes.newUrl (AppRoutes.SessionDetail session.sessionId)
+
+                        _ ->
+                            { model | sessionStartRequest = resp }
+                                => Cmd.none
+            in
+            newModel => cmd
 
         ( _, NextStep ) ->
             { model | steps = Ziplist.advance model.steps } => Cmd.none
@@ -131,7 +180,7 @@ view model =
                 viewColumnMetadata model
 
             StartSession ->
-                div [] []
+                viewStartSession model
         , viewButtons configWizard model.canAdvance model.steps
         ]
 
@@ -286,6 +335,44 @@ viewColumnMetadata model =
             ]
         , hr [] []
         , ColumnMetadataEditor.view model.columnEditorModel |> Html.map ColumnMetadataEditorMsg
+        ]
+
+
+viewStartSession : Model -> Html Msg
+viewStartSession model =
+    let
+        -- todo : more work here
+        properties =
+            [ ( "Session Name", model.sessionName )
+            , ( "DataSet Name", dataSetNameToString model.dataSetName )
+            ]
+
+        startButton =
+            case model.sessionStartRequest of
+                Remote.Loading ->
+                    button [ class "btn" ] [ spinner ]
+
+                _ ->
+                    button [ class "btn", onClick StartTheSession ]
+                        [ text "Start Session"
+                        , i [ class "fa fa-chevron-right ml5" ] []
+                        ]
+    in
+    div [ id "review", class "col-sm-12" ]
+        ([ h3 [ class "mt0" ] [ text "Please confirm your session setup" ] ]
+            ++ List.map reviewItem properties
+            ++ [ hr [] []
+               , div [ class "row" ] [ div [ class "form-group col-sm-12" ] [ startButton ] ]
+               , div [ class "row" ] [ viewRemoteError model.sessionStartRequest ]
+               ]
+        )
+
+
+reviewItem : ( String, String ) -> Html Msg
+reviewItem ( name, value ) =
+    div [ class "form-group col-sm-3" ]
+        [ p [] [ text name ]
+        , h6 [] [ text value, i [ class "fa fa-edit" ] [] ]
         ]
 
 
