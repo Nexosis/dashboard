@@ -11,11 +11,13 @@ import Data.Status exposing (Status)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import List exposing (filter, foldr, head)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
 import Util exposing ((=>))
+import View.DeleteDialog as DeleteDialog
 
 
 type alias Model =
@@ -23,12 +25,15 @@ type alias Model =
     , sessionResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , config : Config
+    , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
 type Msg
     = SessionResponse (Remote.WebData SessionData)
     | ResultsResponse (Remote.WebData SessionResults)
+    | ShowDeleteDialog Model
+    | DeleteDialogMsg DeleteDialog.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -60,6 +65,32 @@ update msg model =
                 _ ->
                     model => Cmd.none
 
+        ShowDeleteDialog model ->
+            { model | deleteDialogModel = Just (DeleteDialog.init "" model.sessionId) }
+                => Cmd.none
+
+        DeleteDialogMsg subMsg ->
+            let
+                ignoreCascadeParams cmd _ =
+                    cmd
+
+                pendingDeleteCmd =
+                    Request.Session.delete model.config >> ignoreCascadeParams
+
+                ( ( deleteModel, cmd ), msgFromDialog ) =
+                    DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
+
+                closeCmd =
+                    case msgFromDialog of
+                        DeleteDialog.NoOp ->
+                            Cmd.none
+
+                        DeleteDialog.Confirmed ->
+                            AppRoutes.modifyUrl AppRoutes.Sessions
+            in
+            { model | deleteDialogModel = deleteModel }
+                ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
+
 
 view : Model -> Html Msg
 view model =
@@ -79,6 +110,12 @@ view model =
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Session"
+            , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
         ]
 
 
@@ -223,6 +260,15 @@ viewSessionHeader model =
     let
         loadingOr =
             loadingOrView model.sessionResponse
+
+        disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
+        disabledOr request view =
+            case request of
+                Remote.Success resp ->
+                    view (Just resp) False
+
+                _ ->
+                    view Nothing True
     in
     div []
         [ div [ class "row" ]
@@ -243,17 +289,24 @@ viewSessionHeader model =
                     ]
                 ]
             , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs other" ]
-                    [ i [ class "fa fa-repeat mr5" ]
-                        []
-                    , text "(TODO) Iterate session"
-                    ]
-                , button [ class "btn btn-xs secondary" ]
-                    [ i [ class "fa fa-trash-o mr5" ]
-                        []
-                    , text "(TODO) Delete"
-                    ]
+                [ viewSessionButtons model
                 ]
+            ]
+        ]
+
+
+viewSessionButtons : Model -> Html Msg
+viewSessionButtons model =
+    div []
+        [ button [ class "btn btn-xs other" ]
+            [ i [ class "fa fa-repeat mr5" ]
+                []
+            , text "(TODO) Iterate session"
+            ]
+        , button [ class "btn btn-xs secondary", onClick (ShowDeleteDialog model) ]
+            [ i [ class "fa fa-trash-o mr5" ]
+                []
+            , text "Delete"
             ]
         ]
 
@@ -424,4 +477,4 @@ init config sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked config => loadModelDetail
+    Model sessionId Remote.Loading Remote.NotAsked config Nothing => loadModelDetail
