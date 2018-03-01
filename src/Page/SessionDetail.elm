@@ -13,6 +13,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List exposing (filter, foldr, head)
+import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
@@ -207,33 +208,12 @@ viewMessages session =
 viewStatusHistory : SessionData -> Html Msg
 viewStatusHistory session =
     let
-        labelType status =
-            case status.status of
-                Data.Status.Requested ->
-                    "info"
-
-                Data.Status.Started ->
-                    "warning"
-
-                Data.Status.CancellationPending ->
-                    "warning"
-
-                Data.Status.Cancelled ->
-                    "warning"
-
-                Data.Status.Completed ->
-                    "success"
-
-                Data.Status.Failed ->
-                    "error"
-
         statusEntry status =
             tr []
                 [ td [ class "small" ]
                     [ text status.date ]
                 , td [ class "left" ]
-                    [ span [ class ("label label-" ++ labelType status ++ " mr5") ]
-                        [ text (toString status.status) ]
+                    [ statusDisplay status.status
                     ]
                 ]
     in
