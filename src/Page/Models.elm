@@ -198,7 +198,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails Msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId False) ] [ text (modelOrDataSourceName model) ]
         ]
 
 

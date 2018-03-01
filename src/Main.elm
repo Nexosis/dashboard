@@ -30,6 +30,7 @@ import Time.DateTime as DateTime
 import Util exposing ((=>))
 import View.Page as Page
 
+
 ---- MODEL ----
 
 
@@ -157,10 +158,10 @@ setRoute route app =
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
-                Just (AppRoutes.ModelDetail id) ->
+                Just (AppRoutes.ModelDetail id predict) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.config id
+                            ModelDetail.init app.config id predict
                     in
                     ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 

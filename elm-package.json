@@ -13,6 +13,7 @@
     "exposed-modules": [],
     "dependencies": {
         "Bogdanp/elm-combine": "3.1.1 <= v < 4.0.0",
+        "Bogdanp/elm-querystring": "1.0.0 <= v < 2.0.0",
         "Gizra/elm-editable-webdata": "1.0.1 <= v < 2.0.0",
         "NoRedInk/elm-decode-pipeline": "3.0.0 <= v < 4.0.0",
         "NoRedInk/view-extra": "2.0.0 <= v < 3.0.0",

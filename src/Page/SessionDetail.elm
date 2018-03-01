@@ -294,7 +294,7 @@ viewSessionButtons model =
 viewPredictButton : SessionData -> Html Msg
 viewPredictButton session =
     if canPredictSession session then
-        a [ class "btn", href (AppRoutes.routeToString (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId)) ++ "?predict") ]
+        a [ class "btn", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId) True) ]
             [ text "Predict" ]
     else
         div [] []
@@ -324,7 +324,7 @@ modelLink session =
             p []
                 [ strong []
                     [ text "Model: " ]
-                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
+                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId False) ]
                     [ text session.name ]
                 ]
 

@@ -1,9 +1,11 @@
 module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, newUrl, routeToString)
 
+import Combine exposing ((<$>))
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
+import QueryString exposing (QueryString, parse, render)
 import Route exposing ((</>), Route, Router, custom, int, match, route, router, static, string)
 import String.Extra exposing (replace)
 
@@ -20,7 +22,7 @@ type Route
     | Sessions
     | SessionDetail String
     | Models
-    | ModelDetail String
+    | ModelDetail String Bool
 
 
 
@@ -44,12 +46,21 @@ routeMatcher =
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
         , route Models (static "models")
-        , route ModelDetail (static "models" </> string)
+        , route ModelDetail (static "models" </> string </> custom queryStringParser)
         ]
 
 
 
 -- PUBLIC HELPERS --
+
+
+queryStringParser : Combine.Parser s Bool
+queryStringParser =
+    let
+        isPredict s =
+            String.toLower s == String.toLower "?predict=true"
+    in
+    isPredict <$> Combine.regex "?predict"
 
 
 routeToString : Route -> String
@@ -81,8 +92,8 @@ routeToString page =
                 Models ->
                     [ "models" ]
 
-                ModelDetail id ->
-                    [ "models", id ]
+                ModelDetail id predict ->
+                    [ "models", id, "?predict=" ++ toString predict ]
 
         --    When needing parameters on the form base/item/3
         --                    Item id ->
