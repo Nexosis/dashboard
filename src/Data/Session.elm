@@ -2,8 +2,8 @@ module Data.Session exposing (..)
 
 import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
-import Data.Message exposing (..)
 import Data.Link exposing (..)
+import Data.Message exposing (..)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
@@ -102,7 +102,7 @@ canPredictSession session =
             False
 
         _ ->
-            True
+            session.modelId /= Nothing
 
 
 decodeSessionList : Decoder SessionList
