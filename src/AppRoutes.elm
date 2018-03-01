@@ -5,7 +5,6 @@ import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)
-import QueryString exposing (QueryString, parse, render)
 import Route exposing ((</>), Route, Router, custom, int, match, route, router, static, string)
 import String.Extra exposing (replace)
 
@@ -60,7 +59,9 @@ queryStringParser =
         isPredict s =
             String.toLower s == String.toLower "?predict=true"
     in
-    isPredict <$> Combine.regex "?predict"
+    --FFS.  There has GOT to be a better way to do this, but I wasn't able
+    --to make it work
+    isPredict <$> Combine.regex ".*"
 
 
 routeToString : Route -> String

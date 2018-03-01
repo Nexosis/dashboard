@@ -70,8 +70,14 @@ update msg model =
                     let
                         getValue =
                             ()
+
+                        nextCommand =
+                            if showPredict then
+                                Task.perform TogglePredict (Task.succeed ())
+                            else
+                                Cmd.none
                     in
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => Task.perform TogglePredict (Task.succeed ())
+                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => nextCommand
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
