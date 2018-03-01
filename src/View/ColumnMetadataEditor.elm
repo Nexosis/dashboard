@@ -1,4 +1,4 @@
-module View.ColumnMetadataEditor exposing (Model, Msg, init, update, view)
+module View.ColumnMetadataEditor exposing (Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
 import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
@@ -6,6 +6,7 @@ import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetDa
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -13,6 +14,7 @@ import Table
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
 import View.Grid as Grid
+import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
 
@@ -44,18 +46,13 @@ type Msg
     = StatsResponse (Remote.WebData DataSetStats)
     | SetTableState Table.State
     | ChangePage Int
+    | ChangePageSize Int
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    let
-        statsRequest =
-            Request.DataSet.getStats config dataSetName
-                |> Remote.sendRequest
-                |> Cmd.map StatsResponse
-    in
     Model Remote.Loading dataSetName (Table.initialSort "columnName") config
-        => statsRequest
+        => Cmd.none
 
 
 mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
@@ -90,30 +87,32 @@ mergeListingAndStats metadataListing stats =
                 |> List.map
                     (\i ->
                         { metadata = i.metadata
-                        , stats = Dict.get (String.toLower i.metadata.name) stats.columns
+                        , stats = Dict.get i.metadata.name stats.columns
                         }
                     )
     in
     { metadataListing | metadataList = updatedListing }
 
 
-update : Msg -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
-update msg oldModel dataSetResponse =
+updateDataSetResponse : Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
+updateDataSetResponse model dataSetResponse =
     let
-        model =
-            if not <| Remote.isLoading oldModel.columnMetadata then
-                let
-                    mappedColumns =
-                        Remote.map (.columns >> mapColumnListToPagedListing) dataSetResponse
-                in
-                { oldModel | columnMetadata = mappedColumns }
-            else
-                oldModel
+        mappedColumns =
+            Remote.map (.columns >> mapColumnListToPagedListing) dataSetResponse
     in
+    { model | columnMetadata = mappedColumns }
+        => (Request.DataSet.getStats model.config model.dataSetName
+                |> Remote.sendRequest
+                |> Cmd.map StatsResponse
+           )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
     case msg of
         StatsResponse resp ->
             case resp of
-                Remote.Success _ ->
+                Remote.Success s ->
                     let
                         updatedColumnInfo =
                             Remote.map2 mergeListingAndStats model.columnMetadata resp
@@ -135,12 +134,24 @@ update msg oldModel dataSetResponse =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.none
+            { model | columnMetadata = columnListing } => cmd
+
+        ChangePageSize pageSize ->
+            let
+                ( columnListing, cmd ) =
+                    Remote.update (updateColumnPageSize pageSize) model.columnMetadata
+            in
+            { model | columnMetadata = columnListing } => cmd
 
 
-updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
 updateColumnPageNumber pageNumber columnListing =
     { columnListing | pageNumber = pageNumber } => Cmd.none
+
+
+updateColumnPageSize : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
+updateColumnPageSize pageSize columnListing =
+    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
 
 
 updateColumnMetadata : List ColumnInfo -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
@@ -161,15 +172,86 @@ generateVegaSpec column =
 
 view : Model -> Html Msg
 view model =
-    div [ class "row mb25" ]
-        [ div [ class "col-sm-3" ]
-            [ h3 [] [ text "Columns" ]
-            ]
-        , div [ class "col-sm-2 col-sm-offset-7 right" ]
-            [--todo : page number changer
+    div []
+        [ div [ class "row mb25" ]
+            [ div [ class "col-sm-3" ]
+                [ h3 [] [ text "Columns" ] ]
+            , div [ class "col-sm-2 col-sm-offset-7 right" ]
+                [ PageSize.view ChangePageSize ]
             ]
         , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
+        ]
+
+
+viewTargetAndKeyColumns : Model -> Html Msg
+viewTargetAndKeyColumns model =
+    let
+        ( keyFormGroup, targetFormGroup ) =
+            case model.columnMetadata of
+                Remote.Success resp ->
+                    let
+                        keyGroup =
+                            resp.metadataList
+                                |> ListX.find (\m -> m.metadata.role == Columns.Key)
+                                |> Maybe.map viewKeyFormGroup
+                                |> Maybe.withDefault (div [] [])
+
+                        targetGroup =
+                            resp.metadataList
+                                |> ListX.find (\m -> m.metadata.role == Columns.Target)
+                                |> viewTargetFormGroup
+                    in
+                    ( keyGroup, targetGroup )
+
+                Remote.Loading ->
+                    ( viewLoadingFormGroup, viewLoadingFormGroup )
+
+                _ ->
+                    ( div [] [], div [] [] )
+    in
+    Html.form [ class "form-horizontal" ]
+        [ keyFormGroup
+        , targetFormGroup
+        ]
+
+
+viewLoadingFormGroup : Html Msg
+viewLoadingFormGroup =
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ]
+            [ div [ class "loading--line" ] []
+            ]
+        , div [ class "col-sm-8" ]
+            [ div [ class "loading--line" ] [] ]
+        ]
+
+
+viewKeyFormGroup : ColumnInfo -> Html Msg
+viewKeyFormGroup key =
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ]
+            [ text "Key"
+            ]
+        , div [ class "col-sm-8" ]
+            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.metadata.name ]
+            , p [ class "small color-mediumGray" ] [ text "The key role can only be set when importing a new dataset." ]
+            ]
+        ]
+
+
+viewTargetFormGroup : Maybe ColumnInfo -> Html Msg
+viewTargetFormGroup target =
+    let
+        targetText =
+            target |> Maybe.map (\t -> t.metadata.name) |> Maybe.withDefault ""
+    in
+    div [ class "form-group" ]
+        [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+        , div [ class "col-sm-8" ]
+            --todo : this is probably supposed to be some other kind of control.
+            [ input [ type_ "text", class "form-control", value targetText ] []
+            ]
         ]
 
 

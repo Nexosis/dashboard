@@ -85,12 +85,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetDataResponse resp ->
-            { model | dataSetResponse = resp } => Cmd.none
+            let
+                ( subModel, cmd ) =
+                    ColumnMetadataEditor.updateDataSetResponse model.columnMetadataEditorModel resp
+            in
+            { model | dataSetResponse = resp, columnMetadataEditorModel = subModel }
+                => Cmd.map ColumnMetadataEditorMsg cmd
 
         ColumnMetadataEditorMsg subMsg ->
             let
                 ( newModel, cmd ) =
-                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel model.dataSetResponse
+                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel
             in
             { model | columnMetadataEditorModel = newModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
@@ -204,75 +209,10 @@ viewDetailsRow model =
 
 viewRolesCol : Model -> Html Msg
 viewRolesCol model =
-    let
-        ( keyFormGroup, targetFormGroup ) =
-            case model.dataSetResponse of
-                Remote.Success resp ->
-                    let
-                        keyGroup =
-                            resp.columns
-                                |> ListX.find (\m -> m.role == Columns.Key)
-                                |> Maybe.map viewKeyFormGroup
-                                |> Maybe.withDefault (div [] [])
-
-                        targetGroup =
-                            resp.columns
-                                |> ListX.find (\m -> m.role == Columns.Target)
-                                |> viewTargetFormGroup
-                    in
-                    ( keyGroup, targetGroup )
-
-                Remote.Loading ->
-                    ( viewLoadingFormGroup, viewLoadingFormGroup )
-
-                _ ->
-                    ( div [] [], div [] [] )
-    in
     div [ class "col-sm-4" ]
         [ h5 [ class "mt15 mb15" ] [ text "Roles" ]
-        , Html.form [ class "form-horizontal" ]
-            [ keyFormGroup
-            , targetFormGroup
-            ]
-        ]
-
-
-viewLoadingFormGroup : Html Msg
-viewLoadingFormGroup =
-    div [ class "form-group" ]
-        [ label [ class "control-label col-sm-3 mr0 pr0" ]
-            [ div [ class "loading--line" ] []
-            ]
-        , div [ class "col-sm-8" ]
-            [ div [ class "loading--line" ] [] ]
-        ]
-
-
-viewKeyFormGroup : ColumnMetadata -> Html Msg
-viewKeyFormGroup key =
-    div [ class "form-group" ]
-        [ label [ class "control-label col-sm-3 mr0 pr0" ]
-            [ text "Key"
-            ]
-        , div [ class "col-sm-8" ]
-            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.name ]
-            , p [ class "small color-mediumGray" ] [ text "The key role can only be set when importing a new dataset." ]
-            ]
-        ]
-
-
-viewTargetFormGroup : Maybe ColumnMetadata -> Html Msg
-viewTargetFormGroup target =
-    let
-        targetText =
-            target |> Maybe.map (\t -> t.name) |> Maybe.withDefault ""
-    in
-    div [ class "form-group" ]
-        [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
-        , div [ class "col-sm-8" ]
-            --todo : this is probably supposed to be some other kind of control.
-            [ input [ type_ "text", class "form-control", value targetText ] []
-            ]
+        , ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
+            |> Html.map ColumnMetadataEditorMsg
         ]
 
 

@@ -2,23 +2,27 @@ module Page.SessionStart exposing (Model, Msg, init, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
-import Data.DataSet exposing (DataSetName)
+import Data.DataSet exposing (DataSetData, DataSetName)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import RemoteData as Remote
+import Request.DataSet
 import Util exposing ((=>))
+import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
 type alias Model =
     { config : Config
     , steps : Ziplist Step
-    , canAdvance : Bool
     , dataSetName : DataSetName
-    , selectedSessionType : Maybe SessionType
+    , dataSetResponse : Remote.WebData DataSetData
+    , columnEditorModel : ColumnMetadataEditor.Model
+    , canAdvance : Bool
     , sessionName : String
+    , selectedSessionType : Maybe SessionType
     }
 
 
@@ -27,6 +31,8 @@ type Msg
     | PrevStep
     | ChangeSessionName String
     | SelectSessionType SessionType
+    | DataSetDataResponse (Remote.WebData DataSetData)
+    | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
 
 
 type Step
@@ -54,9 +60,17 @@ init config dataSetName =
     let
         steps =
             Ziplist.create NameSession [ SessionType, ColumnMetadata, StartSession ]
+
+        loadDataSetRequest =
+            Request.DataSet.getRetrieveDetail config dataSetName
+                |> Remote.sendRequest
+                |> Cmd.map DataSetDataResponse
+
+        ( editorModel, initCmd ) =
+            ColumnMetadataEditor.init config dataSetName
     in
-    Model config steps True dataSetName Nothing ""
-        => Cmd.none
+    Model config steps dataSetName Remote.Loading editorModel True "" Nothing
+        ! [ loadDataSetRequest, Cmd.map ColumnMetadataEditorMsg initCmd ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -73,6 +87,22 @@ update msg model =
 
         ( _, PrevStep ) ->
             { model | steps = Ziplist.rewind model.steps } => Cmd.none
+
+        ( _, DataSetDataResponse resp ) ->
+            let
+                ( subModel, cmd ) =
+                    ColumnMetadataEditor.updateDataSetResponse model.columnEditorModel resp
+            in
+            { model | dataSetResponse = resp, columnEditorModel = subModel }
+                => Cmd.map ColumnMetadataEditorMsg cmd
+
+        ( _, ColumnMetadataEditorMsg subMsg ) ->
+            let
+                ( newModel, cmd ) =
+                    ColumnMetadataEditor.update subMsg model.columnEditorModel
+            in
+            { model | columnEditorModel = newModel }
+                => Cmd.map ColumnMetadataEditorMsg cmd
 
         _ ->
             model => Cmd.none
@@ -98,7 +128,7 @@ view model =
                 viewSessionType model
 
             ColumnMetadata ->
-                div [] []
+                viewColumnMetadata model
 
             StartSession ->
                 div [] []
@@ -236,6 +266,26 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
                        ]
                 )
             ]
+        ]
+
+
+viewColumnMetadata : Model -> Html Msg
+viewColumnMetadata model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Edit your column metadata" ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Working with column metadata" ]
+                , p [] [ text " Column metadata determines how the data in each column will be handled." ]
+                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                ]
+            ]
+        , div [ class "form-group col-sm-6" ]
+            [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnEditorModel
+                |> Html.map ColumnMetadataEditorMsg
+            ]
+        , hr [] []
+        , ColumnMetadataEditor.view model.columnEditorModel |> Html.map ColumnMetadataEditorMsg
         ]
 
 
