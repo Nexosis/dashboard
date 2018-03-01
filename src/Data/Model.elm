@@ -1,12 +1,13 @@
 module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModel, decodeModelList)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.DisplayDate exposing (dateDecoder)
 import Data.Link exposing (Link, linkDecoder)
 import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
-import Time.DateTime exposing (DateTime, fromISO8601)
+import Time.ZonedDateTime exposing (ZonedDateTime)
 
 
 type alias Algorithm =
@@ -22,9 +23,10 @@ type alias ModelData =
     , predictionDomain : PredictionDomain
     , dataSourceName : String
     , columns : List ColumnMetadata
-    , createdDate : DateTime
+    , createdDate : ZonedDateTime
     , algorithm : Algorithm
     , modelName : Maybe String
+    , lastUsedDate : Maybe ZonedDateTime
     , metrics : Dict String Float
     , links : List Link
     }
@@ -37,20 +39,6 @@ type alias ModelList =
     , pageSize : Int
     , totalCount : Int
     }
-
-
-stringToDate : Decoder DateTime
-stringToDate =
-    string
-        |> andThen
-            (\val ->
-                case fromISO8601 val of
-                    Err err ->
-                        fail err
-
-                    Ok datetime ->
-                        succeed datetime
-            )
 
 
 decodeModelList : Decoder ModelList
@@ -79,8 +67,9 @@ decodeModel =
         |> required "predictionDomain" decodePredictionDomain
         |> required "dataSourceName" Decode.string
         |> required "columns" decodeColumnMetadata
-        |> required "createdDate" stringToDate
+        |> required "createdDate" dateDecoder
         |> required "algorithm" decodeAlgorithm
         |> optional "modelName" (Decode.map Just string) Nothing
+        |> optional "lastUsedDate" (Decode.map Just dateDecoder) Nothing
         |> required "metrics" (Decode.dict float)
         |> required "links" (Decode.list linkDecoder)

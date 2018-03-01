@@ -65,6 +65,12 @@ linkList config link =
         "data" ->
             listItem config link "datasource"
 
+        "model" ->
+            listItem config link "model"
+
+        "self" ->
+            listItem config link (extractLinkEntity config link.href)
+
         _ ->
             li [] []
 
@@ -83,4 +89,23 @@ linkTransform config link =
             routeToString route
 
         Nothing ->
+            ""
+
+
+extractLinkEntity : Config -> String -> String
+extractLinkEntity config input =
+    case String.left 4 (Extras.replace "" config.baseUrl input) of
+        "sess" ->
+            "session"
+
+        "data" ->
+            "data"
+
+        "mode" ->
+            "model"
+
+        "voca" ->
+            "vocabulary"
+
+        _ ->
             ""

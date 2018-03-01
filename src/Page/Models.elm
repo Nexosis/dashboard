@@ -2,6 +2,7 @@ module Page.Models exposing (Model, Msg, init, update, view)
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
+import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -10,7 +11,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import Table
-import Util exposing ((=>), spinner, toShortDateString)
+import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -267,7 +268,7 @@ createdCell model =
 
 lastUsedColumn : Grid.Column ModelData Msg
 lastUsedColumn =
-    Grid.stringColumn "Last used" (\a -> "?")
+    Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
 
 
 deleteColumn : Grid.Column ModelData Msg

@@ -19,9 +19,11 @@ module Data.DataSet
 
 import Combine exposing ((<$>))
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.DisplayDate exposing (dateDecoder)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
+import Time.ZonedDateTime exposing (ZonedDateTime)
 
 
 {-| Returned from /data/{dataSetName}
@@ -37,6 +39,9 @@ type alias DataSetData =
     , totalPages : Int
     , pageSize : Int
     , totalCount : Int
+    , dateCreated : ZonedDateTime
+    , lastModified : ZonedDateTime
+    , rowCount : Int
     }
 
 
@@ -53,6 +58,9 @@ type alias DataSet =
     { dataSetName : DataSetName
     , dataSetSize : Int
     , isTimeSeries : Bool
+    , dateCreated : ZonedDateTime
+    , lastModified : ZonedDateTime
+    , rowCount : Int
     }
 
 
@@ -125,6 +133,9 @@ decodeDataSet =
         |> required "dataSetName" dataSetNameDecoder
         |> optional "dataSetSize" Decode.int 0
         |> required "isTimeSeries" Decode.bool
+        |> required "dateCreated" dateDecoder
+        |> required "lastModified" dateDecoder
+        |> optional "rowCount" Decode.int 0
 
 
 decodeDataSetData : Decoder DataSetData
@@ -139,6 +150,9 @@ decodeDataSetData =
         |> required "totalPages" Decode.int
         |> required "pageSize" Decode.int
         |> required "totalCount" Decode.int
+        |> required "dateCreated" dateDecoder
+        |> required "lastModified" dateDecoder
+        |> optional "rowCount" Decode.int 0
 
 
 decodeData : Decoder Data

@@ -4,6 +4,7 @@ import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -155,8 +156,8 @@ config toolTips =
             , actionsColumn
             , Grid.customStringColumn "Size" sizeToString [ class "per10" ] []
             , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon toolTips "Shape")
-            , Grid.customStringColumn "Created" (\_ -> "12/26/16") [ class "per10" ] []
-            , Grid.customStringColumn "Modified" (\_ -> "12/25/17") [ class "per10" ] []
+            , Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] []
+            , Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] []
             , deleteColumn
             ]
         }

@@ -3,6 +3,7 @@ module Data.Session exposing (..)
 import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.Message exposing (..)
+import Data.Link exposing (..)
 import Data.PredictionDomain exposing (..)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
@@ -42,6 +43,7 @@ type alias SessionData =
     , name : String
     , dataSourceName : String
     , targetColumn : Maybe String
+    , links : List Link
     , modelId : Maybe String
     , algorithm : Maybe Algorithm
     }
@@ -85,6 +87,7 @@ decodeSession =
         |> required "name" Decode.string
         |> required "dataSourceName" Decode.string
         |> optional "targetColumn" (Decode.map Just string) Nothing
+        |> required "links" (Decode.list linkDecoder)
         |> optional "modelId" (Decode.map Just string) Nothing
         |> optional "algorithm" (Decode.map Just decodeAlgorithm) Nothing
 

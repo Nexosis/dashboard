@@ -13,7 +13,7 @@ import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
 import Table
-import Util exposing ((=>), spinner, toShortDateString)
+import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
