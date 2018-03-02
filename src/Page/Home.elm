@@ -12,22 +12,14 @@ import View.Extra exposing (viewIf)
 type alias Model =
     { pageTitle : String
     , pageBody : String
-    , showModels : Bool
-    , showImports : Bool
-    , showSessions : Bool
-    , showDataSets : Bool
     }
 
 
-init : (Feature -> Bool) -> Model
-init isEnabled =
+init : Model
+init =
     Model
         "Home"
         "This is the homepage"
-        (isEnabled Models)
-        (isEnabled Imports)
-        (isEnabled Sessions)
-        (isEnabled DataSets)
 
 
 
@@ -55,37 +47,21 @@ view model =
         [ h2 [] [ text model.pageTitle ]
         , div [] [ text model.pageBody ]
         , ul []
-            [ viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.DataSets ]
-                            [ text "DataSets" ]
-                        ]
-                )
-                model.showDataSets
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Imports ]
-                            [ text "Imports" ]
-                        ]
-                )
-                model.showImports
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Sessions ]
-                            [ text "Sessions" ]
-                        ]
-                )
-                model.showSessions
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Models ]
-                            [ text "Models" ]
-                        ]
-                )
-                model.showModels
+            [ li []
+                [ a [ AppRoutes.href AppRoutes.DataSets ]
+                    [ text "DataSets" ]
+                ]
+            , li []
+                [ a [ AppRoutes.href AppRoutes.Imports ]
+                    [ text "Imports" ]
+                ]
+            , li []
+                [ a [ AppRoutes.href AppRoutes.Sessions ]
+                    [ text "Sessions" ]
+                ]
+            , li []
+                [ a [ AppRoutes.href AppRoutes.Models ]
+                    [ text "Models" ]
+                ]
             ]
         ]

@@ -107,7 +107,7 @@ setRoute route app =
                 Just AppRoutes.Home ->
                     let
                         pageModel =
-                            Home (Home.init enabled)
+                            Home Home.init
                     in
                     ( { app | page = pageModel }, Cmd.none )
 
