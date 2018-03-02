@@ -41,11 +41,6 @@ isLoading can be used to show loading during slow transitions
 -}
 layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
 layoutShowingResponses pageValues page content =
-    let
-        headerLinks =
-            pageValues.enabledFeatures
-                |> List.filterMap featureLinks
-    in
     div [ id "docs-container", class "layout" ]
         [ viewHeader headerLinks
         , div [ class "layout-row layout-row-content" ]
@@ -57,21 +52,13 @@ layoutShowingResponses pageValues page content =
         ]
 
 
-featureLinks : Feature -> Maybe (Html msg)
-featureLinks feature =
-    case feature of
-        Feature.DataSets ->
-            Just (li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ])
-
-        Feature.Sessions ->
-            Just (li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ])
-
-        Feature.Models ->
-            Just (li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ])
-
-        _ ->
-            Nothing
-
+headerLinks : List (Html msg)
+headerLinks =
+    [
+        li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ]
+        ,li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ]
+        ,li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ]
+    ]
 
 basicLayout : ActivePage -> Html msg -> Html msg
 basicLayout page content =

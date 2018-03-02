@@ -47,32 +47,28 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
-                [ viewRecentDataSets model
-                ]
-            ]
-        , ul []
-            [ li []
-                [ a [ AppRoutes.href AppRoutes.DataSets ]
-                    [ text "DataSets" ]
-                ]
-            , li []
-                [ a [ AppRoutes.href AppRoutes.Imports ]
-                    [ text "Imports" ]
-                ]
-            , li []
-                [ a [ AppRoutes.href AppRoutes.Sessions ]
-                    [ text "Sessions" ]
-                ]
-            , li []
-                [ a [ AppRoutes.href AppRoutes.Models ]
-                    [ text "Models" ]
+                [ viewRecentPanel "Dataset" Nothing ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
+                , viewRecentPanel "Session" Nothing ((,) AppRoutes.Sessions Nothing)
+                , viewRecentPanel "Model" Nothing ((,) AppRoutes.Models Nothing)
                 ]
             ]
         ]
 
 
-viewRecentPanel : String -> a -> b -> AppRoutes.Route -> AppRoutes.Route -> Html msg
-viewRecentPanel thing view includeAdd linkRoute addRoute =
+viewRecentPanel : String -> a -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html msg
+viewRecentPanel thing view ( linkRoute, addRoute ) =
+    let
+        addButton addRoute =
+            case addRoute of
+                Nothing ->
+                    div [] []
+
+                Just route ->
+                    a [ AppRoutes.href route, class "btn btn-sm" ]
+                        [ i [ class "fa fa-plus" ] []
+                        , text (" Add " ++ String.toLower thing)
+                        ]
+    in
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
@@ -81,18 +77,10 @@ viewRecentPanel thing view includeAdd linkRoute addRoute =
                     ]
                 , div [ class "col-sm-6 right" ]
                     [ a [ AppRoutes.href linkRoute, class "btn secondary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
-                    , a [ AppRoutes.href addRoute, class "btn btn-sm" ]
-                        [ i [ class "fa fa-plus" ] []
-                        , text (" Add " ++ String.toLower thing)
-                        ]
+                    , addButton addRoute
                     ]
                 ]
             , hr [ class "mt10" ] []
             , div [] []
             ]
         ]
-
-
-viewRecentDataSets : a -> Html msg
-viewRecentDataSets model =
-    viewRecentPanel "Dataset" Nothing True AppRoutes.DataSets AppRoutes.DataSetAdd
