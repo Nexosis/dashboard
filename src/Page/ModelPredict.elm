@@ -29,12 +29,22 @@ type alias Model =
     , canProceedWithPrediction : Bool
     , uploadResponse : Remote.WebData Data.Model.PredictionResult
     , predictionData : List (Dict String String)
+    , currentPage : Int
+    }
+
+
+type alias PredictionResultListing =
+    { pageNumber : Int
+    , totalPages : Int
+    , pageSize : Int
+    , totalCount : Int
+    , predictions : List (Dict String String)
     }
 
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked [ Dict.empty ]
+    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked [ Dict.empty ] 0
 
 
 type Msg
@@ -44,6 +54,7 @@ type Msg
     | DataInputChanged String
     | PredictionStarted
     | PredictResponse (Remote.WebData Data.Model.PredictionResult)
+    | ChangePage Int
     | ResetState
 
 
@@ -159,6 +170,9 @@ update msg model =
 
                 _ ->
                     model => Cmd.none
+
+        ChangePage pageNum ->
+            { model | currentPage = pageNum } => Cmd.none
 
         ResetState ->
             init model.config model.modelId => Cmd.none
@@ -300,9 +314,45 @@ viewPasteData model =
         ]
 
 
+mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing
+mapToPagedListing currentPage rows =
+    let
+        count =
+            List.length rows
+
+        pageSize =
+            10
+    in
+    { pageNumber = currentPage
+    , totalPages = count // pageSize
+    , pageSize = pageSize
+    , totalCount = count
+    , predictions = rows
+    }
+
+
+filterToPage : Remote.WebData PredictionResultListing -> List (Dict String String)
+filterToPage model =
+    case model of
+        Remote.Success result ->
+            let
+                drop =
+                    result.pageSize * result.pageNumber
+            in
+            result.predictions
+                |> List.drop drop
+                |> List.take result.pageSize
+
+        _ ->
+            [ Dict.empty ]
+
+
 showTable : Model -> Html Msg
 showTable model =
     let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.uploadResponse
+
         output =
             case model.uploadResponse of
                 Remote.Success successResponse ->
@@ -330,8 +380,9 @@ showTable model =
                         , div [ class "col-sm-12" ]
                             [ table [ class "table table-striped" ]
                                 [ toTableHeader (List.head successResponse.data)
-                                , tbody [] (List.map toTableRow successResponse.data)
+                                , tbody [] (List.map toTableRow (filterToPage pagedData))
                                 ]
+                            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
                             ]
                         ]
 
