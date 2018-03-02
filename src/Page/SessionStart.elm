@@ -1,11 +1,8 @@
 module Page.SessionStart exposing (Model, Msg, init, update, view)
 
 import AppRoutes exposing (Route)
-import Data.AggregationStrategy as Aggregate
-import Data.Columns as Columns
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
-import Data.ImputationStrategy as Imputation
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
@@ -15,7 +12,7 @@ import Html.Events exposing (onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (postModel)
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), isJust, spinner)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewRemoteError)
 import View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
@@ -27,7 +24,6 @@ type alias Model =
     , dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
-    , canAdvance : Bool
     , sessionName : String
     , selectedSessionType : Maybe SessionType
     , sessionStartRequest : Remote.WebData SessionData
@@ -79,8 +75,27 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName
     in
-    Model config steps dataSetName Remote.Loading editorModel True "" Nothing Remote.NotAsked
+    Model config steps dataSetName Remote.Loading editorModel "" Nothing Remote.NotAsked
         ! [ loadDataSetRequest, Cmd.map ColumnMetadataEditorMsg initCmd ]
+
+
+isValid : Model -> Bool
+isValid model =
+    case model.steps.current of
+        NameSession ->
+            True
+
+        SelectDataSet ->
+            True
+
+        SessionType ->
+            isJust model.selectedSessionType
+
+        ColumnMetadata ->
+            True
+
+        StartSession ->
+            True
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -90,7 +105,7 @@ update msg model =
             { model | sessionName = sessionName } => Cmd.none
 
         ( SessionType, SelectSessionType sessionType ) ->
-            { model | selectedSessionType = Just sessionType, canAdvance = True } => Cmd.none
+            { model | selectedSessionType = Just sessionType } => Cmd.none
 
         ( StartSession, StartTheSession ) ->
             let
@@ -161,8 +176,7 @@ view : Model -> Html Msg
 view model =
     div []
         [ div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ]
-            ]
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ] ]
         , hr [] []
         , div [ class "row mb20" ]
             [ viewProgress configWizardSummary model.steps |> Html.map never ]
@@ -181,7 +195,7 @@ view model =
 
             StartSession ->
                 viewStartSession model
-        , viewButtons configWizard model.canAdvance model.steps
+        , viewButtons configWizard (isValid model) model.steps
         ]
 
 
@@ -292,7 +306,7 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
             else
                 [ i [ class "fa fa-circle-o mr5" ] [], text "Select" ]
     in
-    div [ class "col-sm-4" ]
+    div [ class "col-sm-4", onClick (SelectSessionType selectCmd) ]
         [ div [ classList [ ( "panel ml-select", True ), ( "selected", isSelected ) ] ]
             [ div [ class "panel-heading center" ]
                 [ img [ src imageUrl ] []
