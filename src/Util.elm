@@ -1,4 +1,4 @@
-module Util exposing ((=>), isJust, spinner, dataSizeWithSuffix)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isJust, spinner)
 
 import Html
 import Html.Attributes
@@ -29,26 +29,31 @@ spinner : Html.Html msg
 spinner =
     Html.i [ Html.Attributes.class "fa fa-spinner fa-spin fa-2x fa-fw" ] []
 
+
 dataSizeWithSuffix : Int -> String
-dataSizeWithSuffix size = 
+dataSizeWithSuffix size =
     if size == 0 then
         " - "
     else
-        let 
-            k = (size // 1024)
+        let
+            k =
+                size // 1024
         in
-            case k of
-            0 -> 
-                (commaFormatInteger size) ++ " B"
-            _->
+        case k of
+            0 ->
+                commaFormatInteger size ++ " B"
+
+            _ ->
                 if k >= 10000 then
-                    commaFormatInteger (k//1024) ++ " Mb"
+                    commaFormatInteger (k // 1024) ++ " Mb"
                 else
                     commaFormatInteger k ++ " Kb"
+
 
 commaFormatInteger : Int -> String
 commaFormatInteger value =
     String.join "," (splitThousands (toString value))
+
 
 splitThousands : String -> List String
 splitThousands integers =
@@ -63,6 +68,21 @@ splitThousands integers =
             else
                 [ value ]
     in
-        integers
-            |> reversedSplitThousands
-            |> List.reverse
+    integers
+        |> reversedSplitThousands
+        |> List.reverse
+
+
+formatFloatToString : Float -> String
+formatFloatToString input =
+    let
+        expand =
+            toString (ceiling (input * 100000))
+
+        len =
+            String.length expand
+
+        filled =
+            String.padLeft 5 '0' expand
+    in
+    String.left (len - 5) filled ++ "." ++ String.right 5 filled
