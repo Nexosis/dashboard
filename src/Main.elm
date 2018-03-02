@@ -20,6 +20,7 @@ import Page.ModelDetail as ModelDetail
 import Page.Models as Models
 import Page.NotFound as NotFound
 import Page.SessionDetail as SessionDetail
+import Page.SessionStart as SessionStart
 import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
@@ -61,6 +62,7 @@ type Page
     | Imports Imports.Model
     | Sessions Sessions.Model
     | SessionDetail SessionDetail.Model
+    | SessionStart SessionStart.Model
     | Models Models.Model
     | ModelDetail ModelDetail.Model
 
@@ -78,6 +80,7 @@ type Msg
     | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | SessionDetailMsg SessionDetail.Msg
+    | SessionStartMsg SessionStart.Msg
     | ModelsMsg Models.Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
@@ -144,12 +147,18 @@ setRoute route app =
                     ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
                 Just (AppRoutes.SessionDetail id) ->
-                    --todo: change this route to point to an individual session.
                     let
                         ( pageModel, initCmd ) =
                             SessionDetail.init app.config id
                     in
                     ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
+
+                Just (AppRoutes.SessionStart dataSetName) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            SessionStart.init app.config dataSetName
+                    in
+                    ( { app | page = SessionStart pageModel }, Cmd.map SessionStartMsg initCmd )
 
                 Just AppRoutes.Models ->
                     let
@@ -219,6 +228,9 @@ updatePage page msg app =
 
         ( SessionDetailMsg subMsg, SessionDetail subModel ) ->
             toPage SessionDetail SessionDetailMsg SessionDetail.update subMsg subModel
+
+        ( SessionStartMsg subMsg, SessionStart subModel ) ->
+            toPage SessionStart SessionStartMsg SessionStart.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             { app
@@ -353,6 +365,11 @@ view model =
                     SessionDetail.view subModel
                         |> layout Page.SessionDetail
                         |> Html.map SessionDetailMsg
+
+                SessionStart subModel ->
+                    SessionStart.view subModel
+                        |> layout Page.SessionStart
+                        |> Html.map SessionStartMsg
 
                 Models subModel ->
                     Models.view subModel
