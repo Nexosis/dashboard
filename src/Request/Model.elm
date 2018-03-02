@@ -1,7 +1,7 @@
 module Request.Model exposing (delete, get, getOne, predict)
 
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.Model exposing (ModelData, ModelList, decodeModel, decodeModelList)
+import Data.Model exposing (ModelData, ModelList, PredictionResult, decodeModel, decodeModelList, decodePredictions)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 
@@ -53,10 +53,17 @@ getOne { baseUrl, token } modelId =
         |> HttpBuilder.toRequest
 
 
-predict : Config -> String -> String -> String -> Http.Request ()
+expectPredictions : Http.Expect PredictionResult
+expectPredictions =
+    decodePredictions
+        |> Http.expectJson
+
+
+predict : Config -> String -> String -> String -> Http.Request PredictionResult
 predict { baseUrl, token } modelId content contentType =
     (baseUrl ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization token
+        |> HttpBuilder.withExpect expectPredictions
         |> HttpBuilder.toRequest
