@@ -127,11 +127,15 @@ viewSessionDetails model =
         loadingOr =
             loadingOrView model.sessionResponse
 
-        pendingOrCompleted session =
+        pendingOrCompleted model session =
             if session.status == Data.Status.Completed then
-                viewCompletedSession session
+                div []
+                    [ viewCompletedSession session
+                    , loadingOrView model.resultsResponse viewMetricsList
+                    ]
             else
-                viewPendingSession session
+                div []
+                    [ viewPendingSession session ]
 
         statusHistoryOrMessages session =
             if sessionIsCompleted session then
@@ -141,14 +145,12 @@ viewSessionDetails model =
     in
     div [ class "row" ]
         [ div [ class "col-sm-4" ]
-            [ loadingOr pendingOrCompleted
-            , loadingOrView model.resultsResponse viewMetricsList
+            [ loadingOr (pendingOrCompleted model) ]
 
-            --, p []
-            --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
-            --        [ text "(TODO) View algorithm contestants" ]
-            --    ]
-            ]
+        --, p []
+        --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+        --        [ text "(TODO) View algorithm contestants" ]
+        --    ]
         , div [ class "col-sm-5" ]
             [ --loadingOr statusHistoryOrMessages
               loadingOr viewMessages
@@ -311,8 +313,12 @@ viewSessionDetail session =
 
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
-    h5 [ class "mb15" ]
-        [ text "Session Status" ]
+    div []
+        [ h5 [ class "mb15" ]
+            [ text "Session Status" ]
+        , h4 []
+            [ statusDisplay session.status ]
+        ]
 
 
 modelLink : SessionData -> Html Msg
@@ -333,29 +339,42 @@ modelLink session =
 viewCompletedSession : SessionData -> Html Msg
 viewCompletedSession session =
     let
-        targetColumnFromColumns : SessionData -> String
+        targetColumnFromColumns : SessionData -> Maybe String
         targetColumnFromColumns session =
             session.columns
                 |> ListX.find (\m -> m.role == Role.Target)
                 |> columnName
 
-        targetColumn : SessionData -> String
+        targetColumn : SessionData -> Maybe String
         targetColumn session =
             case session.targetColumn of
                 Just target ->
-                    target
+                    Just target
 
                 Nothing ->
                     targetColumnFromColumns session
 
-        columnName : Maybe ColumnMetadata -> String
+        viewTargetColumn : Maybe String -> Html Msg
+        viewTargetColumn targetColumn =
+            case targetColumn of
+                Just col ->
+                    p []
+                        [ strong []
+                            [ text "Target Column: " ]
+                        , text col
+                        ]
+
+                Nothing ->
+                    div [] []
+
+        columnName : Maybe ColumnMetadata -> Maybe String
         columnName col =
             case col of
                 Nothing ->
-                    ""
+                    Nothing
 
                 Just c ->
-                    c.name
+                    Just c.name
 
         algorithmName : Maybe Algorithm -> String
         algorithmName algo =
@@ -376,11 +395,7 @@ viewCompletedSession session =
             , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
                 [ text session.dataSourceName ]
             ]
-        , p []
-            [ strong []
-                [ text "Target Column: " ]
-            , text (targetColumn session)
-            ]
+        , viewTargetColumn (targetColumn session)
         , p []
             [ strong []
                 [ text "Algorithm: " ]
