@@ -15,6 +15,7 @@ import Request.Log as Log
 import Request.Model exposing (predict)
 import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
+import View.Pager as Pager
 
 
 type alias Model =
@@ -301,34 +302,43 @@ viewPasteData model =
 
 showTable : Model -> Html Msg
 showTable model =
-    div [ class "row" ]
-        [ div [ class "col-sm-12" ]
-            [ div [ class "mt10" ]
-                [ {- button [ class "btn", disabled (not (Remote.isSuccess model.uploadResponse)) ]
-                         [ i [ class "fa fa-download mr5" ]
-                             []
-                         , text "Download predictions"
-                         ]
-                     ,
-                  -}
-                  button [ class "btn secondary", onClick ResetState, disabled (not (Remote.isSuccess model.uploadResponse)) ]
-                    [ i [ class "fa fa-refresh mr5" ]
-                        []
-                    , text "Predict again"
-                    ]
-                ]
-            ]
-        , div [ class "col-sm-12" ]
-            [ h3 []
-                [ text "Results" ]
-            ]
-        , div [ class "col-sm-12" ]
-            [ table [ class "table table-striped" ]
-                [ toTableHeader (List.head model.predictionData)
-                , tbody [] (List.map toTableRow model.predictionData)
-                ]
-            ]
-        ]
+    let
+        output =
+            case model.uploadResponse of
+                Remote.Success successResponse ->
+                    div [ class "row" ]
+                        [ div [ class "col-sm-12" ]
+                            [ div [ class "mt10" ]
+                                [ {- button [ class "btn", disabled (not (Remote.isSuccess model.uploadResponse)) ]
+                                         [ i [ class "fa fa-download mr5" ]
+                                             []
+                                         , text "Download predictions"
+                                         ]
+                                     ,
+                                  -}
+                                  button [ class "btn secondary", onClick ResetState ]
+                                    [ i [ class "fa fa-refresh mr5" ]
+                                        []
+                                    , text "Predict again"
+                                    ]
+                                ]
+                            ]
+                        , div [ class "col-sm-12" ]
+                            [ h3 []
+                                [ text "Results" ]
+                            ]
+                        , div [ class "col-sm-12" ]
+                            [ table [ class "table table-striped" ]
+                                [ toTableHeader (List.head successResponse.data)
+                                , tbody [] (List.map toTableRow successResponse.data)
+                                ]
+                            ]
+                        ]
+
+                _ ->
+                    div [ class "row" ] []
+    in
+    output
 
 
 toTableHeader : Maybe (Dict String String) -> Html Msg
