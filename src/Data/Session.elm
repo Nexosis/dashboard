@@ -129,21 +129,21 @@ decodeResultInterval =
         |> andThen
             (\r ->
                 case r of
-                    "Hour" ->
+                    "hour" ->
                         succeed Hour
 
-                    "Day" ->
+                    "day" ->
                         succeed Day
 
-                    "Week" ->
+                    "week" ->
                         succeed Week
 
-                    "Month" ->
+                    "month" ->
                         succeed Month
 
-                    "Year" ->
+                    "year" ->
                         succeed Year
 
                     unknown ->
-                        fail <| "Unknown columnType: " ++ unknown
+                        fail <| "Unknown result interval: " ++ unknown
             )
