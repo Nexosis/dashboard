@@ -20,7 +20,7 @@ import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>))
+import Util exposing ((=>), dataSizeWithSuffix)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
 import View.RelatedLinks as Related exposing (view)
@@ -224,10 +224,10 @@ viewDetailsCol model =
                 Remote.Success resp ->
                     let
                         sizeDisplay =
-                            text <| toString resp.dataSetSize ++ "B"
+                            text <| dataSizeWithSuffix resp.dataSetSize
 
                         shapeDisplay =
-                            text <| toString resp.totalCount ++ "x" ++ toString (List.length resp.columns)
+                            text <| toString resp.totalCount ++ " x " ++ toString (List.length resp.columns)
 
                         createdDisplay =
                             text <| toShortDateString resp.dateCreated
