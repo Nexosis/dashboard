@@ -1,4 +1,4 @@
-module Request.Session exposing (ModelSessionRequest, delete, get, getForDataset, getOne, postModel)
+module Request.Session exposing (ModelSessionRequest, delete, get, getForDataset, getOne, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Config as Config exposing (Config, withAuthorization)
