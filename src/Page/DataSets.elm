@@ -12,7 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), isJust, spinner)
+import Util exposing ((=>), isJust, spinner, dataSizeWithSuffix)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -154,8 +154,8 @@ config toolTips =
         , columns =
             [ nameColumn
             , actionsColumn
-            , Grid.customStringColumn "Size" sizeToString [ class "per10" ] []
-            , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon toolTips "Shape")
+            , Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] []
+            , Grid.customUnsortableColumn "Shape" (\a -> (toString a.rowCount) ++ " x " ++ (toString a.columnCount)) [ class "per15" ] (helpIcon toolTips "Shape")
             , Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] []
             , Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] []
             , deleteColumn
@@ -215,11 +215,3 @@ dataSetDeleteButton dataSet =
     Table.HtmlDetails []
         [ button [ onClick (ShowDeleteDialog dataSet), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
-
-
-sizeToString : DataSet -> String
-sizeToString dataSet =
-    if dataSet.dataSetSize == 0 then
-        "-"
-    else
-        toString dataSet.dataSetSize ++ "B"

@@ -61,6 +61,7 @@ type alias DataSet =
     , dateCreated : ZonedDateTime
     , lastModified : ZonedDateTime
     , rowCount : Int
+    , columnCount : Int
     }
 
 
@@ -136,6 +137,7 @@ decodeDataSet =
         |> required "dateCreated" dateDecoder
         |> required "lastModified" dateDecoder
         |> optional "rowCount" Decode.int 0
+        |> required "columnCount" Decode.int
 
 
 decodeDataSetData : Decoder DataSetData
