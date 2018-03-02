@@ -81,8 +81,12 @@ viewMessagesAsError messages =
         errorMessages =
             List.filter (\m -> m.severity == Message.Error) messages
     in
-    div [ class "alert alert-danger" ]
-        (List.map
-            (\e -> p [] [ text e.message ])
-            errorMessages
+    viewIfElements
+        (\() ->
+            div [ class "alert alert-danger" ]
+                (List.map
+                    (\e -> p [] [ text e.message ])
+                    errorMessages
+                )
         )
+        errorMessages
