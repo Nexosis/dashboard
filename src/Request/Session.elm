@@ -25,6 +25,24 @@ get { baseUrl, token } page pageSize =
         |> HttpBuilder.toRequest
 
 
+results : Config -> String -> Int -> Int -> Http.Request SessionResults
+results { baseUrl, token } sessionId page pageSize =
+    let
+        expect =
+            decodeSessionResults
+                |> Http.expectJson
+
+        params =
+            pageParams page pageSize
+    in
+    (baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
 pageParams : Int -> Int -> List ( String, String )
 pageParams page pageSize =
     [ ( "page", page |> toString )
