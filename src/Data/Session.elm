@@ -1,4 +1,4 @@
-module Data.Session exposing (..)
+module Data.Session exposing (ResultInterval(..), SessionData, SessionList, decodeSession, decodeSessionList)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.Link exposing (..)
@@ -17,7 +17,7 @@ type alias SessionData =
     , availablePredictionIntervals : List String
     , startDate : Maybe String
     , endDate : Maybe String
-    , resultInterval : Maybe String
+    , resultInterval : Maybe ResultInterval
     , requestedDate : String
     , statusHistory : List HistoryRecord
     , extraParameters : Dict String String
@@ -38,6 +38,14 @@ type alias SessionList =
     }
 
 
+type ResultInterval
+    = Hour
+    | Day
+    | Week
+    | Month
+    | Year
+
+
 decodeSession : Decode.Decoder SessionData
 decodeSession =
     Json.Decode.Pipeline.decode SessionData
@@ -48,7 +56,7 @@ decodeSession =
         |> required "availablePredictionIntervals" (Decode.list Decode.string)
         |> optional "startDate" (Decode.map Just string) Nothing
         |> optional "endDate" (Decode.map Just string) Nothing
-        |> optional "resultInterval" (Decode.map Just string) Nothing
+        |> optional "resultInterval" (Decode.map Just decodeResultInterval) Nothing
         |> required "requestedDate" Decode.string
         |> required "statusHistory" (Decode.list decodeHistoryRecord)
         |> required "extraParameters" (Decode.dict (Decode.oneOf [ Decode.string, Decode.bool |> Decode.andThen (\b -> succeed (toString b)) ]))
@@ -67,3 +75,29 @@ decodeSessionList =
         |> required "totalPages" Decode.int
         |> required "pageSize" Decode.int
         |> required "totalCount" Decode.int
+
+
+decodeResultInterval : Decoder ResultInterval
+decodeResultInterval =
+    string
+        |> andThen
+            (\r ->
+                case r of
+                    "Hour" ->
+                        succeed Hour
+
+                    "Day" ->
+                        succeed Day
+
+                    "Week" ->
+                        succeed Week
+
+                    "Month" ->
+                        succeed Month
+
+                    "Year" ->
+                        succeed Year
+
+                    unknown ->
+                        fail <| "Unknown columnType: " ++ unknown
+            )
