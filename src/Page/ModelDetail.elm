@@ -15,6 +15,7 @@ import Page.ModelPredict as ModelPredict
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
+import Task
 import Util exposing ((=>))
 import View.DeleteDialog as DeleteDialog
 import View.RelatedLinks as Related exposing (view)
@@ -30,13 +31,13 @@ type alias Model =
     }
 
 
-init : Config -> String -> ( Model, Cmd Msg )
-init config modelId =
+init : Config -> String -> Bool -> ( Model, Cmd Msg )
+init config modelId showPredict =
     let
         loadModelDetail =
             Request.Model.getOne config modelId
                 |> Remote.sendRequest
-                |> Cmd.map ModelResponse
+                |> Cmd.map (ModelResponse showPredict)
     in
     Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
 
@@ -53,8 +54,8 @@ subscriptions model =
 
 
 type Msg
-    = ModelResponse (Remote.WebData ModelData)
-    | TogglePredict
+    = ModelResponse Bool (Remote.WebData ModelData)
+    | TogglePredict ()
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
@@ -63,10 +64,20 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ModelResponse response ->
+        ModelResponse showPredict response ->
             case response of
                 Remote.Success modelInfo ->
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => Cmd.none
+                    let
+                        getValue =
+                            ()
+
+                        nextCommand =
+                            if showPredict then
+                                Task.perform TogglePredict (Task.succeed ())
+                            else
+                                Cmd.none
+                    in
+                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => nextCommand
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
@@ -74,7 +85,7 @@ update msg model =
                 _ ->
                     model => Cmd.none
 
-        TogglePredict ->
+        TogglePredict _ ->
             let
                 predictModel =
                     case model.predictModel of
@@ -142,7 +153,7 @@ view model =
             [ dataSourceName model
             , div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
-                    [ button [ class "btn", onClick TogglePredict ] [ text "Predict" ]
+                    [ button [ class "btn", onClick (TogglePredict ()) ] [ text "Predict" ]
                     ]
                 ]
             ]

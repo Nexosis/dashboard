@@ -1,9 +1,10 @@
-module View.Wizard exposing (WizardConfig, viewButtons)
+module View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 import Data.Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import List.Extra as ListX
 import View.Extra exposing (viewIf)
 
 
@@ -44,3 +45,68 @@ viewButtons wizardConfig canAdvance ziplist =
             )
             nextVisible
         ]
+
+
+type alias WizardProgressConfig a =
+    { stepDescriptions : List ( a, String )
+    }
+
+
+viewProgress : WizardProgressConfig a -> Ziplist a -> Html Never
+viewProgress config zipList =
+    let
+        completedItems =
+            zipList.previous
+                |> List.map (convertToDesc config.stepDescriptions)
+                |> List.map (viewItem Done)
+
+        currentItem =
+            zipList.current
+                |> convertToDesc config.stepDescriptions
+                |> viewItem InProgress
+
+        nextItems =
+            zipList.next
+                |> List.map (convertToDesc config.stepDescriptions)
+                |> List.map (viewItem Pending)
+    in
+    div [ class "progress-indicator" ]
+        [ ul [ class "list-inline" ]
+            (List.concat
+                [ completedItems, [ currentItem ], nextItems ]
+            )
+        ]
+
+
+convertToDesc : List ( a, String ) -> a -> String
+convertToDesc descriptions step =
+    descriptions
+        |> ListX.find (\( a, desc ) -> a == step)
+        |> Maybe.map Tuple.second
+        |> Maybe.withDefault (toString step)
+
+
+viewItem : ProgressState -> String -> Html Never
+viewItem progressState description =
+    let
+        ( color, icon ) =
+            case progressState of
+                Done ->
+                    ( "text-success", "fa fa-check-circle" )
+
+                InProgress ->
+                    ( "text-danger", "fa fa-circle-o" )
+
+                Pending ->
+                    ( "", "fa fa-circle-o" )
+    in
+    li [ class color ]
+        [ i [ class icon ] []
+        , text description
+        ]
+
+
+type ProgressState
+    = Done
+    | InProgress
+    | Pending

@@ -19,6 +19,7 @@ type ActivePage
     | Imports
     | Sessions
     | SessionDetail
+    | SessionStart
     | Models
     | ModelDetail
 

@@ -335,8 +335,7 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ viewButtons configWizard model.canAdvance model.steps
-                ]
+                [ viewButtons configWizard model.canAdvance model.steps ]
             ]
         ]
 
@@ -361,29 +360,32 @@ viewChooseUploadType model =
 viewSetKey : Model -> Html Msg
 viewSetKey model =
     let
-        ( createButtonContent, errorDisplay ) =
+        ( buttonAttributes, createButtonContent, errorDisplay ) =
             case model.activeTab of
                 FileUploadTab _ ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            ( spinner, viewRemoteError model.uploadResponse )
+                            ( [], spinner, viewRemoteError model.uploadResponse )
 
                         _ ->
-                            ( text "Create DataSet", viewRemoteError model.uploadResponse )
+                            ( [ onClick CreateDataSet ], text "Create DataSet", viewRemoteError model.uploadResponse )
 
                 _ ->
                     case model.importResponse of
                         Remote.Loading ->
-                            ( spinner, viewRemoteError model.importResponse )
+                            ( [], spinner, viewRemoteError model.importResponse )
 
                         Remote.Success importDetail ->
-                            if importDetail.status == Status.Failed then
-                                ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewMessagesAsError importDetail.messages )
+                            if importDetail.status == Status.Failed || importDetail.status == Status.Cancelled then
+                                ( [ onClick CreateDataSet ], i [ class "fa fa-upload mr5" ] [ text "Import" ], viewMessagesAsError importDetail.messages )
                             else
-                                ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
+                                ( [], spinner, viewMessagesAsError importDetail.messages )
 
                         _ ->
-                            ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
+                            ( [ onClick CreateDataSet ], i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
+
+        addButton =
+            button (class "btn" :: buttonAttributes) [ createButtonContent ]
     in
     div [ class "col-sm-12" ]
         [ div [ id "review" ] <| viewEntryReview model
@@ -395,8 +397,7 @@ viewSetKey model =
                 , input [ class "form-control", placeholder "(Optional)", value model.key ] []
                 ]
             , div [ class "form-group" ]
-                [ button [ class "btn", onClick CreateDataSet ] [ createButtonContent ]
-                ]
+                [ addButton ]
             , errorDisplay
             ]
         , div [ class "col-sm-6" ]

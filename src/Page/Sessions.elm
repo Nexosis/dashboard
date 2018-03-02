@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
 import Table
@@ -198,42 +199,19 @@ resultsActionButton model =
 
 statusColumn : Grid.Column SessionData Msg
 statusColumn =
+    let
+        --tableDetails : SessionData -> (SessionData -> Html SessionData) -> Table.HtmlDetails Msg
+        tableDetails session =
+            Table.HtmlDetails []
+                [ statusDisplay session.status ]
+    in
     Grid.veryCustomColumn
         { name = "Status"
-        , viewData = statusDisplay
+        , viewData = tableDetails
         , sorter = Table.increasingOrDecreasingBy (\n -> toString n.status)
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
-
-
-statusDisplay : SessionData -> Table.HtmlDetails Msg
-statusDisplay model =
-    Table.HtmlDetails []
-        [ case model.status of
-            Completed ->
-                coloredStatusButton (toString model.status) "success"
-
-            Requested ->
-                coloredStatusButton "pending" "info"
-
-            Started ->
-                coloredStatusButton (toString model.status) "warning"
-
-            Failed ->
-                coloredStatusButton (toString model.status) "danger"
-
-            Cancelled ->
-                coloredStatusButton (toString model.status) "dark"
-
-            CancellationPending ->
-                coloredStatusButton "cancellation pending" "dark"
-        ]
-
-
-coloredStatusButton : String -> String -> Html Msg
-coloredStatusButton input labelType =
-    span [ class ("label label-" ++ labelType) ] [ text input ]
 
 
 dataSourceColumn : Grid.Column SessionData Msg
