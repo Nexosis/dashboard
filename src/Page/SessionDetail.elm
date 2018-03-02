@@ -13,6 +13,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List exposing (filter, foldr, head)
+import List.Extra as ListX
 import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
@@ -332,14 +333,10 @@ modelLink session =
 viewCompletedSession : SessionData -> Html Msg
 viewCompletedSession session =
     let
-        isTarget : ColumnMetadata -> Bool
-        isTarget column =
-            column.role == Role.Target
-
         targetColumnFromColumns : SessionData -> String
         targetColumnFromColumns session =
-            filter isTarget session.columns
-                |> head
+            session.columns
+                |> ListX.find (\m -> m.role == Role.Target)
                 |> columnName
 
         targetColumn : SessionData -> String
