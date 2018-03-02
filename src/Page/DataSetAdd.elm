@@ -335,8 +335,7 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ viewButtons configWizard model.canAdvance model.steps
-                ]
+                [ viewButtons configWizard model.canAdvance model.steps ]
             ]
         ]
 
@@ -377,10 +376,10 @@ viewSetKey model =
                             ( spinner, viewRemoteError model.importResponse )
 
                         Remote.Success importDetail ->
-                            if importDetail.status == Status.Failed then
+                            if importDetail.status == Status.Failed || importDetail.status == Status.Cancelled then
                                 ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewMessagesAsError importDetail.messages )
                             else
-                                ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
+                                ( spinner, viewMessagesAsError importDetail.messages )
 
                         _ ->
                             ( i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
