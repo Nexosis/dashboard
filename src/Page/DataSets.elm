@@ -1,4 +1,4 @@
-module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, update, view)
+module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, update, view, loadDataSetList)
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade

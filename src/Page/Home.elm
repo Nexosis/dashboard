@@ -13,6 +13,7 @@ import View.Extra exposing (viewIf)
 import View.Grid as Grid
 import Data.Config exposing (Config)
 import Util exposing ((=>))
+import Request.DataSet
 
 ---- MODEL ----
 
@@ -25,13 +26,15 @@ type alias Model =
     }
 
 
-init : Config -> Model
+init : Config -> (Model, Cmd Msg)
 init config =
-    Model
+    (Model
         "API Dashboard"
         Remote.Loading
         (Table.initialSort "dataSetName")
-        config
+        config) => (Request.DataSet.get config 0 5
+        |> Remote.sendRequest
+        |> Cmd.map DataSetListResponse)
 
 
 
@@ -41,6 +44,7 @@ init config =
 type Msg
     = None
     | SetDataSetTableState Table.State
+    | DataSetListResponse (Remote.WebData DataSetList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -50,7 +54,9 @@ update msg model =
             ( model, Cmd.none )
         SetDataSetTableState newState ->
             { model | dataSetTableState = newState }
-                            => Cmd.none
+                            => Cmd.none 
+        DataSetListResponse resp ->
+            { model | dataSetList = resp } => Cmd.none
 
 
 
