@@ -14,6 +14,13 @@ Interact with the Nexosis API with a dashboard.
         "editor.formatOnSave": true,
     },
 ```
+WINDOWS:
+``` json
+    "elm.formatCommand": ".\\node_modules\\.bin\\elm-format",
+    "[elm]": {
+        "editor.formatOnSave": true,
+    },
+```
 
 ## Get It Running
 
