@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn, view)
+module View.Grid exposing (Column, Config, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn, view, makeUnsortable)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)

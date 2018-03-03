@@ -89,7 +89,12 @@ configDataSetGrid toolTips columns =
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetDataSetTableState
         , columns =
-            [ col.name
+            [ col.name |> Grid.makeUnsortable
+            , col.actions |> Grid.makeUnsortable
+            , col.size |> Grid.makeUnsortable
+            , col.shape |> Grid.makeUnsortable
+            , col.created |> Grid.makeUnsortable
+            , col.modified |> Grid.makeUnsortable
             ]
         }
 
