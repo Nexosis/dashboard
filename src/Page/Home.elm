@@ -1,24 +1,37 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
+import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Dict exposing (Dict)
 import Feature exposing (Feature(..))
 import Html exposing (..)
 import Html.Attributes exposing (class)
+import Page.DataSets as DataSets exposing (defaultColumns, DataSetColumns)
+import RemoteData as Remote
+import Table
 import View.Extra exposing (viewIf)
-
+import View.Grid as Grid
+import Data.Config exposing (Config)
+import Util exposing ((=>))
 
 ---- MODEL ----
 
 
 type alias Model =
     { pageTitle : String
+    , dataSetList : Remote.WebData DataSetList
+    , dataSetTableState : Table.State
+    , config : Config
     }
 
 
-init : Model
-init =
+init : Config -> Model
+init config =
     Model
         "API Dashboard"
+        Remote.Loading
+        (Table.initialSort "dataSetName")
+        config
 
 
 
@@ -26,14 +39,18 @@ init =
 
 
 type Msg
-    = Todo
+    = None
+    | SetDataSetTableState Table.State
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Todo ->
+        None ->
             ( model, Cmd.none )
+        SetDataSetTableState newState ->
+            { model | dataSetTableState = newState }
+                            => Cmd.none
 
 
 
@@ -47,15 +64,35 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
-                [ viewRecentPanel "Dataset" Nothing ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
-                , viewRecentPanel "Session" Nothing ((,) AppRoutes.Sessions Nothing)
-                , viewRecentPanel "Model" Nothing ((,) AppRoutes.Models Nothing)
+                [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
+                , viewRecentPanel "Session" (div [][]) ((,) AppRoutes.Sessions Nothing)
+                , viewRecentPanel "Model" (div [][]) ((,) AppRoutes.Models Nothing)
                 ]
             ]
         ]
 
 
-viewRecentPanel : String -> a -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html msg
+configDataSetGrid : Dict String String -> (Dict String String -> DataSetColumns Msg) -> Grid.Config DataSet Msg
+configDataSetGrid toolTips columns =
+    let
+        col : DataSetColumns Msg
+        col =
+            defaultColumns toolTips
+    in
+    Grid.config
+        { toId = \a -> a.dataSetName |> dataSetNameToString
+        , toMsg = SetDataSetTableState
+        , columns =
+            [ col.name
+            ]
+        }
+
+dataSetListView : Model -> Html Msg
+dataSetListView model =
+    Grid.view .items (configDataSetGrid model.config.toolTips DataSets.defaultColumns) model.dataSetTableState model.dataSetList
+
+
+viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
 viewRecentPanel thing view ( linkRoute, addRoute ) =
     let
         addButton addRoute =
@@ -81,6 +118,6 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
                     ]
                 ]
             , hr [ class "mt10" ] []
-            , div [] []
+            , view
             ]
         ]

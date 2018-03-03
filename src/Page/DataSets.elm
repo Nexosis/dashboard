@@ -1,4 +1,4 @@
-module Page.DataSets exposing (Model, Msg(DataSetListResponse), init, update, view)
+module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
@@ -21,6 +21,26 @@ import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
+
+
+type alias DataSetColumns msg =
+    { name : Grid.Column DataSet msg
+    , actions : Grid.Column DataSet msg
+    , size : Grid.Column DataSet msg
+    , shape : Grid.Column DataSet msg
+    , created : Grid.Column DataSet msg
+    , modified : Grid.Column DataSet msg
+    }
+
+
+defaultColumns : Dict String String -> DataSetColumns msg
+defaultColumns tooltips =
+    DataSetColumns nameColumn
+        actionsColumn
+        (Grid.customStringColumn "Size" sizeToString [ class "per10" ] [])
+        (Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon tooltips "Shape"))
+        (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
+        (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
 
 type alias Model =
@@ -148,11 +168,15 @@ view model =
 
 config : Dict String String -> Grid.Config DataSet Msg
 config toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
     Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
         , columns =
-            [ nameColumn
+            [ col.name
             , actionsColumn
             , Grid.customStringColumn "Size" sizeToString [ class "per10" ] []
             , Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon toolTips "Shape")
@@ -163,7 +187,7 @@ config toolTips =
         }
 
 
-nameColumn : Grid.Column DataSet Msg
+nameColumn : Grid.Column DataSet msg
 nameColumn =
     Grid.veryCustomColumn
         { name = "Name"
@@ -174,13 +198,13 @@ nameColumn =
         }
 
 
-dataSetNameCell : DataSet -> Table.HtmlDetails Msg
+dataSetNameCell : DataSet -> Table.HtmlDetails msg
 dataSetNameCell dataSet =
     Table.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
 
 
-actionsColumn : Grid.Column DataSet Msg
+actionsColumn : Grid.Column DataSet msg
 actionsColumn =
     Grid.veryCustomColumn
         { name = ""
@@ -191,7 +215,7 @@ actionsColumn =
         }
 
 
-dataSetActionButton : DataSet -> Table.HtmlDetails Msg
+dataSetActionButton : DataSet -> Table.HtmlDetails msg
 dataSetActionButton dataSet =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
