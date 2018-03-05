@@ -99,8 +99,10 @@ type alias ModelSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
+    , targetColumn : Maybe String
     , predictionDomain : PredictionDomain
+    , balance : Maybe Bool
+    , containsAnomalies : Maybe Bool
     }
 
 
@@ -124,8 +126,16 @@ encodeModelSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
+        , ( "targetColumn"
+          , case sessionRequest.targetColumn of
+                Just target ->
+                    Encode.string <| target
+
+                Nothing ->
+                    Encode.null
+          )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
+        , ( "extraParameters", encodeExtraParameters <| sessionRequest )
         ]
 
 
@@ -180,4 +190,23 @@ encodeColumnValues column =
         , ( "role", Encode.string <| toString <| column.role )
         , ( "imputation", Encode.string <| toString <| column.imputation )
         , ( "aggregation", Encode.string <| toString <| column.aggregation )
+        ]
+
+
+encodeExtraParameters : ModelSessionRequest -> Encode.Value
+encodeExtraParameters sessionRequest =
+    let
+        balance =
+            sessionRequest.balance
+                |> Maybe.map Encode.bool
+                |> Maybe.withDefault Encode.null
+
+        anomalies =
+            sessionRequest.containsAnomalies
+                |> Maybe.map Encode.bool
+                |> Maybe.withDefault Encode.null
+    in
+    Encode.object
+        [ ( "balance", balance )
+        , ( "containsAnomalies", anomalies )
         ]
