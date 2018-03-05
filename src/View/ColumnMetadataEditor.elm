@@ -1,11 +1,13 @@
 module View.ColumnMetadataEditor exposing (Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
-import Data.Columns as Columns exposing (ColumnMetadata, Role)
+import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole, stringToDataType, stringToRole)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy, stringToImputationStrategy)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onInput)
 import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
@@ -24,6 +26,7 @@ type alias Model =
     , dataSetName : DataSetName
     , tableState : Table.State
     , config : Config
+    , modifiedMetadata : List ColumnMetadata
     }
 
 
@@ -47,11 +50,14 @@ type Msg
     | SetTableState Table.State
     | ChangePage Int
     | ChangePageSize Int
+    | TypeSelectionChanged ColumnMetadata String
+    | RoleSelectionChanged ColumnMetadata String
+    | ImputationSelectionChanged ColumnMetadata String
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    Model Remote.Loading dataSetName (Table.initialSort "columnName") config
+    Model Remote.Loading dataSetName (Table.initialSort "columnName") config []
         => Cmd.none
 
 
@@ -142,6 +148,78 @@ update msg model =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
             { model | columnMetadata = columnListing } => cmd
+
+        RoleSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    Result.withDefault Feature (stringToRole selection)
+                        |> updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+
+        TypeSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    Result.withDefault NumericMeasure (stringToDataType selection)
+                        |> updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+
+        ImputationSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    Result.withDefault Mean (stringToImputationStrategy selection)
+                        |> updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+
+
+getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata
+getExistingOrOriginalColumn modifiedList column =
+    case ListX.find (\a -> a.name == column.name) modifiedList of
+        Just existing ->
+            existing
+
+        Nothing ->
+            column
+
+
+updateImputation : ColumnMetadata -> ImputationStrategy -> ( ColumnMetadata, Bool )
+updateImputation column value =
+    { column | imputation = value } => column.imputation == value
+
+
+updateRole : ColumnMetadata -> Role -> ( ColumnMetadata, Bool )
+updateRole column value =
+    { column | role = value } => column.role == value
+
+
+updateDataType : ColumnMetadata -> DataType -> ( ColumnMetadata, Bool )
+updateDataType column value =
+    { column | dataType = value } => column.dataType == value
+
+
+maybeAppendColumn : List ColumnMetadata -> ( ColumnMetadata, Bool ) -> List ColumnMetadata
+maybeAppendColumn list column =
+    let
+        metadata =
+            Tuple.first column
+
+        unchanged =
+            Tuple.second column
+    in
+    if unchanged then
+        list
+    else
+        case ListX.find (\a -> a.name == metadata.name) list of
+            Just col ->
+                ListX.replaceIf (\a -> a.name == metadata.name) metadata list
+
+            Nothing ->
+                List.append list [ metadata ]
 
 
 updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
@@ -316,9 +394,11 @@ typeColumn makeIcon =
 dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
 dataTypeCell column =
     Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.dataType ]
-            ]
+        [ select [ class "form-control", onInput (TypeSelectionChanged column.metadata) ]
+            (List.map
+                (\a -> enumOption a column.metadata.dataType)
+                enumDataType
+            )
         ]
 
 
@@ -336,10 +416,17 @@ roleColumn makeIcon =
 roleCell : ColumnInfo -> Table.HtmlDetails Msg
 roleCell column =
     Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.role ]
-            ]
+        [ select [ class "form-control", onInput (RoleSelectionChanged column.metadata) ]
+            (List.map
+                (\a -> enumOption a column.metadata.role)
+                enumRole
+            )
         ]
+
+
+enumOption : e -> e -> Html Msg
+enumOption roleOption roleModel =
+    option [ selected (roleOption == roleModel) ] [ text (toString roleOption) ]
 
 
 imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
@@ -356,9 +443,11 @@ imputationColumn makeIcon =
 imputationCell : ColumnInfo -> Table.HtmlDetails Msg
 imputationCell column =
     Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.imputation ]
-            ]
+        [ select [ class "form-control", onInput (ImputationSelectionChanged column.metadata) ]
+            (List.map
+                (\a -> enumOption a column.metadata.imputation)
+                enumImputationStrategy
+            )
         ]
 
 

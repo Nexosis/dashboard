@@ -33,7 +33,7 @@ layout config linkedEntityResponse =
         Remote.Success entity ->
             [ h4 [ class "related-section" ]
                 [ a
-                    [ href "#imports" ]
+                    [ href "#sessions" ]
                     [ i [ class "fa fa-plus-circle" ] [], text "Sessions" ]
                 ]
             , div [ class "panel-collapse collapse in" ]
@@ -47,7 +47,7 @@ layout config linkedEntityResponse =
         Remote.Loading ->
             [ h4 [ class "related-section" ]
                 [ a
-                    [ href "#imports" ]
+                    [ href "#sessions" ]
                     []
                 ]
             ]
