@@ -10,6 +10,7 @@ import * as toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../interim.css'
+import '../elm-datepicker.css'
 
 
 if (!Intercept.isWired()) {

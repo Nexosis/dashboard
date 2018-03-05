@@ -1,4 +1,4 @@
-module Data.PredictionDomain exposing (..)
+module Data.PredictionDomain exposing (PredictionDomain(..), decodePredictionDomain)
 
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 

@@ -5,6 +5,7 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
+import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.Session exposing (..)
 import Data.Status exposing (Status)
 import Dict
@@ -17,7 +18,7 @@ import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
-import Util exposing ((=>))
+import Util exposing ((=>),formatFloatToString)
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
 
@@ -172,7 +173,7 @@ viewStatusHistory session =
         statusEntry status =
             tr []
                 [ td [ class "small" ]
-                    [ text status.date ]
+                    [ text (toShortDateTimeString status.date) ]
                 , td [ class "left" ]
                     [ statusDisplay status.status
                     ]
@@ -380,7 +381,7 @@ viewMetricsList results =
                 [ text "Metrics" ]
             ]
         , ul [ class "small algorithm-metrics" ]
-            (Dict.foldr (\key val html -> listMetric key (toString val) :: html) [] results.metrics)
+            (Dict.foldr (\key val html -> listMetric key (formatFloatToString val) :: html) [] results.metrics)
         ]
 
 

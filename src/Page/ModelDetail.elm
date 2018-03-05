@@ -16,7 +16,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Task
-import Util exposing ((=>))
+import Util exposing ((=>), formatFloatToString)
 import View.DeleteDialog as DeleteDialog
 
 
@@ -265,22 +265,6 @@ metricListItem ( name, value ) =
         , br [] []
         , text (formatFloatToString value)
         ]
-
-
-formatFloatToString : Float -> String
-formatFloatToString input =
-    let
-        expand =
-            toString (ceiling (input * 100000))
-
-        len =
-            String.length expand
-
-        filled =
-            String.padLeft 5 '0' expand
-    in
-    String.left (len - 5) filled ++ "." ++ String.right 5 filled
-
 
 padSpace : String -> String
 padSpace input =
