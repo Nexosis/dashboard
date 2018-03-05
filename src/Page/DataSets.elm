@@ -1,4 +1,4 @@
-module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, update, view, loadDataSetList)
+module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, loadDataSetList, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
@@ -12,7 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), isJust, spinner, dataSizeWithSuffix)
+import Util exposing ((=>), dataSizeWithSuffix, isJust, spinner)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -179,7 +179,7 @@ config toolTips =
             [ col.name
             , actionsColumn
             , Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] []
-            , Grid.customUnsortableColumn "Shape" (\a -> (toString a.rowCount) ++ " x " ++ (toString a.columnCount)) [ class "per15" ] (helpIcon toolTips "Shape")
+            , Grid.customUnsortableColumn "Shape" (\a -> toString a.rowCount ++ " x " ++ toString a.columnCount) [ class "per15" ] (helpIcon toolTips "Shape")
             , Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] []
             , Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] []
             , deleteColumn
