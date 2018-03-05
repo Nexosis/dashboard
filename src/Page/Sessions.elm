@@ -1,10 +1,9 @@
-module Page.Sessions exposing (Model, Msg, init, update, view, SessionColumns, defaultColumns)
+module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionsGridReadonly)
 
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.Session exposing (..)
-import Data.Status exposing (Status(..))
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -149,7 +148,7 @@ view model =
                         [ PageSize.view ChangePageSize ]
                     ]
                 , div []
-                    [ Grid.view .items (config model.config.toolTips) model.tableState model.sessionList
+                    [ viewSessionsGrid model.config.toolTips model.tableState model.sessionList
                     , hr [] []
                     , div [ class "center" ]
                         [ Pager.view model.sessionList ChangePage ]
@@ -165,19 +164,53 @@ view model =
         ]
 
 
+viewSessionsGrid : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Msg
+viewSessionsGrid toolTips tableState sessionList =
+    Grid.view .items (config toolTips) tableState sessionList
+
+
 config : Dict String String -> Grid.Config SessionData Msg
 config toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
     Grid.config
         { toId = \a -> a.sessionId
         , toMsg = SetTableState
         , columns =
-            [ nameColumn
-            , resultsActionColumn
-            , statusColumn
-            , dataSourceColumn
-            , typeColumn
-            , createdColumn
+            [ col.name
+            , col.actions
+            , col.status
+            , col.dataSource
+            , col.sessionType
+            , col.created
             , deleteColumn
+            ]
+        }
+
+
+viewSessionsGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
+viewSessionsGridReadonly toolTips tableState sessionList =
+    Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
+
+
+configSessionGridReadonly : Dict String String -> Grid.Config SessionData Grid.ReadOnlyTableMsg
+configSessionGridReadonly toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
+    Grid.config
+        { toId = \a -> a.name
+        , toMsg = Grid.Readonly
+        , columns =
+            [ col.name |> Grid.makeUnsortable
+            , col.actions |> Grid.makeUnsortable
+            , col.status |> Grid.makeUnsortable
+            , col.dataSource |> Grid.makeUnsortable
+            , col.sessionType |> Grid.makeUnsortable
+            , col.created |> Grid.makeUnsortable
             ]
         }
 

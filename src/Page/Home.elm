@@ -6,15 +6,14 @@ import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToSt
 import Data.Session exposing (SessionData, SessionList)
 import Html exposing (..)
 import Html.Attributes exposing (class)
-import Page.DataSets as DataSets exposing (DataSetColumns, viewDataSetGridReadonly)
-import Page.Sessions as Sessions exposing (SessionColumns, defaultColumns)
+import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
+import Page.Sessions as Sessions exposing (viewSessionsGridReadonly)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session
 import Table
 import Util exposing ((=>))
 
-import Request.DataSet
 
 ---- MODEL ----
 
@@ -22,7 +21,6 @@ import Request.DataSet
 type alias Model =
     { dataSetList : Remote.WebData DataSetList
     , sessionList : Remote.WebData SessionList
-    , sessionTableState : Table.State
     , config : Config
     }
 
@@ -32,8 +30,6 @@ init config =
     Model
         Remote.Loading
         Remote.Loading
-        => (Request.DataSet.get config 0 5
-        (Table.initialSort "Name")
         config
         => Cmd.batch
             [ Request.DataSet.get config 0 5
@@ -51,7 +47,6 @@ init config =
 
 type Msg
     = None
-    | SetSessionTableState Table.State
     | DataSetListResponse (Remote.WebData DataSetList)
     | SessionListResponse (Remote.WebData SessionList)
 
@@ -61,11 +56,6 @@ update msg model =
     case msg of
         None ->
             ( model, Cmd.none )
-
-
-        SetSessionTableState newState ->
-            { model | sessionTableState = newState }
-                => Cmd.none
 
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
@@ -93,29 +83,6 @@ view model =
         ]
 
 
-    --is columns parameter used?
-
-configSessionGrid : Dict String String -> (Dict String String -> SessionColumns Msg) -> Grid.Config SessionData Msg
-configSessionGrid toolTips columns =
-    let
-        col : SessionColumns Msg
-        col =
-            Sessions.defaultColumns toolTips
-    in
-    Grid.config
-        { toId = \a -> a.name
-        , toMsg = SetSessionTableState
-        , columns =
-            [ col.name |> Grid.makeUnsortable
-            , col.actions |> Grid.makeUnsortable
-            , col.status |> Grid.makeUnsortable
-            , col.dataSource |> Grid.makeUnsortable
-            , col.sessionType |> Grid.makeUnsortable
-            , col.created |> Grid.makeUnsortable
-            ]
-        }
-
-
 dataSetListView : Model -> Html Msg
 dataSetListView model =
     viewDataSetGridReadonly model.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
@@ -123,7 +90,7 @@ dataSetListView model =
 
 sessionListView : Model -> Html Msg
 sessionListView model =
-    Grid.view .items (configSessionGrid model.config.toolTips Sessions.defaultColumns) model.sessionTableState model.sessionList
+    viewSessionsGridReadonly model.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
