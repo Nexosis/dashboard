@@ -38,7 +38,7 @@ defaultColumns tooltips =
     DataSetColumns nameColumn
         actionsColumn
         (Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] [])
-        (Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon tooltips "Shape"))
+        (Grid.customUnsortableColumn "Shape" (\a -> toString a.rowCount ++ " x " ++ toString a.columnCount) [ class "per15" ] (helpIcon tooltips "Shape"))
         (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
         (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
