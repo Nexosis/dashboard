@@ -1,10 +1,10 @@
 module ZiplistTests exposing (..)
 
-import Test exposing (Test, describe, test, fuzz, fuzz2)
-import Fuzz exposing (..)
-import Expect
-import List.Extra exposing (last)
 import Data.Ziplist exposing (..)
+import Expect
+import Fuzz exposing (..)
+import List.Extra exposing (last)
+import Test exposing (Test, describe, fuzz, fuzz2, test)
 
 
 fuzzTests : Test
@@ -12,7 +12,7 @@ fuzzTests =
     describe "fuzz tests"
         [ fuzz2 int (list int) "advance moves forwards, rewind moves back" <|
             \first rest ->
-                create first rest
+                create [] first rest
                     |> advance
                     |> rewind
                     |> Expect.equal
@@ -24,7 +24,7 @@ fuzzTests =
             \first rest ->
                 let
                     advanceTimes =
-                        (List.length rest) + 2
+                        List.length rest + 2
 
                     currentItem =
                         last rest
@@ -38,27 +38,27 @@ fuzzTests =
                             |> Maybe.withDefault []
                             |> List.reverse
                 in
-                    create first rest
-                        |> callMany advanceTimes advance
-                        |> Expect.equal
-                            { previous = prevItems
-                            , current = currentItem
-                            , next = []
-                            }
+                create [] first rest
+                    |> callMany advanceTimes advance
+                    |> Expect.equal
+                        { previous = prevItems
+                        , current = currentItem
+                        , next = []
+                        }
         , fuzz2 int (list int) "advance and rewind past the end of the list" <|
             \first rest ->
                 let
                     advanceTimes =
-                        (List.length rest) + 2
+                        List.length rest + 2
                 in
-                    create first rest
-                        |> callMany advanceTimes advance
-                        |> callMany advanceTimes rewind
-                        |> Expect.equal
-                            { previous = []
-                            , current = first
-                            , next = rest
-                            }
+                create [] first rest
+                    |> callMany advanceTimes advance
+                    |> callMany advanceTimes rewind
+                    |> Expect.equal
+                        { previous = []
+                        , current = first
+                        , next = rest
+                        }
         ]
 
 

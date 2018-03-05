@@ -3,15 +3,21 @@ module Page.SessionStart exposing (Model, Msg, init, update, view)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
-import Data.PredictionDomain as PredictionDomain
-import Data.Session exposing (SessionData)
+import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
+import Data.Session as Session exposing (ResultInterval, SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
+import Date exposing (Date)
+import DateTimePicker
+import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
+import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (postModel)
+import Request.Session exposing (postForecast, postImpact, postModel)
+import Select exposing (fromSelected)
+import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>), isJust, spinner)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewRemoteError)
@@ -25,8 +31,16 @@ type alias Model =
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
     , sessionName : String
-    , selectedSessionType : Maybe SessionType
+    , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
+    , startDate : Maybe DateTime
+    , endDate : Maybe DateTime
+    , startDatePickerState : DateTimePicker.State
+    , endDatePickerState : DateTimePicker.State
+    , resultInterval : ResultInterval
+    , eventName : Maybe String
+    , containsAnomalies : Bool
+    , balance : Bool
     }
 
 
@@ -34,27 +48,28 @@ type Msg
     = NextStep
     | PrevStep
     | ChangeSessionName String
-    | SelectSessionType SessionType
+    | SelectSessionType PredictionDomain
     | DataSetDataResponse (Remote.WebData DataSetData)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | StartTheSession
     | StartSessionResponse (Remote.WebData SessionData)
+    | StartDateChanged DateTimePicker.State (Maybe Date)
+    | EndDateChanged DateTimePicker.State (Maybe Date)
+    | ChangeEventName String
+    | IntervalChanged ResultInterval
+    | SelectContainsAnomalies Bool
+    | SelectBalance Bool
 
 
 type Step
     = NameSession
     | SelectDataSet
     | SessionType
+    | StartEndDates
+    | ContainsAnomalies
+    | SetBalance
     | ColumnMetadata
     | StartSession
-
-
-type SessionType
-    = Classification
-    | Regression
-    | Forecasting
-    | ImpactAnalysis
-    | AnomalyDetection
 
 
 
@@ -65,7 +80,7 @@ init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
         steps =
-            Ziplist.create NameSession [ SessionType, ColumnMetadata, StartSession ]
+            Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
             Request.DataSet.getRetrieveDetail config dataSetName
@@ -75,27 +90,60 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName
     in
-    Model config steps dataSetName Remote.Loading editorModel "" Nothing Remote.NotAsked
-        ! [ loadDataSetRequest, Cmd.map ColumnMetadataEditorMsg initCmd ]
+    Model config
+        steps
+        dataSetName
+        Remote.Loading
+        editorModel
+        ""
+        Nothing
+        Remote.NotAsked
+        Nothing
+        Nothing
+        DateTimePicker.initialState
+        DateTimePicker.initialState
+        Session.Day
+        Nothing
+        True
+        True
+        ! [ loadDataSetRequest
+          , Cmd.map ColumnMetadataEditorMsg initCmd
+          , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
+          , DateTimePicker.initialCmd EndDateChanged DateTimePicker.initialState
+          ]
 
 
 isValid : Model -> Bool
 isValid model =
     case model.steps.current of
-        NameSession ->
-            True
-
-        SelectDataSet ->
-            True
-
         SessionType ->
             isJust model.selectedSessionType
 
-        ColumnMetadata ->
+        StartEndDates ->
+            let
+                datesValid =
+                    Maybe.map2 (\start end -> DateTime.compare start end == LT) model.startDate model.endDate
+                        |> (==) (Just True)
+            in
+            if model.selectedSessionType == Just Impact then
+                datesValid
+                    && (case model.eventName of
+                            Just e ->
+                                not (String.isEmpty e)
+
+                            Nothing ->
+                                False
+                       )
+            else
+                datesValid
+
+        _ ->
             True
 
-        StartSession ->
-            True
+
+defaultRemainingSteps : List Step
+defaultRemainingSteps =
+    [ ColumnMetadata, StartSession ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -105,7 +153,18 @@ update msg model =
             { model | sessionName = sessionName } => Cmd.none
 
         ( SessionType, SelectSessionType sessionType ) ->
-            { model | selectedSessionType = Just sessionType } => Cmd.none
+            let
+                steps =
+                    if sessionType == Forecast || sessionType == Impact then
+                        Ziplist.create model.steps.previous model.steps.current (StartEndDates :: defaultRemainingSteps)
+                    else if sessionType == Anomalies then
+                        Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: defaultRemainingSteps)
+                    else if sessionType == Classification then
+                        Ziplist.create model.steps.previous model.steps.current (SetBalance :: defaultRemainingSteps)
+                    else
+                        Ziplist.create model.steps.previous model.steps.current defaultRemainingSteps
+            in
+            { model | selectedSessionType = Just sessionType, steps = steps } => Cmd.none
 
         ( StartSession, StartTheSession ) ->
             let
@@ -116,21 +175,105 @@ update msg model =
                                 modelRequestRec =
                                     { name = model.sessionName
                                     , dataSourceName = model.dataSetName
-                                    , targetColumn = ""
+                                    , targetColumn = Just ""
                                     , predictionDomain = PredictionDomain.Regression
                                     , columns = []
+                                    , balance = Nothing
+                                    , containsAnomalies = Nothing
                                     }
                             in
                             postModel model.config modelRequestRec
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
-                        _ ->
-                            -- todo - Support all of the other types.
+                        Just Anomalies ->
+                            let
+                                modelRequest =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = Nothing
+                                    , predictionDomain = PredictionDomain.Anomalies
+                                    , columns = []
+                                    , balance = Nothing
+                                    , containsAnomalies = Just model.containsAnomalies
+                                    }
+                            in
+                            postModel model.config modelRequest
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Just Classification ->
+                            let
+                                modelRequest =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = Just ""
+                                    , predictionDomain = PredictionDomain.Classification
+                                    , columns = []
+                                    , balance = Just model.balance
+                                    , containsAnomalies = Nothing
+                                    }
+                            in
+                            postModel model.config modelRequest
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Just Forecast ->
+                            let
+                                forecastReq =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = ""
+                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , columns = []
+                                    }
+                            in
+                            postForecast model.config forecastReq
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Just Impact ->
+                            let
+                                impactReq =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = ""
+                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , columns = []
+                                    , eventName = model.eventName |> Maybe.withDefault ""
+                                    }
+                            in
+                            postImpact model.config impactReq
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Nothing ->
                             Cmd.none
             in
             { model | sessionStartRequest = Remote.Loading }
                 => sessionRequest
+
+        ( _, StartDateChanged state value ) ->
+            { model | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), startDatePickerState = state } => Cmd.none
+
+        ( _, EndDateChanged state value ) ->
+            { model | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), endDatePickerState = state } => Cmd.none
+
+        ( StartEndDates, IntervalChanged interval ) ->
+            { model | resultInterval = interval }
+                => Cmd.none
+
+        ( StartEndDates, ChangeEventName eventName ) ->
+            { model | eventName = Just eventName }
+                => Cmd.none
+
+        ( ContainsAnomalies, SelectContainsAnomalies isSelected ) ->
+            { model | containsAnomalies = isSelected } => Cmd.none
+
+        ( SetBalance, SelectBalance isSelected ) ->
+            { model | balance = isSelected } => Cmd.none
 
         ( _, StartSessionResponse resp ) ->
             let
@@ -189,6 +332,18 @@ view model =
 
             SessionType ->
                 viewSessionType model
+
+            StartEndDates ->
+                if model.selectedSessionType == Just Impact then
+                    viewImpactStartEndDates model
+                else
+                    viewStartEndDates model
+
+            ContainsAnomalies ->
+                viewContainsAnomalies model
+
+            SetBalance ->
+                viewSetBalance model
 
             ColumnMetadata ->
                 viewColumnMetadata model
@@ -268,7 +423,7 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        Forecasting
+                        Forecast
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/impact-analysis.png"
                         "Impact Analysis"
@@ -278,7 +433,7 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        ImpactAnalysis
+                        Impact
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/anomaly-detection.png"
                         "Anomaly Detection"
@@ -288,13 +443,13 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        AnomalyDetection
+                        Anomalies
                    ]
             )
         ]
 
 
-sessionTypePanel : String -> String -> Html Msg -> Maybe SessionType -> SessionType -> Html Msg
+sessionTypePanel : String -> String -> Html Msg -> Maybe PredictionDomain -> PredictionDomain -> Html Msg
 sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
     let
         isSelected =
@@ -328,6 +483,229 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
                             ]
                        ]
                 )
+            ]
+        ]
+
+
+viewStartEndDates : Model -> Html Msg
+viewStartEndDates model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Select start and end dates" ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Forecasting start and end dates" ]
+                , p [] [ text "Need info" ]
+                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                ]
+            ]
+        , div [ class "form-group col-sm-3" ]
+            [ label [] [ text "Start date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "End date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        ]
+
+
+viewImpactStartEndDates : Model -> Html Msg
+viewImpactStartEndDates model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Event Details" ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Event Info" ]
+                , p [] [ text "Need info" ]
+                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                ]
+            ]
+        , div [ class "form-group col-sm-3" ]
+            [ label [] [ text "Event name" ]
+            , input [ class "form-control", onInput ChangeEventName, value <| (model.eventName |> Maybe.withDefault "") ] []
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Start date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "End date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        ]
+
+
+toDate : Maybe DateTime -> Maybe Date
+toDate dateTime =
+    case dateTime of
+        Just dt ->
+            dt
+                |> DateTime.toISO8601
+                |> Date.fromString
+                |> Result.toMaybe
+
+        Nothing ->
+            Nothing
+
+
+datePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
+datePickerConfig msg =
+    let
+        defaultDateTimeConfig =
+            defaultDateTimePickerConfig msg
+    in
+    { defaultDateTimeConfig
+        | timePickerType = DateTimePicker.Config.Digital
+    }
+
+
+viewContainsAnomalies : Model -> Html Msg
+viewContainsAnomalies model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Does your DataSet contain anomalies?" ]
+        , div [ class "form-group col-sm-6" ]
+            [ label [ class "radio", for "anomalies-yes" ]
+                [ input [ id "anomalies-yes", name "anomalies", checked <| model.containsAnomalies, type_ "radio", onClick (SelectContainsAnomalies True) ] []
+                , text "Yes, my DataSet contains anomalies."
+                ]
+            , label [ class "radio", for "anomalies-no" ]
+                [ input [ id "anomalies-no", name "anomalies", checked <| not model.containsAnomalies, type_ "radio", onClick (SelectContainsAnomalies False) ] []
+                , text "No, my DataSet does not contain anomalies."
+                ]
+            ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Why does it matter whether my data has anomalies or not?" ]
+                , p [] [ text "Determining whether your dataset has anomalies will determine how the model is trained. If you don't have anomalies, the end model will treat anything unusual to the training set as anomaly. If it does, it will use the outliers to determine what an anomaly is. ", strong [] [ text "Your dataset has anomalies by default." ] ]
+                , p [] [ a [] [ text "Learn more." ] ]
+                ]
+            ]
+        ]
+
+
+viewSetBalance : Model -> Html Msg
+viewSetBalance model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Set Balance" ]
+        , div [ class "form-group col-sm-6" ]
+            [ label [ class "radio", for "balance-yes" ]
+                [ input [ id "balance-yes", name "balance", checked <| model.balance, type_ "radio", onClick (SelectBalance True) ] []
+                , text "Yes, balance my test set."
+                ]
+            , label [ class "radio", for "balance-no" ]
+                [ input [ id "balance-no", name "balance", checked <| not model.balance, type_ "radio", onClick (SelectBalance False) ] []
+                , text "No, don't balance my test set."
+                ]
+            ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Why should I balance my test set?" ]
+                , p [] [ text "Balancing your data ensures that your test set has data from every label. ", strong [] [ text "Your test set is balanced by default." ] ]
+                , p [] [ a [] [ text "Learn more." ] ]
+                , hr [] []
+                , div [ class "row well m15 p15" ]
+                    [ div [ class "col-sm-6" ]
+                        [ h6 [ class "center" ]
+                            [ text "Not balanced" ]
+                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
+                            [ tbody []
+                                [ tr []
+                                    [ th [ class "left" ]
+                                        [ text "Negative" ]
+                                    , td [ class "success" ]
+                                        [ text "710" ]
+                                    , td [ class "warning" ]
+                                        [ text "63" ]
+                                    , td [ class "warning" ]
+                                        [ text "27" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Neutral" ]
+                                    , td [ class "danger" ]
+                                        [ text "128" ]
+                                    , td [ class "success" ]
+                                        [ text "151" ]
+                                    , td [ class "warning" ]
+                                        [ text "29" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Positive" ]
+                                    , td [ class "warning" ]
+                                        [ text "46" ]
+                                    , td [ class "warning" ]
+                                        [ text "31" ]
+                                    , td [ class "success" ]
+                                        [ text "166" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    , div [ class "col-sm-6" ]
+                        [ h6 [ class "center" ]
+                            [ text "Balanced" ]
+                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
+                            [ tbody []
+                                [ tr []
+                                    [ th [ class "left" ]
+                                        [ text "Negative" ]
+                                    , td [ class "success" ]
+                                        [ text "695" ]
+                                    , td [ class "warning" ]
+                                        [ text "72" ]
+                                    , td [ class "warning" ]
+                                        [ text "32" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Neutral" ]
+                                    , td [ class "danger" ]
+                                        [ text "107" ]
+                                    , td [ class "success" ]
+                                        [ text "169" ]
+                                    , td [ class "warning" ]
+                                        [ text "30" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Positive" ]
+                                    , td [ class "warning" ]
+                                        [ text "39" ]
+                                    , td [ class "warning" ]
+                                        [ text "29" ]
+                                    , td [ class "success" ]
+                                        [ text "176" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ]
 
@@ -403,6 +781,9 @@ configWizardSummary =
         [ ( NameSession, "Session Name" )
         , ( SelectDataSet, "DataSet Name" )
         , ( SessionType, "Session Type" )
+        , ( StartEndDates, "Start/End Dates" )
+        , ( ContainsAnomalies, "Contains Anomalies" )
+        , ( SetBalance, "Set Balance" )
         , ( ColumnMetadata, "Column Metadata" )
         , ( StartSession, "Start Session" )
         ]

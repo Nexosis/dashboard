@@ -1,4 +1,4 @@
-module Request.Session exposing (ModelSessionRequest, delete, get, getForDataset, getOne, postModel, results)
+module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -8,6 +8,7 @@ import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
+import Time.DateTime exposing (DateTime, toISO8601)
 
 
 get : Config -> Int -> Int -> Http.Request SessionList
@@ -98,8 +99,10 @@ type alias ModelSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
+    , targetColumn : Maybe String
     , predictionDomain : PredictionDomain
+    , balance : Maybe Bool
+    , containsAnomalies : Maybe Bool
     }
 
 
@@ -123,8 +126,90 @@ encodeModelSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
+        , ( "targetColumn"
+          , case sessionRequest.targetColumn of
+                Just target ->
+                    Encode.string <| target
+
+                Nothing ->
+                    Encode.null
+          )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
+        , ( "extraParameters", encodeExtraParameters <| sessionRequest )
+        ]
+
+
+type alias ForecastSessionRequest =
+    { name : String
+    , dataSourceName : DataSetName
+    , columns : List ColumnMetadata
+    , targetColumn : String
+    , startDate : DateTime
+    , endDate : DateTime
+    }
+
+
+postForecast : Config -> ForecastSessionRequest -> Http.Request SessionData
+postForecast { baseUrl, token } sessionRequest =
+    let
+        requestBody =
+            encodeForecastSessionRequest sessionRequest
+    in
+    (baseUrl ++ "/sessions/forecast")
+        |> HttpBuilder.post
+        |> HttpBuilder.withExpect expectSessionData
+        |> withAuthorization token
+        |> HttpBuilder.withJsonBody requestBody
+        |> HttpBuilder.toRequest
+
+
+encodeForecastSessionRequest : ForecastSessionRequest -> Encode.Value
+encodeForecastSessionRequest sessionRequest =
+    Encode.object
+        [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
+        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
+        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        ]
+
+
+type alias ImpactSessionRequest =
+    { name : String
+    , dataSourceName : DataSetName
+    , columns : List ColumnMetadata
+    , targetColumn : String
+    , startDate : DateTime
+    , endDate : DateTime
+    , eventName : String
+    }
+
+
+postImpact : Config -> ImpactSessionRequest -> Http.Request SessionData
+postImpact { baseUrl, token } sessionRequest =
+    let
+        requestBody =
+            encodeImpactSessionRequest sessionRequest
+    in
+    (baseUrl ++ "/sessions/impact")
+        |> HttpBuilder.post
+        |> HttpBuilder.withExpect expectSessionData
+        |> withAuthorization token
+        |> HttpBuilder.withJsonBody requestBody
+        |> HttpBuilder.toRequest
+
+
+encodeImpactSessionRequest : ImpactSessionRequest -> Encode.Value
+encodeImpactSessionRequest sessionRequest =
+    Encode.object
+        [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
+        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
+        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "eventName", Encode.string <| sessionRequest.eventName )
         ]
 
 
@@ -143,4 +228,23 @@ encodeColumnValues column =
         , ( "role", Encode.string <| toString <| column.role )
         , ( "imputation", Encode.string <| toString <| column.imputation )
         , ( "aggregation", Encode.string <| toString <| column.aggregation )
+        ]
+
+
+encodeExtraParameters : ModelSessionRequest -> Encode.Value
+encodeExtraParameters sessionRequest =
+    let
+        balance =
+            sessionRequest.balance
+                |> Maybe.map Encode.bool
+                |> Maybe.withDefault Encode.null
+
+        anomalies =
+            sessionRequest.containsAnomalies
+                |> Maybe.map Encode.bool
+                |> Maybe.withDefault Encode.null
+    in
+    Encode.object
+        [ ( "balance", balance )
+        , ( "containsAnomalies", anomalies )
         ]

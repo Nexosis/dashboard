@@ -4,10 +4,7 @@ import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
 
 
 type Feature
-    = Imports
-    | Sessions
-    | DataSets
-    | Models
+    = PutSomeFeaturesHere
 
 
 isEnabled : List Feature -> Feature -> Bool
@@ -21,17 +18,8 @@ featureDecoder =
         |> andThen
             (\featureName ->
                 case featureName of
-                    "Models" ->
-                        succeed Models
-
-                    "Sessions" ->
-                        succeed Sessions
-
-                    "DataSets" ->
-                        succeed DataSets
-
-                    "Imports" ->
-                        succeed Imports
+                    "PutSomeFeaturesHere" ->
+                        succeed PutSomeFeaturesHere
 
                     unknown ->
                         fail <| "Unknown feature flag set: " ++ unknown
