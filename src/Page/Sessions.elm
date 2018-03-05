@@ -1,4 +1,4 @@
-module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionsGridReadonly)
+module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridReadonly)
 
 import AppRoutes
 import Data.Config exposing (Config)
@@ -190,8 +190,8 @@ config toolTips =
         }
 
 
-viewSessionsGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
-viewSessionsGridReadonly toolTips tableState sessionList =
+viewSessionGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
+viewSessionGridReadonly toolTips tableState sessionList =
     Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
 
 
