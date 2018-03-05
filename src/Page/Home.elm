@@ -75,9 +75,9 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
-                [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
-                , viewRecentPanel "Session" (sessionListView model) ((,) AppRoutes.Sessions Nothing)
-                , viewRecentPanel "Model" (div [] []) ((,) AppRoutes.Models Nothing)
+                [ viewRecentPanel "Dataset" (dataSetListView model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
+                , viewRecentPanel "Session" (sessionListView model) (AppRoutes.Sessions => Nothing)
+                , viewRecentPanel "Model" (div [] []) (AppRoutes.Models => Nothing)
                 ]
             ]
         ]
