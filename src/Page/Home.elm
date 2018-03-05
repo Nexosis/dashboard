@@ -1,33 +1,35 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Feature exposing (Feature(..))
+import Data.Config exposing (Config)
+import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Html exposing (..)
-import View.Extra exposing (viewIf)
+import Html.Attributes exposing (class)
+import Page.DataSets as DataSets exposing (DataSetColumns, viewDataSetGridReadonly)
+import RemoteData as Remote
+import Request.DataSet
+import Table
+import Util exposing ((=>))
 
 
 ---- MODEL ----
 
 
 type alias Model =
-    { pageTitle : String
-    , pageBody : String
-    , showModels : Bool
-    , showImports : Bool
-    , showSessions : Bool
-    , showDataSets : Bool
+    { dataSetList : Remote.WebData DataSetList
+    , config : Config
     }
 
 
-init : (Feature -> Bool) -> Model
-init isEnabled =
+init : Config -> ( Model, Cmd Msg )
+init config =
     Model
-        "Home"
-        "This is the homepage"
-        (isEnabled Models)
-        (isEnabled Imports)
-        (isEnabled Sessions)
-        (isEnabled DataSets)
+        Remote.Loading
+        config
+        => (Request.DataSet.get config 0 5
+                |> Remote.sendRequest
+                |> Cmd.map DataSetListResponse
+           )
 
 
 
@@ -35,14 +37,18 @@ init isEnabled =
 
 
 type Msg
-    = Todo
+    = None
+    | DataSetListResponse (Remote.WebData DataSetList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Todo ->
+        None ->
             ( model, Cmd.none )
+
+        DataSetListResponse resp ->
+            { model | dataSetList = resp } => Cmd.none
 
 
 
@@ -52,40 +58,49 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ h2 [] [ text model.pageTitle ]
-        , div [] [ text model.pageBody ]
-        , ul []
-            [ viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.DataSets ]
-                            [ text "DataSets" ]
+        [ h2 [] [ text "API Dashboard" ]
+        , hr [] []
+        , div [ class "row" ]
+            [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
+                [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
+                , viewRecentPanel "Session" (div [] []) ((,) AppRoutes.Sessions Nothing)
+                , viewRecentPanel "Model" (div [] []) ((,) AppRoutes.Models Nothing)
+                ]
+            ]
+        ]
+
+
+dataSetListView : Model -> Html Msg
+dataSetListView model =
+    viewDataSetGridReadonly model.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
+
+
+viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
+viewRecentPanel thing view ( linkRoute, addRoute ) =
+    let
+        addButton addRoute =
+            case addRoute of
+                Nothing ->
+                    div [] []
+
+                Just route ->
+                    a [ AppRoutes.href route, class "btn btn-sm" ]
+                        [ i [ class "fa fa-plus" ] []
+                        , text (" Add " ++ String.toLower thing)
                         ]
-                )
-                model.showDataSets
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Imports ]
-                            [ text "Imports" ]
-                        ]
-                )
-                model.showImports
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Sessions ]
-                            [ text "Sessions" ]
-                        ]
-                )
-                model.showSessions
-            , viewIf
-                (\() ->
-                    li []
-                        [ a [ AppRoutes.href AppRoutes.Models ]
-                            [ text "Models" ]
-                        ]
-                )
-                model.showModels
+    in
+    div [ class "panel panel-default" ]
+        [ div [ class "panel-body" ]
+            [ div [ class "row" ]
+                [ div [ class "col-sm-6 pl10" ]
+                    [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
+                    ]
+                , div [ class "col-sm-6 right" ]
+                    [ a [ AppRoutes.href linkRoute, class "btn secondary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
+                    , addButton addRoute
+                    ]
+                ]
+            , hr [ class "mt10" ] []
+            , view
             ]
         ]
