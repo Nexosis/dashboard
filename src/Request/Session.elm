@@ -1,4 +1,4 @@
-module Request.Session exposing (ModelSessionRequest, delete, get, getForDataset, getOne, postForecast, postModel, results)
+module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -172,6 +172,44 @@ encodeForecastSessionRequest sessionRequest =
         , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        ]
+
+
+type alias ImpactSessionRequest =
+    { name : String
+    , dataSourceName : DataSetName
+    , columns : List ColumnMetadata
+    , targetColumn : String
+    , startDate : DateTime
+    , endDate : DateTime
+    , eventName : String
+    }
+
+
+postImpact : Config -> ImpactSessionRequest -> Http.Request SessionData
+postImpact { baseUrl, token } sessionRequest =
+    let
+        requestBody =
+            encodeImpactSessionRequest sessionRequest
+    in
+    (baseUrl ++ "/sessions/impact")
+        |> HttpBuilder.post
+        |> HttpBuilder.withExpect expectSessionData
+        |> withAuthorization token
+        |> HttpBuilder.withJsonBody requestBody
+        |> HttpBuilder.toRequest
+
+
+encodeImpactSessionRequest : ImpactSessionRequest -> Encode.Value
+encodeImpactSessionRequest sessionRequest =
+    Encode.object
+        [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
+        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
+        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "eventName", Encode.string <| sessionRequest.eventName )
         ]
 
 
