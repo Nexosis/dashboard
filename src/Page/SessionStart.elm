@@ -3,7 +3,7 @@ module Page.SessionStart exposing (Model, Msg, init, update, view)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
-import Data.PredictionDomain as PredictionDomain
+import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval, SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Date exposing (Date)
@@ -15,7 +15,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (postForecast, postModel)
+import Request.Session exposing (postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
 import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>), isJust, spinner)
@@ -31,13 +31,14 @@ type alias Model =
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
     , sessionName : String
-    , selectedSessionType : Maybe SessionType
+    , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
     , startDate : Maybe DateTime
     , endDate : Maybe DateTime
     , startDatePickerState : DateTimePicker.State
     , endDatePickerState : DateTimePicker.State
     , resultInterval : ResultInterval
+    , eventName : Maybe String
     , containsAnomalies : Bool
     , balance : Bool
     }
@@ -47,13 +48,14 @@ type Msg
     = NextStep
     | PrevStep
     | ChangeSessionName String
-    | SelectSessionType SessionType
+    | SelectSessionType PredictionDomain
     | DataSetDataResponse (Remote.WebData DataSetData)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | StartTheSession
     | StartSessionResponse (Remote.WebData SessionData)
     | StartDateChanged DateTimePicker.State (Maybe Date)
     | EndDateChanged DateTimePicker.State (Maybe Date)
+    | ChangeEventName String
     | IntervalChanged ResultInterval
     | SelectContainsAnomalies Bool
     | SelectBalance Bool
@@ -68,14 +70,6 @@ type Step
     | SetBalance
     | ColumnMetadata
     | StartSession
-
-
-type SessionType
-    = Classification
-    | Regression
-    | Forecasting
-    | ImpactAnalysis
-    | AnomalyDetection
 
 
 
@@ -109,6 +103,7 @@ init config dataSetName =
         DateTimePicker.initialState
         DateTimePicker.initialState
         Session.Day
+        Nothing
         True
         True
         ! [ loadDataSetRequest
@@ -121,28 +116,28 @@ init config dataSetName =
 isValid : Model -> Bool
 isValid model =
     case model.steps.current of
-        NameSession ->
-            True
-
-        SelectDataSet ->
-            True
-
         SessionType ->
             isJust model.selectedSessionType
 
         StartEndDates ->
-            isJust model.startDate && isJust model.endDate
+            let
+                datesValid =
+                    Maybe.map2 (\start end -> DateTime.compare start end == LT) model.startDate model.endDate
+                        |> (==) (Just True)
+            in
+            if model.selectedSessionType == Just Impact then
+                datesValid
+                    && (case model.eventName of
+                            Just e ->
+                                not (String.isEmpty e)
 
-        ContainsAnomalies ->
-            True
+                            Nothing ->
+                                False
+                       )
+            else
+                datesValid
 
-        SetBalance ->
-            True
-
-        ColumnMetadata ->
-            True
-
-        StartSession ->
+        _ ->
             True
 
 
@@ -160,9 +155,9 @@ update msg model =
         ( SessionType, SelectSessionType sessionType ) ->
             let
                 steps =
-                    if sessionType == Forecasting then
+                    if sessionType == Forecast || sessionType == Impact then
                         Ziplist.create model.steps.previous model.steps.current (StartEndDates :: defaultRemainingSteps)
-                    else if sessionType == AnomalyDetection then
+                    else if sessionType == Anomalies then
                         Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: defaultRemainingSteps)
                     else if sessionType == Classification then
                         Ziplist.create model.steps.previous model.steps.current (SetBalance :: defaultRemainingSteps)
@@ -191,7 +186,7 @@ update msg model =
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
-                        Just AnomalyDetection ->
+                        Just Anomalies ->
                             let
                                 modelRequest =
                                     { name = model.sessionName
@@ -223,7 +218,7 @@ update msg model =
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
-                        Just Forecasting ->
+                        Just Forecast ->
                             let
                                 forecastReq =
                                     { name = model.sessionName
@@ -238,8 +233,23 @@ update msg model =
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
-                        _ ->
-                            -- todo - Support all of the other types.
+                        Just Impact ->
+                            let
+                                impactReq =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = ""
+                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , columns = []
+                                    , eventName = model.eventName |> Maybe.withDefault ""
+                                    }
+                            in
+                            postImpact model.config impactReq
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Nothing ->
                             Cmd.none
             in
             { model | sessionStartRequest = Remote.Loading }
@@ -253,6 +263,10 @@ update msg model =
 
         ( StartEndDates, IntervalChanged interval ) ->
             { model | resultInterval = interval }
+                => Cmd.none
+
+        ( StartEndDates, ChangeEventName eventName ) ->
+            { model | eventName = Just eventName }
                 => Cmd.none
 
         ( ContainsAnomalies, SelectContainsAnomalies isSelected ) ->
@@ -320,7 +334,10 @@ view model =
                 viewSessionType model
 
             StartEndDates ->
-                viewStartEndDates model
+                if model.selectedSessionType == Just Impact then
+                    viewImpactStartEndDates model
+                else
+                    viewStartEndDates model
 
             ContainsAnomalies ->
                 viewContainsAnomalies model
@@ -406,7 +423,7 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        Forecasting
+                        Forecast
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/impact-analysis.png"
                         "Impact Analysis"
@@ -416,7 +433,7 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        ImpactAnalysis
+                        Impact
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/anomaly-detection.png"
                         "Anomaly Detection"
@@ -426,13 +443,13 @@ viewSessionType model =
                             ]
                         )
                         model.selectedSessionType
-                        AnomalyDetection
+                        Anomalies
                    ]
             )
         ]
 
 
-sessionTypePanel : String -> String -> Html Msg -> Maybe SessionType -> SessionType -> Html Msg
+sessionTypePanel : String -> String -> Html Msg -> Maybe PredictionDomain -> PredictionDomain -> Html Msg
 sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
     let
         isSelected =
@@ -482,6 +499,44 @@ viewStartEndDates model =
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
+            [ label [] [ text "Start date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "End date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        ]
+
+
+viewImpactStartEndDates : Model -> Html Msg
+viewImpactStartEndDates model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Event Details" ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Event Info" ]
+                , p [] [ text "Need info" ]
+                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                ]
+            ]
+        , div [ class "form-group col-sm-3" ]
+            [ label [] [ text "Event name" ]
+            , input [ class "form-control", onInput ChangeEventName, value <| (model.eventName |> Maybe.withDefault "") ] []
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
