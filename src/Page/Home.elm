@@ -16,8 +16,7 @@ import Util exposing ((=>))
 
 
 type alias Model =
-    { pageTitle : String
-    , dataSetList : Remote.WebData DataSetList
+    { dataSetList : Remote.WebData DataSetList
     , config : Config
     }
 
@@ -25,7 +24,6 @@ type alias Model =
 init : Config -> ( Model, Cmd Msg )
 init config =
     Model
-        "API Dashboard"
         Remote.Loading
         config
         => (Request.DataSet.get config 0 5
@@ -60,7 +58,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ h2 [] [ text model.pageTitle ]
+        [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
