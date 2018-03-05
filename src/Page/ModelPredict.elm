@@ -9,10 +9,10 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
-import Ports exposing (fileContentRead, uploadFileSelected)
+import Ports exposing (fileContentRead, fileSaved, requestSaveFile, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (predict)
+import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
 import View.Pager as Pager
@@ -23,12 +23,13 @@ type alias Model =
     , modelId : String
     , activeTab : Tab
     , inputType : DataFormat.DataFormat
+    , outputType : DataFormat.DataFormat
     , fileName : String
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
     , canProceedWithPrediction : Bool
     , uploadResponse : Remote.WebData Data.Model.PredictionResult
-    , predictionData : List (Dict String String)
+    , downloadResponse : Remote.WebData String
     , currentPage : Int
     }
 
@@ -44,7 +45,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked [ Dict.empty ] 0
+    Model config modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked 0
 
 
 type Msg
@@ -55,6 +56,9 @@ type Msg
     | PredictionStarted
     | PredictResponse (Remote.WebData Data.Model.PredictionResult)
     | ChangePage Int
+    | SetDownloadContentType String
+    | FileDownload
+    | DownloadResponse (Remote.WebData String)
     | ResetState
 
 
@@ -96,7 +100,7 @@ update msg model =
                 m =
                     case readStatus of
                         File.Success fileName content ->
-                            case File.filenameToType fileName of
+                            case DataFormat.filenameToType fileName of
                                 DataFormat.Json ->
                                     { model
                                         | dataInput = Just content
@@ -154,19 +158,50 @@ update msg model =
                             ""
 
                 predictRequest =
-                    predict model.config model.modelId value (File.dataFormatToContentType model.inputType)
+                    predict model.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
             { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading } => predictRequest
 
+        SetDownloadContentType value ->
+            { model | outputType = DataFormat.parseDataFormat value } => Cmd.none
+
+        FileDownload ->
+            let
+                value =
+                    case model.dataInput of
+                        Just input ->
+                            input
+
+                        Nothing ->
+                            ""
+
+                predictRequest =
+                    predictRaw model.config model.modelId value (DataFormat.dataFormatToContentType model.outputType)
+                        |> Remote.sendRequest
+                        |> Cmd.map DownloadResponse
+            in
+            { model | canProceedWithPrediction = False, downloadResponse = Remote.Loading } => predictRequest
+
         PredictResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | uploadResponse = result, predictionData = predictionData.data } => Cmd.none
+                    { model | uploadResponse = result } => Cmd.none
 
                 Remote.Failure err ->
                     { model | uploadResponse = result } => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        DownloadResponse result ->
+            case result of
+                Remote.Success predictionData ->
+                    { model | downloadResponse = result } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToContentType model.outputType }
+
+                Remote.Failure err ->
+                    { model | downloadResponse = result } => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -178,8 +213,14 @@ update msg model =
             init model.config model.modelId => Cmd.none
 
 
+formatFilename : Model -> String
+formatFilename model =
+    model.modelId ++ "-results." ++ DataFormat.dataFormatToString model.outputType
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    -- TODO: (JJE) how to handle different ports?
     fileContentRead FileContentRead
 
 
@@ -352,44 +393,39 @@ showTable model =
     let
         pagedData =
             Remote.map (.data >> mapToPagedListing model.currentPage) model.uploadResponse
-
-        output =
-            case model.uploadResponse of
-                Remote.Success successResponse ->
-                    div [ class "row" ]
-                        [ div [ class "col-sm-12" ]
-                            [ div [ class "mt10" ]
-                                [ {- button [ class "btn", disabled (not (Remote.isSuccess model.uploadResponse)) ]
-                                         [ i [ class "fa fa-download mr5" ]
-                                             []
-                                         , text "Download predictions"
-                                         ]
-                                     ,
-                                  -}
-                                  button [ class "btn secondary", onClick ResetState ]
-                                    [ i [ class "fa fa-refresh mr5" ]
-                                        []
-                                    , text "Predict again"
-                                    ]
-                                ]
+    in
+    case model.uploadResponse of
+        Remote.Success successResponse ->
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "mt10" ]
+                        [ button [ class "btn", onClick FileDownload ]
+                            [ i [ class "fa fa-download mr5" ]
+                                []
+                            , text "Download predictions"
                             ]
-                        , div [ class "col-sm-12" ]
-                            [ h3 []
-                                [ text "Results" ]
-                            ]
-                        , div [ class "col-sm-12" ]
-                            [ table [ class "table table-striped" ]
-                                [ toTableHeader (List.head successResponse.data)
-                                , tbody [] (List.map toTableRow (filterToPage pagedData))
-                                ]
-                            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                        , button [ class "btn secondary", onClick ResetState ]
+                            [ i [ class "fa fa-refresh mr5" ]
+                                []
+                            , text "Predict again"
                             ]
                         ]
+                    ]
+                , div [ class "col-sm-12" ]
+                    [ h3 []
+                        [ text "Results" ]
+                    ]
+                , div [ class "col-sm-12" ]
+                    [ table [ class "table table-striped" ]
+                        [ toTableHeader (List.head successResponse.data)
+                        , tbody [] (List.map toTableRow (filterToPage pagedData))
+                        ]
+                    , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                    ]
+                ]
 
-                _ ->
-                    div [ class "row" ] []
-    in
-    output
+        _ ->
+            div [ class "row" ] []
 
 
 toTableHeader : Maybe (Dict String String) -> Html Msg
