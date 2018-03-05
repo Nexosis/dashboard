@@ -1,4 +1,4 @@
-module Page.Models exposing (Model, Msg, init, update, view)
+module Page.Models exposing (Model, Msg, init, update, view, viewModelGridReadonly)
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
@@ -184,7 +184,27 @@ config toolTips =
         }
 
 
-nameColumn : Grid.Column ModelData Msg
+viewModelGridReadonly : Dict String String -> Table.State -> Remote.WebData ModelList -> Html Grid.ReadOnlyTableMsg
+viewModelGridReadonly toolTips tableState modelList =
+    Grid.view .items (configReadonly toolTips) tableState modelList
+
+
+configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
+configReadonly toolTips =
+    Grid.config
+        { toId = \a -> a.modelId
+        , toMsg = Grid.Readonly
+        , columns =
+            [ nameColumn |> Grid.makeUnsortable
+            , predictActionColumn |> Grid.makeUnsortable
+            , typeColumn |> Grid.makeUnsortable
+            , createdColumn |> Grid.makeUnsortable
+            , lastUsedColumn |> Grid.makeUnsortable
+            ]
+        }
+
+
+nameColumn : Grid.Column ModelData msg
 nameColumn =
     Grid.veryCustomColumn
         { name = "Name"
@@ -195,7 +215,7 @@ nameColumn =
         }
 
 
-modelNameCell : ModelData -> Table.HtmlDetails Msg
+modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId False) ] [ text (modelOrDataSourceName model) ]
@@ -212,7 +232,7 @@ modelOrDataSourceName model =
             model.dataSourceName
 
 
-predictActionColumn : Grid.Column ModelData Msg
+predictActionColumn : Grid.Column ModelData msg
 predictActionColumn =
     Grid.veryCustomColumn
         { name = ""
@@ -223,7 +243,7 @@ predictActionColumn =
         }
 
 
-predictActionButton : ModelData -> Table.HtmlDetails Msg
+predictActionButton : ModelData -> Table.HtmlDetails msg
 predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
@@ -233,7 +253,7 @@ predictActionButton model =
         ]
 
 
-typeColumn : Grid.Column ModelData Msg
+typeColumn : Grid.Column ModelData msg
 typeColumn =
     Grid.veryCustomColumn
         { name = "Type"
@@ -244,14 +264,14 @@ typeColumn =
         }
 
 
-typeCell : ModelData -> Table.HtmlDetails Msg
+typeCell : ModelData -> Table.HtmlDetails msg
 typeCell model =
     Table.HtmlDetails []
         [ text (toString model.predictionDomain)
         ]
 
 
-createdColumn : Grid.Column ModelData Msg
+createdColumn : Grid.Column ModelData msg
 createdColumn =
     Grid.veryCustomColumn
         { name = "Created"
@@ -262,14 +282,14 @@ createdColumn =
         }
 
 
-createdCell : ModelData -> Table.HtmlDetails Msg
+createdCell : ModelData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
         [ text (toShortDateString model.createdDate)
         ]
 
 
-lastUsedColumn : Grid.Column ModelData Msg
+lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
     Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
 
