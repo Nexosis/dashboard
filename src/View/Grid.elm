@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn, view)
+module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -6,6 +6,10 @@ import Http
 import List.Extra as ListX
 import RemoteData as Remote
 import Table exposing (..)
+
+
+type ReadOnlyTableMsg
+    = Readonly Table.State
 
 
 type alias Column data msg =
@@ -165,6 +169,23 @@ veryCustomColumn column =
     }
 
 
+makeUnsortable :
+    { name : String
+    , viewData : data -> HtmlDetails msg
+    , sorter : Sorter data
+    , headAttributes : List (Attribute msg)
+    , headHtml : List (Html msg)
+    }
+    -> Column data msg
+makeUnsortable column =
+    { name = column.name
+    , viewData = column.viewData
+    , sorter = Table.unsortable
+    , headAttributes = column.headAttributes
+    , headHtml = column.headHtml
+    }
+
+
 toTableHeadAttrs : List (ColumnHeadConfig a msg) -> List ( String, Table.Status, Attribute msg ) -> Table.HtmlDetails msg
 toTableHeadAttrs headerConfig headers =
     let
@@ -310,4 +331,3 @@ niceErrorMessage error =
 
         _ ->
             "An unexpected error occurred.  Please try again."
-            
