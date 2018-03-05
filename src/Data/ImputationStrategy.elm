@@ -1,4 +1,4 @@
-module Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy, stringToImputationStrategy)
+module Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 
 
 type ImputationStrategy
@@ -19,28 +19,3 @@ enumImputationStrategy =
     , Min
     , Max
     ]
-
-
-stringToImputationStrategy : String -> Result String ImputationStrategy
-stringToImputationStrategy input =
-    case String.toLower input of
-        "zeroes" ->
-            Ok Zeroes
-
-        "mean" ->
-            Ok Mean
-
-        "median" ->
-            Ok Median
-
-        "mode" ->
-            Ok Mode
-
-        "min" ->
-            Ok Min
-
-        "max" ->
-            Ok Max
-
-        _ ->
-            Err "unknown imputation strategy provided"

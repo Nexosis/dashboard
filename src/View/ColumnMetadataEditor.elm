@@ -1,17 +1,17 @@
 module View.ColumnMetadataEditor exposing (Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
-import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole, stringToDataType, stringToRole)
+import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
-import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy, stringToImputationStrategy)
+import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
 import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
+import SelectWithStyle as UnionSelect
 import Table
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
@@ -50,9 +50,9 @@ type Msg
     | SetTableState Table.State
     | ChangePage Int
     | ChangePageSize Int
-    | TypeSelectionChanged ColumnMetadata String
-    | RoleSelectionChanged ColumnMetadata String
-    | ImputationSelectionChanged ColumnMetadata String
+    | TypeSelectionChanged ColumnMetadata DataType
+    | RoleSelectionChanged ColumnMetadata Role
+    | ImputationSelectionChanged ColumnMetadata ImputationStrategy
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
@@ -152,8 +152,7 @@ update msg model =
         RoleSelectionChanged metadata selection ->
             { model
                 | modifiedMetadata =
-                    Result.withDefault Feature (stringToRole selection)
-                        |> updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                    updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
@@ -161,8 +160,7 @@ update msg model =
         TypeSelectionChanged metadata selection ->
             { model
                 | modifiedMetadata =
-                    Result.withDefault NumericMeasure (stringToDataType selection)
-                        |> updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                    updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
@@ -170,8 +168,7 @@ update msg model =
         ImputationSelectionChanged metadata selection ->
             { model
                 | modifiedMetadata =
-                    Result.withDefault Mean (stringToImputationStrategy selection)
-                        |> updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata)
+                    updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
@@ -203,14 +200,7 @@ updateDataType column value =
 
 
 maybeAppendColumn : List ColumnMetadata -> ( ColumnMetadata, Bool ) -> List ColumnMetadata
-maybeAppendColumn list column =
-    let
-        metadata =
-            Tuple.first column
-
-        unchanged =
-            Tuple.second column
-    in
+maybeAppendColumn list ( metadata, unchanged ) =
     if unchanged then
         list
     else
@@ -393,13 +383,7 @@ typeColumn makeIcon =
 
 dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
 dataTypeCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control", onInput (TypeSelectionChanged column.metadata) ]
-            (List.map
-                (\a -> enumOption a column.metadata.dataType)
-                enumDataType
-            )
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column.metadata) column.metadata.dataType ]
 
 
 roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
@@ -415,13 +399,7 @@ roleColumn makeIcon =
 
 roleCell : ColumnInfo -> Table.HtmlDetails Msg
 roleCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control", onInput (RoleSelectionChanged column.metadata) ]
-            (List.map
-                (\a -> enumOption a column.metadata.role)
-                enumRole
-            )
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column.metadata) column.metadata.role ]
 
 
 enumOption : e -> e -> Html Msg
@@ -442,13 +420,7 @@ imputationColumn makeIcon =
 
 imputationCell : ColumnInfo -> Table.HtmlDetails Msg
 imputationCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control", onInput (ImputationSelectionChanged column.metadata) ]
-            (List.map
-                (\a -> enumOption a column.metadata.imputation)
-                enumImputationStrategy
-            )
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column.metadata) column.metadata.imputation ]
 
 
 statsColumn : Grid.Column ColumnInfo Msg
