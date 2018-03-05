@@ -1,4 +1,4 @@
-module Data.Session exposing (..)
+module Data.Session exposing (ResultInterval(..), SessionData, SessionList, SessionResults, canPredictSession, decodeSession, decodeSessionList, decodeSessionResults, sessionIsCompleted)
 
 import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
@@ -35,7 +35,7 @@ type alias SessionData =
     , availablePredictionIntervals : List String
     , startDate : Maybe String
     , endDate : Maybe String
-    , resultInterval : Maybe String
+    , resultInterval : Maybe ResultInterval
     , requestedDate : String
     , statusHistory : List HistoryRecord
     , extraParameters : Dict String String
@@ -63,6 +63,14 @@ type alias SessionList =
     }
 
 
+type ResultInterval
+    = Hour
+    | Day
+    | Week
+    | Month
+    | Year
+
+
 decodeSessionResults : Decode.Decoder SessionResults
 decodeSessionResults =
     decode SessionResults
@@ -79,7 +87,7 @@ decodeSession =
         |> required "availablePredictionIntervals" (Decode.list Decode.string)
         |> optional "startDate" (Decode.map Just string) Nothing
         |> optional "endDate" (Decode.map Just string) Nothing
-        |> optional "resultInterval" (Decode.map Just string) Nothing
+        |> optional "resultInterval" (Decode.map Just decodeResultInterval) Nothing
         |> required "requestedDate" Decode.string
         |> required "statusHistory" (Decode.list decodeHistoryRecord)
         |> required "extraParameters" (Decode.dict (Decode.oneOf [ Decode.string, Decode.bool |> Decode.andThen (\b -> succeed (toString b)) ]))
@@ -113,3 +121,29 @@ decodeSessionList =
         |> required "totalPages" Decode.int
         |> required "pageSize" Decode.int
         |> required "totalCount" Decode.int
+
+
+decodeResultInterval : Decoder ResultInterval
+decodeResultInterval =
+    string
+        |> andThen
+            (\r ->
+                case r of
+                    "hour" ->
+                        succeed Hour
+
+                    "day" ->
+                        succeed Day
+
+                    "week" ->
+                        succeed Week
+
+                    "month" ->
+                        succeed Month
+
+                    "year" ->
+                        succeed Year
+
+                    unknown ->
+                        fail <| "Unknown result interval: " ++ unknown
+            )
