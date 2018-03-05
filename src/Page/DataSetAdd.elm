@@ -83,7 +83,7 @@ init : Config -> ( Model, Cmd Msg )
 init config =
     let
         steps =
-            Ziplist.create ChooseUploadType [ SetKey ]
+            Ziplist.create [] ChooseUploadType [ SetKey ]
     in
     Model config
         steps
