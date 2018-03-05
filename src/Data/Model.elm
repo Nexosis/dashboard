@@ -1,8 +1,9 @@
-module Data.Model exposing (Algorithm, ModelData, ModelList, decodeModel, decodeModelList)
+module Data.Model exposing (Algorithm, ModelData, ModelList, PredictionResult, decodeModel, decodeModelList, decodePredictions)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.DisplayDate exposing (dateDecoder)
 import Data.Link exposing (Link, linkDecoder)
+import Data.Message exposing (Message, decodeMessage)
 import Data.PredictionDomain exposing (PredictionDomain, decodePredictionDomain)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
@@ -41,6 +42,12 @@ type alias ModelList =
     }
 
 
+type alias PredictionResult =
+    { data : List (Dict String String)
+    , messages : List Message
+    }
+
+
 decodeModelList : Decoder ModelList
 decodeModelList =
     decode ModelList
@@ -73,3 +80,10 @@ decodeModel =
         |> optional "lastUsedDate" (Decode.map Just dateDecoder) Nothing
         |> required "metrics" (Decode.dict float)
         |> required "links" (Decode.list linkDecoder)
+
+
+decodePredictions : Decoder PredictionResult
+decodePredictions =
+    decode PredictionResult
+        |> required "data" (list <| dict string)
+        |> required "messages" (list decodeMessage)

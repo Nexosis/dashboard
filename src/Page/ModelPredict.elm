@@ -3,15 +3,19 @@ module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view
 import Data.Config exposing (Config)
 import Data.DataFormat as DataFormat
 import Data.File as File
+import Data.Model exposing (PredictionResult, decodePredictions)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import RemoteData as Remote
+import Request.Log as Log
 import Request.Model exposing (predict)
-import Util exposing ((=>))
+import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
+import View.Pager as Pager
 
 
 type alias Model =
@@ -23,13 +27,24 @@ type alias Model =
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
     , canProceedWithPrediction : Bool
-    , uploadResponse : Remote.WebData ()
+    , uploadResponse : Remote.WebData Data.Model.PredictionResult
+    , predictionData : List (Dict String String)
+    , currentPage : Int
+    }
+
+
+type alias PredictionResultListing =
+    { pageNumber : Int
+    , totalPages : Int
+    , pageSize : Int
+    , totalCount : Int
+    , predictions : List (Dict String String)
     }
 
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked
+    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked [ Dict.empty ] 0
 
 
 type Msg
@@ -38,7 +53,9 @@ type Msg
     | FileContentRead Json.Decode.Value
     | DataInputChanged String
     | PredictionStarted
-    | PredictResponse (Remote.WebData ())
+    | PredictResponse (Remote.WebData Data.Model.PredictionResult)
+    | ChangePage Int
+    | ResetState
 
 
 type Tab
@@ -141,10 +158,24 @@ update msg model =
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
-            { model | uploadResponse = Remote.Loading } => predictRequest
+            { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading } => predictRequest
 
-        PredictResponse response ->
-            model => Cmd.none
+        PredictResponse result ->
+            case result of
+                Remote.Success predictionData ->
+                    { model | uploadResponse = result, predictionData = predictionData.data } => Cmd.none
+
+                Remote.Failure err ->
+                    { model | uploadResponse = result } => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        ChangePage pageNum ->
+            { model | currentPage = pageNum } => Cmd.none
+
+        ResetState ->
+            init model.config model.modelId => Cmd.none
 
 
 subscriptions : Model -> Sub Msg
@@ -154,17 +185,26 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
+    let
+        waiting =
+            if Remote.isLoading model.uploadResponse then
+                spinner
+            else
+                div [] []
+    in
     div [ class "row" ]
-        [ div [ class "col-sm-12" ] (predictWizard model)
+        [ div [ class "col-sm-12" ] (predictInput model)
         , div [ class "col-sm-12" ]
             [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick PredictionStarted ]
                 [ text "Start predictions" ]
+            , waiting
+            , showTable model
             ]
         ]
 
 
-predictWizard : Model -> List (Html Msg)
-predictWizard model =
+predictInput : Model -> List (Html Msg)
+predictInput model =
     [ div [ class "collapse in", id "predict" ]
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
@@ -272,3 +312,110 @@ viewPasteData model =
                 ]
             ]
         ]
+
+
+mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing
+mapToPagedListing currentPage rows =
+    let
+        count =
+            List.length rows
+
+        pageSize =
+            10
+    in
+    { pageNumber = currentPage
+    , totalPages = count // pageSize
+    , pageSize = pageSize
+    , totalCount = count
+    , predictions = rows
+    }
+
+
+filterToPage : Remote.WebData PredictionResultListing -> List (Dict String String)
+filterToPage model =
+    case model of
+        Remote.Success result ->
+            let
+                drop =
+                    result.pageSize * result.pageNumber
+            in
+            result.predictions
+                |> List.drop drop
+                |> List.take result.pageSize
+
+        _ ->
+            [ Dict.empty ]
+
+
+showTable : Model -> Html Msg
+showTable model =
+    let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.uploadResponse
+
+        output =
+            case model.uploadResponse of
+                Remote.Success successResponse ->
+                    div [ class "row" ]
+                        [ div [ class "col-sm-12" ]
+                            [ div [ class "mt10" ]
+                                [ {- button [ class "btn", disabled (not (Remote.isSuccess model.uploadResponse)) ]
+                                         [ i [ class "fa fa-download mr5" ]
+                                             []
+                                         , text "Download predictions"
+                                         ]
+                                     ,
+                                  -}
+                                  button [ class "btn secondary", onClick ResetState ]
+                                    [ i [ class "fa fa-refresh mr5" ]
+                                        []
+                                    , text "Predict again"
+                                    ]
+                                ]
+                            ]
+                        , div [ class "col-sm-12" ]
+                            [ h3 []
+                                [ text "Results" ]
+                            ]
+                        , div [ class "col-sm-12" ]
+                            [ table [ class "table table-striped" ]
+                                [ toTableHeader (List.head successResponse.data)
+                                , tbody [] (List.map toTableRow (filterToPage pagedData))
+                                ]
+                            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                            ]
+                        ]
+
+                _ ->
+                    div [ class "row" ] []
+    in
+    output
+
+
+toTableHeader : Maybe (Dict String String) -> Html Msg
+toTableHeader item =
+    let
+        keys =
+            case item of
+                Just row ->
+                    Dict.keys row
+
+                Nothing ->
+                    []
+    in
+    thead [] (List.map toTableHeaderItem keys)
+
+
+toTableRow : Dict String String -> Html Msg
+toTableRow item =
+    tr [] (List.map toTableData (Dict.values item))
+
+
+toTableHeaderItem : String -> Html Msg
+toTableHeaderItem value =
+    th [] [ text value ]
+
+
+toTableData : String -> Html Msg
+toTableData value =
+    td [] [ text value ]

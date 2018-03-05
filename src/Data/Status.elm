@@ -1,6 +1,8 @@
 module Data.Status exposing (HistoryRecord, Status(..), decodeHistoryRecord, decodeStatus)
 
+import Data.DisplayDate exposing (dateDecoder)
 import Json.Decode exposing (Decoder, andThen, fail, field, map2, string, succeed)
+import Time.ZonedDateTime exposing (ZonedDateTime)
 
 
 type Status
@@ -13,7 +15,7 @@ type Status
 
 
 type alias HistoryRecord =
-    { date : String
+    { date : ZonedDateTime
     , status : Status
     }
 
@@ -21,7 +23,7 @@ type alias HistoryRecord =
 decodeHistoryRecord : Decoder HistoryRecord
 decodeHistoryRecord =
     map2 HistoryRecord
-        (field "date" string)
+        (field "date" dateDecoder)
         (field "status" decodeStatus)
 
 
