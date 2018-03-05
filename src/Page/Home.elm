@@ -1,20 +1,23 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
+import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Data.Session exposing (SessionData, SessionList)
 import Dict exposing (Dict)
 import Feature exposing (Feature(..))
 import Html exposing (..)
 import Html.Attributes exposing (class)
-import Page.DataSets as DataSets exposing (defaultColumns, DataSetColumns)
-import Page.Sessions as Sessions exposing (defaultColumns, SessionColumns)
+import Page.DataSets as DataSets exposing (DataSetColumns, defaultColumns)
+import Page.Sessions as Sessions exposing (SessionColumns, defaultColumns)
 import RemoteData as Remote
+import Request.DataSet
+import Request.Session
 import Table
+import Util exposing ((=>))
 import View.Extra exposing (viewIf)
 import View.Grid as Grid
-import Data.Config exposing (Config)
-import Util exposing ((=>))
-import Request.DataSet
+
 
 ---- MODEL ----
 
@@ -29,17 +32,23 @@ type alias Model =
     }
 
 
-init : Config -> (Model, Cmd Msg)
+init : Config -> ( Model, Cmd Msg )
 init config =
-    (Model
+    Model
         "API Dashboard"
         Remote.Loading
         Remote.Loading
         (Table.initialSort "dataSetName")
         (Table.initialSort "Name")
-        config) => (Request.DataSet.get config 0 5
-        |> Remote.sendRequest
-        |> Cmd.map DataSetListResponse)
+        config
+        => Cmd.batch
+            [ Request.DataSet.get config 0 5
+                |> Remote.sendRequest
+                |> Cmd.map DataSetListResponse
+            , Request.Session.get config 0 5
+                |> Remote.sendRequest
+                |> Cmd.map SessionListResponse
+            ]
 
 
 
@@ -59,14 +68,18 @@ update msg model =
     case msg of
         None ->
             ( model, Cmd.none )
+
         SetDataSetTableState newState ->
             { model | dataSetTableState = newState }
-                            => Cmd.none 
+                => Cmd.none
+
         SetSessionTableState newState ->
-            { model | dataSessionTableState = newState }
-                            => Cmd.none 
+            { model | sessionTableState = newState }
+                => Cmd.none
+
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
+
         SessionListResponse resp ->
             { model | sessionList = resp } => Cmd.none
 
@@ -84,14 +97,15 @@ view model =
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
                 , viewRecentPanel "Session" (sessionListView model) ((,) AppRoutes.Sessions Nothing)
-                , viewRecentPanel "Model" (div [][]) ((,) AppRoutes.Models Nothing)
+                , viewRecentPanel "Model" (div [] []) ((,) AppRoutes.Models Nothing)
                 ]
             ]
         ]
 
 
 configDataSetGrid : Dict String String -> (Dict String String -> DataSetColumns Msg) -> Grid.Config DataSet Msg
-configDataSetGrid toolTips columns = --is columns parameter used?
+configDataSetGrid toolTips columns =
+    --is columns parameter used?
     let
         col : DataSetColumns Msg
         col =
@@ -110,7 +124,8 @@ configDataSetGrid toolTips columns = --is columns parameter used?
             ]
         }
 
-configSessionGrid : Dict String String -> (Dict String String -> SessionColumns Msg) -> Grid.Config DataSet Msg
+
+configSessionGrid : Dict String String -> (Dict String String -> SessionColumns Msg) -> Grid.Config SessionData Msg
 configSessionGrid toolTips columns =
     let
         col : SessionColumns Msg
@@ -118,8 +133,8 @@ configSessionGrid toolTips columns =
             Sessions.defaultColumns toolTips
     in
     Grid.config
-        { toId = \a -> a.dataSetName |> dataSetNameToString
-        , toMsg = SetDataSetTableState
+        { toId = \a -> a.name
+        , toMsg = SetSessionTableState
         , columns =
             [ col.name |> Grid.makeUnsortable
             , col.actions |> Grid.makeUnsortable
@@ -130,9 +145,11 @@ configSessionGrid toolTips columns =
             ]
         }
 
+
 dataSetListView : Model -> Html Msg
 dataSetListView model =
     Grid.view .items (configDataSetGrid model.config.toolTips DataSets.defaultColumns) model.dataSetTableState model.dataSetList
+
 
 sessionListView : Model -> Html Msg
 sessionListView model =
