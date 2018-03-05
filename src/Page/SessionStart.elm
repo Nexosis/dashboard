@@ -12,7 +12,7 @@ import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (postForecast, postModel)
@@ -38,6 +38,7 @@ type alias Model =
     , startDatePickerState : DateTimePicker.State
     , endDatePickerState : DateTimePicker.State
     , resultInterval : ResultInterval
+    , containsAnomalies : Bool
     }
 
 
@@ -53,6 +54,7 @@ type Msg
     | StartDateChanged DateTimePicker.State (Maybe Date)
     | EndDateChanged DateTimePicker.State (Maybe Date)
     | IntervalChanged ResultInterval
+    | SelectContainsAnomalies Bool
 
 
 type Step
@@ -60,6 +62,7 @@ type Step
     | SelectDataSet
     | SessionType
     | StartEndDates
+    | ContainsAnomalies
     | ColumnMetadata
     | StartSession
 
@@ -103,6 +106,7 @@ init config dataSetName =
         DateTimePicker.initialState
         DateTimePicker.initialState
         Session.Day
+        True
         ! [ loadDataSetRequest
           , Cmd.map ColumnMetadataEditorMsg initCmd
           , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
@@ -125,6 +129,9 @@ isValid model =
         StartEndDates ->
             isJust model.startDate && isJust model.endDate
 
+        ContainsAnomalies ->
+            True
+
         ColumnMetadata ->
             True
 
@@ -143,6 +150,8 @@ update msg model =
                 steps =
                     if sessionType == Forecasting then
                         Ziplist.create model.steps.previous model.steps.current (StartEndDates :: model.steps.next)
+                    else if sessionType == AnomalyDetection then
+                        Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: model.steps.next)
                     else
                         model.steps
             in
@@ -157,12 +166,30 @@ update msg model =
                                 modelRequestRec =
                                     { name = model.sessionName
                                     , dataSourceName = model.dataSetName
-                                    , targetColumn = ""
+                                    , targetColumn = Just ""
                                     , predictionDomain = PredictionDomain.Regression
                                     , columns = []
+                                    , balance = Nothing
+                                    , containsAnomalies = Nothing
                                     }
                             in
                             postModel model.config modelRequestRec
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Just AnomalyDetection ->
+                            let
+                                modelRequest =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = Nothing
+                                    , predictionDomain = PredictionDomain.Anomalies
+                                    , columns = []
+                                    , balance = Nothing
+                                    , containsAnomalies = Just model.containsAnomalies
+                                    }
+                            in
+                            postModel model.config modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -197,6 +224,9 @@ update msg model =
         ( StartEndDates, IntervalChanged interval ) ->
             { model | resultInterval = interval }
                 => Cmd.none
+
+        ( ContainsAnomalies, SelectContainsAnomalies isSelected ) ->
+            { model | containsAnomalies = isSelected } => Cmd.none
 
         ( _, StartSessionResponse resp ) ->
             let
@@ -258,6 +288,9 @@ view model =
 
             StartEndDates ->
                 viewStartEndDates model
+
+            ContainsAnomalies ->
+                viewContainsAnomalies model
 
             ColumnMetadata ->
                 viewColumnMetadata model
@@ -459,6 +492,23 @@ datePickerConfig msg =
     }
 
 
+viewContainsAnomalies : Model -> Html Msg
+viewContainsAnomalies model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Does your DataSet contain anomalies?" ]
+        , div [ class "form-group col-sm-6" ]
+            [ label [ class "radio", for "anomalies-yes" ]
+                [ input [ id "anomalies-yes", name "anomalies", checked <| model.containsAnomalies, type_ "radio", onClick (SelectContainsAnomalies True) ] []
+                , text "Yes, my DataSet contains anomalies."
+                ]
+            , label [ class "radio", for "anomalies-no" ]
+                [ input [ id "anomalies-no", name "anomalies", checked <| not model.containsAnomalies, type_ "radio", onClick (SelectContainsAnomalies False) ] []
+                , text "No, my DataSet does not contain anomalies."
+                ]
+            ]
+        ]
+
+
 viewColumnMetadata : Model -> Html Msg
 viewColumnMetadata model =
     div [ class "col-sm-12" ]
@@ -531,6 +581,7 @@ configWizardSummary =
         , ( SelectDataSet, "DataSet Name" )
         , ( SessionType, "Session Type" )
         , ( StartEndDates, "Start/End Dates" )
+        , ( ContainsAnomalies, "Contains Anomalies" )
         , ( ColumnMetadata, "Column Metadata" )
         , ( StartSession, "Start Session" )
         ]
