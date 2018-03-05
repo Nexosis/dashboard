@@ -39,6 +39,7 @@ type alias Model =
     , endDatePickerState : DateTimePicker.State
     , resultInterval : ResultInterval
     , containsAnomalies : Bool
+    , balance : Bool
     }
 
 
@@ -55,6 +56,7 @@ type Msg
     | EndDateChanged DateTimePicker.State (Maybe Date)
     | IntervalChanged ResultInterval
     | SelectContainsAnomalies Bool
+    | SelectBalance Bool
 
 
 type Step
@@ -63,6 +65,7 @@ type Step
     | SessionType
     | StartEndDates
     | ContainsAnomalies
+    | SetBalance
     | ColumnMetadata
     | StartSession
 
@@ -107,6 +110,7 @@ init config dataSetName =
         DateTimePicker.initialState
         Session.Day
         True
+        True
         ! [ loadDataSetRequest
           , Cmd.map ColumnMetadataEditorMsg initCmd
           , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
@@ -132,11 +136,19 @@ isValid model =
         ContainsAnomalies ->
             True
 
+        SetBalance ->
+            True
+
         ColumnMetadata ->
             True
 
         StartSession ->
             True
+
+
+defaultRemainingSteps : List Step
+defaultRemainingSteps =
+    [ ColumnMetadata, StartSession ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -149,11 +161,13 @@ update msg model =
             let
                 steps =
                     if sessionType == Forecasting then
-                        Ziplist.create model.steps.previous model.steps.current (StartEndDates :: model.steps.next)
+                        Ziplist.create model.steps.previous model.steps.current (StartEndDates :: defaultRemainingSteps)
                     else if sessionType == AnomalyDetection then
-                        Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: model.steps.next)
+                        Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: defaultRemainingSteps)
+                    else if sessionType == Classification then
+                        Ziplist.create model.steps.previous model.steps.current (SetBalance :: defaultRemainingSteps)
                     else
-                        model.steps
+                        Ziplist.create model.steps.previous model.steps.current defaultRemainingSteps
             in
             { model | selectedSessionType = Just sessionType, steps = steps } => Cmd.none
 
@@ -187,6 +201,22 @@ update msg model =
                                     , columns = []
                                     , balance = Nothing
                                     , containsAnomalies = Just model.containsAnomalies
+                                    }
+                            in
+                            postModel model.config modelRequest
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        Just Classification ->
+                            let
+                                modelRequest =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = Just ""
+                                    , predictionDomain = PredictionDomain.Classification
+                                    , columns = []
+                                    , balance = Just model.balance
+                                    , containsAnomalies = Nothing
                                     }
                             in
                             postModel model.config modelRequest
@@ -227,6 +257,9 @@ update msg model =
 
         ( ContainsAnomalies, SelectContainsAnomalies isSelected ) ->
             { model | containsAnomalies = isSelected } => Cmd.none
+
+        ( SetBalance, SelectBalance isSelected ) ->
+            { model | balance = isSelected } => Cmd.none
 
         ( _, StartSessionResponse resp ) ->
             let
@@ -291,6 +324,9 @@ view model =
 
             ContainsAnomalies ->
                 viewContainsAnomalies model
+
+            SetBalance ->
+                viewSetBalance model
 
             ColumnMetadata ->
                 viewColumnMetadata model
@@ -506,6 +542,116 @@ viewContainsAnomalies model =
                 , text "No, my DataSet does not contain anomalies."
                 ]
             ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Why does it matter whether my data has anomalies or not?" ]
+                , p [] [ text "Determining whether your dataset has anomalies will determine how the model is trained. If you don't have anomalies, the end model will treat anything unusual to the training set as anomaly. If it does, it will use the outliers to determine what an anomaly is. ", strong [] [ text "Your dataset has anomalies by default." ] ]
+                , p [] [ a [] [ text "Learn more." ] ]
+                ]
+            ]
+        ]
+
+
+viewSetBalance : Model -> Html Msg
+viewSetBalance model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Set Balance" ]
+        , div [ class "form-group col-sm-6" ]
+            [ label [ class "radio", for "balance-yes" ]
+                [ input [ id "balance-yes", name "balance", checked <| model.balance, type_ "radio", onClick (SelectBalance True) ] []
+                , text "Yes, balance my test set."
+                ]
+            , label [ class "radio", for "balance-no" ]
+                [ input [ id "balance-no", name "balance", checked <| not model.balance, type_ "radio", onClick (SelectBalance False) ] []
+                , text "No, don't balance my test set."
+                ]
+            ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Why should I balance my test set?" ]
+                , p [] [ text "Balancing your data ensures that your test set has data from every label. ", strong [] [ text "Your test set is balanced by default." ] ]
+                , p [] [ a [] [ text "Learn more." ] ]
+                , hr [] []
+                , div [ class "row well m15 p15" ]
+                    [ div [ class "col-sm-6" ]
+                        [ h6 [ class "center" ]
+                            [ text "Not balanced" ]
+                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
+                            [ tbody []
+                                [ tr []
+                                    [ th [ class "left" ]
+                                        [ text "Negative" ]
+                                    , td [ class "success" ]
+                                        [ text "710" ]
+                                    , td [ class "warning" ]
+                                        [ text "63" ]
+                                    , td [ class "warning" ]
+                                        [ text "27" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Neutral" ]
+                                    , td [ class "danger" ]
+                                        [ text "128" ]
+                                    , td [ class "success" ]
+                                        [ text "151" ]
+                                    , td [ class "warning" ]
+                                        [ text "29" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Positive" ]
+                                    , td [ class "warning" ]
+                                        [ text "46" ]
+                                    , td [ class "warning" ]
+                                        [ text "31" ]
+                                    , td [ class "success" ]
+                                        [ text "166" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    , div [ class "col-sm-6" ]
+                        [ h6 [ class "center" ]
+                            [ text "Balanced" ]
+                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
+                            [ tbody []
+                                [ tr []
+                                    [ th [ class "left" ]
+                                        [ text "Negative" ]
+                                    , td [ class "success" ]
+                                        [ text "695" ]
+                                    , td [ class "warning" ]
+                                        [ text "72" ]
+                                    , td [ class "warning" ]
+                                        [ text "32" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Neutral" ]
+                                    , td [ class "danger" ]
+                                        [ text "107" ]
+                                    , td [ class "success" ]
+                                        [ text "169" ]
+                                    , td [ class "warning" ]
+                                        [ text "30" ]
+                                    ]
+                                , tr []
+                                    [ th [ class "left" ]
+                                        [ text "Positive" ]
+                                    , td [ class "warning" ]
+                                        [ text "39" ]
+                                    , td [ class "warning" ]
+                                        [ text "29" ]
+                                    , td [ class "success" ]
+                                        [ text "176" ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
         ]
 
 
@@ -582,6 +728,7 @@ configWizardSummary =
         , ( SessionType, "Session Type" )
         , ( StartEndDates, "Start/End Dates" )
         , ( ContainsAnomalies, "Contains Anomalies" )
+        , ( SetBalance, "Set Balance" )
         , ( ColumnMetadata, "Column Metadata" )
         , ( StartSession, "Start Session" )
         ]
