@@ -4,14 +4,20 @@ import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
 import Data.PredictionDomain as PredictionDomain
-import Data.Session exposing (SessionData)
+import Data.Session as Session exposing (ResultInterval, SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
+import Date exposing (Date)
+import DateTimePicker
+import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
+import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (postModel)
+import Request.Session exposing (postForecast, postModel)
+import Select exposing (fromSelected)
+import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>), isJust, spinner)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewRemoteError)
@@ -27,6 +33,11 @@ type alias Model =
     , sessionName : String
     , selectedSessionType : Maybe SessionType
     , sessionStartRequest : Remote.WebData SessionData
+    , startDate : Maybe DateTime
+    , endDate : Maybe DateTime
+    , startDatePickerState : DateTimePicker.State
+    , endDatePickerState : DateTimePicker.State
+    , resultInterval : ResultInterval
     }
 
 
@@ -39,12 +50,16 @@ type Msg
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | StartTheSession
     | StartSessionResponse (Remote.WebData SessionData)
+    | StartDateChanged DateTimePicker.State (Maybe Date)
+    | EndDateChanged DateTimePicker.State (Maybe Date)
+    | IntervalChanged ResultInterval
 
 
 type Step
     = NameSession
     | SelectDataSet
     | SessionType
+    | StartEndDates
     | ColumnMetadata
     | StartSession
 
@@ -65,7 +80,7 @@ init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
     let
         steps =
-            Ziplist.create NameSession [ SessionType, ColumnMetadata, StartSession ]
+            Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
             Request.DataSet.getRetrieveDetail config dataSetName
@@ -75,8 +90,24 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName
     in
-    Model config steps dataSetName Remote.Loading editorModel "" Nothing Remote.NotAsked
-        ! [ loadDataSetRequest, Cmd.map ColumnMetadataEditorMsg initCmd ]
+    Model config
+        steps
+        dataSetName
+        Remote.Loading
+        editorModel
+        ""
+        Nothing
+        Remote.NotAsked
+        Nothing
+        Nothing
+        DateTimePicker.initialState
+        DateTimePicker.initialState
+        Session.Day
+        ! [ loadDataSetRequest
+          , Cmd.map ColumnMetadataEditorMsg initCmd
+          , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
+          , DateTimePicker.initialCmd EndDateChanged DateTimePicker.initialState
+          ]
 
 
 isValid : Model -> Bool
@@ -90,6 +121,9 @@ isValid model =
 
         SessionType ->
             isJust model.selectedSessionType
+
+        StartEndDates ->
+            isJust model.startDate && isJust model.endDate
 
         ColumnMetadata ->
             True
@@ -105,7 +139,14 @@ update msg model =
             { model | sessionName = sessionName } => Cmd.none
 
         ( SessionType, SelectSessionType sessionType ) ->
-            { model | selectedSessionType = Just sessionType } => Cmd.none
+            let
+                steps =
+                    if sessionType == Forecasting then
+                        Ziplist.create model.steps.previous model.steps.current (StartEndDates :: model.steps.next)
+                    else
+                        model.steps
+            in
+            { model | selectedSessionType = Just sessionType, steps = steps } => Cmd.none
 
         ( StartSession, StartTheSession ) ->
             let
@@ -125,12 +166,37 @@ update msg model =
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
+                        Just Forecasting ->
+                            let
+                                forecastReq =
+                                    { name = model.sessionName
+                                    , dataSourceName = model.dataSetName
+                                    , targetColumn = ""
+                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
+                                    , columns = []
+                                    }
+                            in
+                            postForecast model.config forecastReq
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
                         _ ->
                             -- todo - Support all of the other types.
                             Cmd.none
             in
             { model | sessionStartRequest = Remote.Loading }
                 => sessionRequest
+
+        ( _, StartDateChanged state value ) ->
+            { model | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), startDatePickerState = state } => Cmd.none
+
+        ( _, EndDateChanged state value ) ->
+            { model | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), endDatePickerState = state } => Cmd.none
+
+        ( StartEndDates, IntervalChanged interval ) ->
+            { model | resultInterval = interval }
+                => Cmd.none
 
         ( _, StartSessionResponse resp ) ->
             let
@@ -189,6 +255,9 @@ view model =
 
             SessionType ->
                 viewSessionType model
+
+            StartEndDates ->
+                viewStartEndDates model
 
             ColumnMetadata ->
                 viewColumnMetadata model
@@ -332,6 +401,64 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
         ]
 
 
+viewStartEndDates : Model -> Html Msg
+viewStartEndDates model =
+    div [ class "col-sm-12" ]
+        [ h3 [ class "mt0" ] [ text "Select start and end dates" ]
+        , div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ h5 [] [ text "Forecasting start and end dates" ]
+                , p [] [ text "Need info" ]
+                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                ]
+            ]
+        , div [ class "form-group col-sm-3" ]
+            [ label [] [ text "Start date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "End date" ]
+            , div [ class "input-group" ]
+                [ span [ class "input-group-addon" ]
+                    [ i [ class "fa fa-calendar" ] [] ]
+                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                ]
+            ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        ]
+
+
+toDate : Maybe DateTime -> Maybe Date
+toDate dateTime =
+    case dateTime of
+        Just dt ->
+            dt
+                |> DateTime.toISO8601
+                |> Date.fromString
+                |> Result.toMaybe
+
+        Nothing ->
+            Nothing
+
+
+datePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
+datePickerConfig msg =
+    let
+        defaultDateTimeConfig =
+            defaultDateTimePickerConfig msg
+    in
+    { defaultDateTimeConfig
+        | timePickerType = DateTimePicker.Config.Digital
+    }
+
+
 viewColumnMetadata : Model -> Html Msg
 viewColumnMetadata model =
     div [ class "col-sm-12" ]
@@ -403,6 +530,7 @@ configWizardSummary =
         [ ( NameSession, "Session Name" )
         , ( SelectDataSet, "DataSet Name" )
         , ( SessionType, "Session Type" )
+        , ( StartEndDates, "Start/End Dates" )
         , ( ColumnMetadata, "Column Metadata" )
         , ( StartSession, "Start Session" )
         ]
