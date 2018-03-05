@@ -5,7 +5,6 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
-import Data.Message exposing (..)
 import Data.Session exposing (..)
 import Data.Status exposing (Status)
 import Dict
@@ -20,6 +19,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Util exposing ((=>))
 import View.DeleteDialog as DeleteDialog
+import View.Messages as Messages
 
 
 type alias Model =
@@ -163,49 +163,7 @@ viewSessionDetails model =
 
 viewMessages : SessionData -> Html Msg
 viewMessages session =
-    let
-        labelType : Message -> String
-        labelType message =
-            case message.severity of
-                Debug ->
-                    "info"
-
-                Informational ->
-                    "info"
-
-                Warning ->
-                    "warning"
-
-                Error ->
-                    "danger"
-
-        messageEntry : Message -> Html Msg
-        messageEntry message =
-            tr []
-                [ td [ class "per10 left" ]
-                    [ span [ class ("label label-" ++ labelType message ++ " mr5") ]
-                        [ text (toString message.severity) ]
-                    ]
-                , td [ class "left" ]
-                    [ text message.message ]
-                ]
-    in
-    div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Messages" ]
-        , table [ class "table table-striped" ]
-            [ thead []
-                [ tr []
-                    [ th [ class "per10" ]
-                        [ text "Date" ]
-                    , th [ class "per15" ]
-                        [ text "Status" ]
-                    ]
-                ]
-            , tbody []
-                (List.map messageEntry session.messages)
-            ]
-        ]
+    Messages.viewMessages session.messages
 
 
 viewStatusHistory : SessionData -> Html Msg

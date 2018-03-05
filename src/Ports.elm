@@ -36,6 +36,4 @@ type alias Filespec =
 port requestSaveFile : Filespec -> Cmd msg
 
 
-port fileSaved :
-    (Bool -> msg)
-    -> Sub msg -- TODO: (JJE) should we use bool here or should we try to decode a boolean value?
+port fileSaved : (Bool -> msg) -> Sub msg

@@ -73,7 +73,8 @@ predictRaw : Config -> String -> String -> String -> Http.Request String
 predictRaw { baseUrl, token } modelId content contentType =
     (baseUrl ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
-        |> HttpBuilder.withBody (Http.stringBody contentType content)
+        |> HttpBuilder.withBody (Http.stringBody "application/json" content)
+        |> HttpBuilder.withHeader "Accept" contentType
         |> withAuthorization token
         |> HttpBuilder.withExpect Http.expectString
         |> HttpBuilder.toRequest
