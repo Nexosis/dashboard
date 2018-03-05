@@ -1,4 +1,4 @@
-module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), defaultColumns, init, update, view, loadDataSetList)
+module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), init, loadDataSetList, update, view, viewDataSetGridReadonly)
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
@@ -12,7 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), isJust, spinner, dataSizeWithSuffix)
+import Util exposing ((=>), dataSizeWithSuffix, isJust, spinner)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -37,7 +37,7 @@ defaultColumns : Dict String String -> DataSetColumns msg
 defaultColumns tooltips =
     DataSetColumns nameColumn
         actionsColumn
-        (Grid.customStringColumn "Size" sizeToString [ class "per10" ] [])
+        (Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] [])
         (Grid.customUnsortableColumn "Shape" (\_ -> "100 x 50") [ class "per15" ] (helpIcon tooltips "Shape"))
         (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
         (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
@@ -151,7 +151,7 @@ view model =
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize ]
                     ]
-                , Grid.view .items (config model.config.toolTips) model.tableState model.dataSetList
+                , viewDataSetGrid model.config.toolTips model.tableState model.dataSetList
                 , hr [] []
                 , div [ class "center" ]
                     [ Pager.view model.dataSetList ChangePage ]
@@ -166,6 +166,36 @@ view model =
         ]
 
 
+viewDataSetGrid : Dict String String -> Table.State -> Remote.WebData DataSetList -> Html Msg
+viewDataSetGrid toolTips tableState dataSetList =
+    Grid.view .items (config toolTips) tableState dataSetList
+
+
+viewDataSetGridReadonly : Dict String String -> Table.State -> Remote.WebData DataSetList -> Html Grid.ReadOnlyTableMsg
+viewDataSetGridReadonly toolTips tableState dataSetList =
+    Grid.view .items (configReadonly toolTips) tableState dataSetList
+
+
+configReadonly : Dict String String -> Grid.Config DataSet Grid.ReadOnlyTableMsg
+configReadonly toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
+    Grid.config
+        { toId = \a -> a.dataSetName |> dataSetNameToString
+        , toMsg = Grid.Readonly
+        , columns =
+            [ col.name |> Grid.makeUnsortable
+            , col.actions |> Grid.makeUnsortable
+            , col.size |> Grid.makeUnsortable
+            , col.shape |> Grid.makeUnsortable
+            , col.created |> Grid.makeUnsortable
+            , col.modified |> Grid.makeUnsortable
+            ]
+        }
+
+
 config : Dict String String -> Grid.Config DataSet Msg
 config toolTips =
     let
@@ -177,11 +207,11 @@ config toolTips =
         , toMsg = SetTableState
         , columns =
             [ col.name
-            , actionsColumn
-            , Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] []
-            , Grid.customUnsortableColumn "Shape" (\a -> (toString a.rowCount) ++ " x " ++ (toString a.columnCount)) [ class "per15" ] (helpIcon toolTips "Shape")
-            , Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] []
-            , Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] []
+            , col.actions
+            , col.size
+            , col.shape
+            , col.created
+            , col.modified
             , deleteColumn
             ]
         }

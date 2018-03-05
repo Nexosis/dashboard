@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, stringColumn, veryCustomColumn, view, makeUnsortable)
+module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -6,6 +6,10 @@ import Http
 import List.Extra as ListX
 import RemoteData as Remote
 import Table exposing (..)
+
+
+type ReadOnlyTableMsg
+    = Readonly Table.State
 
 
 type alias Column data msg =

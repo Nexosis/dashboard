@@ -1,19 +1,16 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
+import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
-import Dict exposing (Dict)
-import Feature exposing (Feature(..))
 import Html exposing (..)
 import Html.Attributes exposing (class)
-import Page.DataSets as DataSets exposing (defaultColumns, DataSetColumns)
+import Page.DataSets as DataSets exposing (DataSetColumns, viewDataSetGridReadonly)
 import RemoteData as Remote
-import Table
-import View.Extra exposing (viewIf)
-import View.Grid as Grid
-import Data.Config exposing (Config)
-import Util exposing ((=>))
 import Request.DataSet
+import Table
+import Util exposing ((=>))
+
 
 ---- MODEL ----
 
@@ -21,20 +18,20 @@ import Request.DataSet
 type alias Model =
     { pageTitle : String
     , dataSetList : Remote.WebData DataSetList
-    , dataSetTableState : Table.State
     , config : Config
     }
 
 
-init : Config -> (Model, Cmd Msg)
+init : Config -> ( Model, Cmd Msg )
 init config =
-    (Model
+    Model
         "API Dashboard"
         Remote.Loading
-        (Table.initialSort "dataSetName")
-        config) => (Request.DataSet.get config 0 5
-        |> Remote.sendRequest
-        |> Cmd.map DataSetListResponse)
+        config
+        => (Request.DataSet.get config 0 5
+                |> Remote.sendRequest
+                |> Cmd.map DataSetListResponse
+           )
 
 
 
@@ -43,7 +40,6 @@ init config =
 
 type Msg
     = None
-    | SetDataSetTableState Table.State
     | DataSetListResponse (Remote.WebData DataSetList)
 
 
@@ -52,9 +48,7 @@ update msg model =
     case msg of
         None ->
             ( model, Cmd.none )
-        SetDataSetTableState newState ->
-            { model | dataSetTableState = newState }
-                            => Cmd.none 
+
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
 
@@ -71,36 +65,16 @@ view model =
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
-                , viewRecentPanel "Session" (div [][]) ((,) AppRoutes.Sessions Nothing)
-                , viewRecentPanel "Model" (div [][]) ((,) AppRoutes.Models Nothing)
+                , viewRecentPanel "Session" (div [] []) ((,) AppRoutes.Sessions Nothing)
+                , viewRecentPanel "Model" (div [] []) ((,) AppRoutes.Models Nothing)
                 ]
             ]
         ]
 
 
-configDataSetGrid : Dict String String -> (Dict String String -> DataSetColumns Msg) -> Grid.Config DataSet Msg
-configDataSetGrid toolTips columns =
-    let
-        col : DataSetColumns Msg
-        col =
-            defaultColumns toolTips
-    in
-    Grid.config
-        { toId = \a -> a.dataSetName |> dataSetNameToString
-        , toMsg = SetDataSetTableState
-        , columns =
-            [ col.name |> Grid.makeUnsortable
-            , col.actions |> Grid.makeUnsortable
-            , col.size |> Grid.makeUnsortable
-            , col.shape |> Grid.makeUnsortable
-            , col.created |> Grid.makeUnsortable
-            , col.modified |> Grid.makeUnsortable
-            ]
-        }
-
 dataSetListView : Model -> Html Msg
 dataSetListView model =
-    Grid.view .items (configDataSetGrid model.config.toolTips DataSets.defaultColumns) model.dataSetTableState model.dataSetList
+    viewDataSetGridReadonly model.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
