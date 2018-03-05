@@ -9,7 +9,7 @@ import Html exposing (..)
 import Html.Attributes exposing (class)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Models as Models exposing (viewModelGridReadonly)
-import Page.Sessions as Sessions exposing (viewSessionsGridReadonly)
+import Page.Sessions as Sessions exposing (viewSessionGridReadonly)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Model
@@ -107,7 +107,7 @@ dataSetListView model =
 
 sessionListView : Model -> Html Msg
 sessionListView model =
-    viewSessionsGridReadonly model.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
+    viewSessionGridReadonly model.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
