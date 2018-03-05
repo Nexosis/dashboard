@@ -3,11 +3,14 @@ module Page.Home exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Data.Session exposing (SessionData, SessionList)
 import Html exposing (..)
 import Html.Attributes exposing (class)
-import Page.DataSets as DataSets exposing (DataSetColumns, viewDataSetGridReadonly)
+import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
+import Page.Sessions as Sessions exposing (viewSessionsGridReadonly)
 import RemoteData as Remote
 import Request.DataSet
+import Request.Session
 import Table
 import Util exposing ((=>))
 
@@ -17,6 +20,7 @@ import Util exposing ((=>))
 
 type alias Model =
     { dataSetList : Remote.WebData DataSetList
+    , sessionList : Remote.WebData SessionList
     , config : Config
     }
 
@@ -25,11 +29,16 @@ init : Config -> ( Model, Cmd Msg )
 init config =
     Model
         Remote.Loading
+        Remote.Loading
         config
-        => (Request.DataSet.get config 0 5
+        => Cmd.batch
+            [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-           )
+            , Request.Session.get config 0 5
+                |> Remote.sendRequest
+                |> Cmd.map SessionListResponse
+            ]
 
 
 
@@ -39,6 +48,7 @@ init config =
 type Msg
     = None
     | DataSetListResponse (Remote.WebData DataSetList)
+    | SessionListResponse (Remote.WebData SessionList)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -49,6 +59,9 @@ update msg model =
 
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
+
+        SessionListResponse resp ->
+            { model | sessionList = resp } => Cmd.none
 
 
 
@@ -63,7 +76,7 @@ view model =
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView model) ((,) AppRoutes.DataSets (Just AppRoutes.DataSetAdd))
-                , viewRecentPanel "Session" (div [] []) ((,) AppRoutes.Sessions Nothing)
+                , viewRecentPanel "Session" (sessionListView model) ((,) AppRoutes.Sessions Nothing)
                 , viewRecentPanel "Model" (div [] []) ((,) AppRoutes.Models Nothing)
                 ]
             ]
@@ -73,6 +86,11 @@ view model =
 dataSetListView : Model -> Html Msg
 dataSetListView model =
     viewDataSetGridReadonly model.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
+
+
+sessionListView : Model -> Html Msg
+sessionListView model =
+    viewSessionsGridReadonly model.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg

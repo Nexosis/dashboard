@@ -1,10 +1,9 @@
-module Page.Sessions exposing (Model, Msg, init, update, view)
+module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionsGridReadonly)
 
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.Session exposing (..)
-import Data.Status exposing (Status(..))
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -30,6 +29,26 @@ type alias Model =
     , pageSize : Int
     , currentPage : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
+    }
+
+
+defaultColumns : Dict String String -> SessionColumns msg
+defaultColumns tooltips =
+    SessionColumns nameColumn
+        resultsActionColumn
+        statusColumn
+        dataSourceColumn
+        typeColumn
+        createdColumn
+
+
+type alias SessionColumns msg =
+    { name : Grid.Column SessionData msg
+    , actions : Grid.Column SessionData msg
+    , status : Grid.Column SessionData msg
+    , dataSource : Grid.Column SessionData msg
+    , sessionType : Grid.Column SessionData msg
+    , created : Grid.Column SessionData msg
     }
 
 
@@ -129,7 +148,7 @@ view model =
                         [ PageSize.view ChangePageSize ]
                     ]
                 , div []
-                    [ Grid.view .items (config model.config.toolTips) model.tableState model.sessionList
+                    [ viewSessionsGrid model.config.toolTips model.tableState model.sessionList
                     , hr [] []
                     , div [ class "center" ]
                         [ Pager.view model.sessionList ChangePage ]
@@ -145,24 +164,58 @@ view model =
         ]
 
 
+viewSessionsGrid : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Msg
+viewSessionsGrid toolTips tableState sessionList =
+    Grid.view .items (config toolTips) tableState sessionList
+
+
 config : Dict String String -> Grid.Config SessionData Msg
 config toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
     Grid.config
         { toId = \a -> a.sessionId
         , toMsg = SetTableState
         , columns =
-            [ nameColumn
-            , resultsActionColumn
-            , statusColumn
-            , dataSourceColumn
-            , typeColumn
-            , createdColumn
+            [ col.name
+            , col.actions
+            , col.status
+            , col.dataSource
+            , col.sessionType
+            , col.created
             , deleteColumn
             ]
         }
 
 
-nameColumn : Grid.Column SessionData Msg
+viewSessionsGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
+viewSessionsGridReadonly toolTips tableState sessionList =
+    Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
+
+
+configSessionGridReadonly : Dict String String -> Grid.Config SessionData Grid.ReadOnlyTableMsg
+configSessionGridReadonly toolTips =
+    let
+        col =
+            defaultColumns toolTips
+    in
+    Grid.config
+        { toId = \a -> a.name
+        , toMsg = Grid.Readonly
+        , columns =
+            [ col.name |> Grid.makeUnsortable
+            , col.actions |> Grid.makeUnsortable
+            , col.status |> Grid.makeUnsortable
+            , col.dataSource |> Grid.makeUnsortable
+            , col.sessionType |> Grid.makeUnsortable
+            , col.created |> Grid.makeUnsortable
+            ]
+        }
+
+
+nameColumn : Grid.Column SessionData msg
 nameColumn =
     Grid.veryCustomColumn
         { name = "Name"
@@ -173,13 +226,13 @@ nameColumn =
         }
 
 
-sessionNameCell : SessionData -> Table.HtmlDetails Msg
+sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
     Table.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
 
 
-resultsActionColumn : Grid.Column SessionData Msg
+resultsActionColumn : Grid.Column SessionData msg
 resultsActionColumn =
     Grid.veryCustomColumn
         { name = ""
@@ -190,14 +243,14 @@ resultsActionColumn =
         }
 
 
-resultsActionButton : SessionData -> Table.HtmlDetails Msg
+resultsActionButton : SessionData -> Table.HtmlDetails msg
 resultsActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ button [ class "btn btn-sm" ] [ text "View Results" ] ]
 
 
-statusColumn : Grid.Column SessionData Msg
+statusColumn : Grid.Column SessionData msg
 statusColumn =
     let
         --tableDetails : SessionData -> (SessionData -> Html SessionData) -> Table.HtmlDetails Msg
@@ -214,7 +267,7 @@ statusColumn =
         }
 
 
-dataSourceColumn : Grid.Column SessionData Msg
+dataSourceColumn : Grid.Column SessionData msg
 dataSourceColumn =
     Grid.veryCustomColumn
         { name = "Source"
@@ -225,14 +278,14 @@ dataSourceColumn =
         }
 
 
-dataSourceCell : SessionData -> Table.HtmlDetails Msg
+dataSourceCell : SessionData -> Table.HtmlDetails msg
 dataSourceCell model =
     Table.HtmlDetails [ class "left" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text model.dataSourceName ]
         ]
 
 
-typeColumn : Grid.Column SessionData Msg
+typeColumn : Grid.Column SessionData msg
 typeColumn =
     Grid.veryCustomColumn
         { name = "Type"
@@ -243,14 +296,14 @@ typeColumn =
         }
 
 
-typeCell : SessionData -> Table.HtmlDetails Msg
+typeCell : SessionData -> Table.HtmlDetails msg
 typeCell model =
     Table.HtmlDetails []
         [ text (toString model.predictionDomain)
         ]
 
 
-createdColumn : Grid.Column SessionData Msg
+createdColumn : Grid.Column SessionData msg
 createdColumn =
     Grid.veryCustomColumn
         { name = "Created"
@@ -261,7 +314,7 @@ createdColumn =
         }
 
 
-createdCell : SessionData -> Table.HtmlDetails Msg
+createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
         --TODO: date from SessionData model. change decoder
