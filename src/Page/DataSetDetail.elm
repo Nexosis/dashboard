@@ -2,24 +2,18 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Cascade as Cascade
-import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
-import Dict exposing (Dict)
-import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Json.Encode
-import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
-import Table exposing (defaultCustomizations)
 import Util exposing ((=>), dataSizeWithSuffix)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
