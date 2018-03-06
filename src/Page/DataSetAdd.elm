@@ -186,7 +186,7 @@ update msg model =
                 FileUploadTab uploadInfo ->
                     let
                         putRequest =
-                            put model.config model.name uploadInfo.fileContent (File.dataFormatToContentType uploadInfo.fileUploadType)
+                            put model.config model.name uploadInfo.fileContent (DataFormat.dataFormatToContentType uploadInfo.fileUploadType)
                                 |> Remote.sendRequest
                                 |> Cmd.map UploadDataSetResponse
                     in
@@ -270,7 +270,7 @@ updateTabContents model msg =
                         m =
                             case readStatus of
                                 File.Success fileName content ->
-                                    case File.filenameToType fileName of
+                                    case DataFormat.filenameToType fileName of
                                         DataFormat.Json ->
                                             { fileContent = content
                                             , fileName = fileName

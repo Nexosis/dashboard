@@ -113,6 +113,22 @@ fetch('./config.json').then(function (response) {
             reader.readAsText(file);
         });
 
+
+        app.ports.requestSaveFile.subscribe(function (filespec) {
+            var a = document.createElement("a");
+            var fileUrl = URL.createObjectURL(new Blob([filespec.contents], { type: filespec.contentType }));
+            a.href = fileUrl;
+            a.download = filespec.name;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function(){
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(fileUrl);  
+            }, 100);  
+            app.ports.fileSaved.send(true);
+        });
+
+
         Intercept.addResponseCallback(function (xhr) {
 
             if (xhr.url.startsWith(config.url)) {

@@ -18,7 +18,6 @@ import Request.Model exposing (getOne)
 import Task
 import Util exposing ((=>), formatFloatToString)
 import View.DeleteDialog as DeleteDialog
-import View.RelatedLinks as Related exposing (view)
 
 
 type alias Model =
@@ -68,9 +67,6 @@ update msg model =
             case response of
                 Remote.Success modelInfo ->
                     let
-                        getValue =
-                            ()
-
                         nextCommand =
                             if showPredict then
                                 Task.perform TogglePredict (Task.succeed ())
@@ -179,11 +175,7 @@ view model =
                 ]
             ]
         , hr [] []
-        , div [ class "row" ]
-            [ div [ class "col-sm-4" ] (detailRow model)
-            , div [ class "col-sm-5" ] []
-            , Related.view model.config model.modelResponse
-            ]
+        , detailRow model
         , hr [] []
         , renderPredict model
         , DeleteDialog.view model.deleteDialogModel
@@ -218,41 +210,45 @@ dataSourceName model =
             text "Not found"
 
 
-detailRow : Model -> List (Html Msg)
+detailRow : Model -> Html Msg
 detailRow model =
     case model.modelResponse of
         Remote.Success resp ->
-            [ h5 [ class "mt15 mb15" ] [ text "Details" ]
-            , p []
-                [ strong [] [ text "Session Used:" ]
-                , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ] [ h5 [ class "mt15 mb15" ] [ text "Details" ] ]
+                , div [ class "col-sm-4" ]
+                    [ p []
+                        [ strong [] [ text "Session Used: " ]
+                        , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]
+                        ]
+                    , p []
+                        [ strong [] [ text "Source: " ]
+                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text resp.dataSourceName ]
+                        ]
+                    , p []
+                        [ strong [] [ text "Target Column: " ]
+                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
+                        ]
+                    ]
+                , div [ class "col-sm-5" ] [ metricsList resp.algorithm.name resp.metrics ]
+                , div [ class "col-sm-3 " ] []
                 ]
-            , p []
-                [ strong [] [ text "Source:" ]
-                , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text resp.dataSourceName ]
-                ]
-            , p []
-                [ strong [] [ text "Target Column:" ]
-                , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
-                ]
-            , p []
-                [ strong [] [ text "Algorithm:" ]
-                , text resp.algorithm.name
-                ]
-            , metricsList resp.metrics
-            ]
 
         Remote.Loading ->
-            [ text "Loading..." ]
+            text "Loading..."
 
         _ ->
-            [ text "Not found" ]
+            text "Not found"
 
 
-metricsList : Dict String Float -> Html Msg
-metricsList metrics =
+metricsList : String -> Dict String Float -> Html Msg
+metricsList algo metrics =
     div []
-        [ p [ class "small" ]
+        [ p []
+            [ strong [] [ text "Algorithm: " ]
+            , text algo
+            ]
+        , p [ class "small" ]
             [ strong [] [ text "Metrics" ]
             ]
         , ul [ class "small algorithm-metrics" ] (List.map metricListItem (Dict.toList metrics))
@@ -266,6 +262,7 @@ metricListItem ( name, value ) =
         , br [] []
         , text (formatFloatToString value)
         ]
+
 
 padSpace : String -> String
 padSpace input =
