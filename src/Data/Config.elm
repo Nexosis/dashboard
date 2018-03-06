@@ -12,6 +12,7 @@ type alias Config =
     , token : Maybe NexosisToken
     , loginUrl : String
     , renewalUrl : String
+    , subscriptionUrl : String
     , toolTips : Dict String String
     }
 
@@ -35,6 +36,7 @@ configDecoder =
             )
         |> required "loginUrl" string
         |> required "renewalUrl" string
+        |> required "subscriptionUrl" string
         |> required "toolTips" toolTipDictDecoder
 
 
