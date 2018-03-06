@@ -8,13 +8,15 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
+import Http
 import Json.Decode exposing (succeed)
-import Ports exposing (fileContentRead, uploadFileSelected)
+import Ports exposing (fileContentRead, fileSaved, requestSaveFile, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (predict)
+import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
+import View.Messages as Messages
 import View.Pager as Pager
 
 
@@ -23,12 +25,14 @@ type alias Model =
     , modelId : String
     , activeTab : Tab
     , inputType : DataFormat.DataFormat
+    , outputType : DataFormat.DataFormat
     , fileName : String
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
     , canProceedWithPrediction : Bool
     , uploadResponse : Remote.WebData Data.Model.PredictionResult
-    , predictionData : List (Dict String String)
+    , downloadResponse : Remote.WebData String
+    , showDownloadTypeSelector : Bool
     , currentPage : Int
     }
 
@@ -44,7 +48,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile DataFormat.Json "" False Nothing False Remote.NotAsked [ Dict.empty ] 0
+    Model config modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -55,7 +59,12 @@ type Msg
     | PredictionStarted
     | PredictResponse (Remote.WebData Data.Model.PredictionResult)
     | ChangePage Int
-    | ResetState
+    | SetDownloadContentType DataFormat.DataFormat
+    | ToggleFileTypeSelector
+    | FileDownload
+    | DownloadComplete Bool
+    | DownloadResponse (Remote.WebData String)
+    | PredictAgain
 
 
 type Tab
@@ -96,7 +105,7 @@ update msg model =
                 m =
                     case readStatus of
                         File.Success fileName content ->
-                            case File.filenameToType fileName of
+                            case DataFormat.filenameToType fileName of
                                 DataFormat.Json ->
                                     { model
                                         | dataInput = Just content
@@ -146,24 +155,37 @@ update msg model =
         PredictionStarted ->
             let
                 value =
-                    case model.dataInput of
-                        Just input ->
-                            input
-
-                        Nothing ->
-                            ""
+                    Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predict model.config model.modelId value (File.dataFormatToContentType model.inputType)
+                    predict model.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
             { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading } => predictRequest
 
+        ToggleFileTypeSelector ->
+            { model | showDownloadTypeSelector = not model.showDownloadTypeSelector } => Cmd.none
+
+        SetDownloadContentType value ->
+            { model | outputType = value, showDownloadTypeSelector = False } => Cmd.none
+
+        FileDownload ->
+            let
+                value =
+                    Maybe.withDefault "" model.dataInput
+
+                predictRequest =
+                    predictRaw model.config model.modelId value (DataFormat.dataFormatToContentType model.outputType)
+                        |> Remote.sendRequest
+                        |> Cmd.map DownloadResponse
+            in
+            { model | canProceedWithPrediction = False, downloadResponse = Remote.Loading } => predictRequest
+
         PredictResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | uploadResponse = result, predictionData = predictionData.data } => Cmd.none
+                    { model | uploadResponse = result, canProceedWithPrediction = True } => Cmd.none
 
                 Remote.Failure err ->
                     { model | uploadResponse = result } => Log.logHttpError err
@@ -171,33 +193,67 @@ update msg model =
                 _ ->
                     model => Cmd.none
 
+        DownloadResponse result ->
+            case result of
+                Remote.Success predictionData ->
+                    { model | downloadResponse = result } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToContentType model.outputType }
+
+                Remote.Failure err ->
+                    { model | downloadResponse = result } => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        DownloadComplete success ->
+            model => Cmd.none
+
         ChangePage pageNum ->
             { model | currentPage = pageNum } => Cmd.none
 
-        ResetState ->
-            init model.config model.modelId => Cmd.none
+        PredictAgain ->
+            { model | uploadResponse = Remote.NotAsked, downloadResponse = Remote.NotAsked, inputType = DataFormat.Json, outputType = DataFormat.Json, canProceedWithPrediction = False, currentPage = 0 } => Cmd.none
+
+
+formatFilename : Model -> String
+formatFilename model =
+    model.modelId ++ "-results." ++ DataFormat.dataFormatToString model.outputType
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    fileContentRead FileContentRead
+    case model.uploadResponse of
+        Remote.NotAsked ->
+            fileContentRead FileContentRead
+
+        Remote.Success _ ->
+            fileSaved DownloadComplete
+
+        _ ->
+            Sub.none
 
 
 view : Model -> Html Msg
 view model =
     let
-        waiting =
-            if Remote.isLoading model.uploadResponse then
-                spinner
-            else
-                div [] []
+        ( buttonText, action ) =
+            case model.uploadResponse of
+                Remote.NotAsked ->
+                    ( text "Start predictions", PredictionStarted )
+
+                Remote.Loading ->
+                    ( spinner, PredictionStarted )
+
+                Remote.Failure _ ->
+                    ( text "Start predictions", PredictionStarted )
+
+                Remote.Success _ ->
+                    ( text "Predict again", PredictAgain )
     in
     div [ class "row" ]
         [ div [ class "col-sm-12" ] (predictInput model)
         , div [ class "col-sm-12" ]
-            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick PredictionStarted ]
-                [ text "Start predictions" ]
-            , waiting
+            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick action ]
+                [ buttonText ]
             , showTable model
             ]
         ]
@@ -205,7 +261,23 @@ view model =
 
 predictInput : Model -> List (Html Msg)
 predictInput model =
-    [ div [ class "collapse in", id "predict" ]
+    case model.uploadResponse of
+        Remote.NotAsked ->
+            viewPredictInput model
+
+        Remote.Success _ ->
+            viewPredictInput model
+
+        Remote.Failure err ->
+            viewPredictFailure model err
+
+        _ ->
+            [ div [] [] ]
+
+
+viewPredictInput : Model -> List (Html Msg)
+viewPredictInput model =
+    [ div [ id "predict" ]
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ h3 [ class "mt0" ]
@@ -314,6 +386,48 @@ viewPasteData model =
         ]
 
 
+viewPredictFailure : Model -> Http.Error -> List (Html Msg)
+viewPredictFailure model error =
+    let
+        severity =
+            case error of
+                Http.Timeout ->
+                    "alert-warning"
+
+                Http.NetworkError ->
+                    "alert-warning"
+
+                _ ->
+                    "alert-danger"
+    in
+    [ div [ class ("alert " ++ severity) ]
+        [ h5 [ class "mt15 mb15 center" ]
+            [ text "Error in request" ]
+        , div [ class "mt10 center" ]
+            [ text (createErrorMessage error) ]
+        ]
+    ]
+
+
+createErrorMessage : Http.Error -> String
+createErrorMessage httpError =
+    case httpError of
+        Http.BadUrl message ->
+            message
+
+        Http.Timeout ->
+            "Server is taking too long to respond. Please try again later."
+
+        Http.NetworkError ->
+            "It appears you don't have an Internet connection right now."
+
+        Http.BadStatus response ->
+            response.status.message
+
+        Http.BadPayload message response ->
+            message
+
+
 mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing
 mapToPagedListing currentPage rows =
     let
@@ -352,44 +466,81 @@ showTable model =
     let
         pagedData =
             Remote.map (.data >> mapToPagedListing model.currentPage) model.uploadResponse
-
-        output =
-            case model.uploadResponse of
-                Remote.Success successResponse ->
-                    div [ class "row" ]
-                        [ div [ class "col-sm-12" ]
-                            [ div [ class "mt10" ]
-                                [ {- button [ class "btn", disabled (not (Remote.isSuccess model.uploadResponse)) ]
-                                         [ i [ class "fa fa-download mr5" ]
-                                             []
-                                         , text "Download predictions"
-                                         ]
-                                     ,
-                                  -}
-                                  button [ class "btn secondary", onClick ResetState ]
-                                    [ i [ class "fa fa-refresh mr5" ]
-                                        []
-                                    , text "Predict again"
-                                    ]
-                                ]
-                            ]
-                        , div [ class "col-sm-12" ]
-                            [ h3 []
-                                [ text "Results" ]
-                            ]
-                        , div [ class "col-sm-12" ]
-                            [ table [ class "table table-striped" ]
-                                [ toTableHeader (List.head successResponse.data)
-                                , tbody [] (List.map toTableRow (filterToPage pagedData))
-                                ]
-                            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+    in
+    case model.uploadResponse of
+        Remote.Success successResponse ->
+            div [ id "results" ]
+                [ div [ class "row" ]
+                    [ hr [] []
+                    , div [ class "col-sm-6" ]
+                        [ h5 [ class "mt15 mb15" ]
+                            [ Messages.viewMessages successResponse.messages ]
+                        ]
+                    , div [ class "col-sm-6 center" ]
+                        [ div [ class "alert alert-danger" ]
+                            [ h5 [ class "mt15 mb15 center" ]
+                                [ text "Prediction results are not stored and must be downloaded for future usage." ]
+                            , div [ class "mt10" ]
+                                [ downloadButton model ]
                             ]
                         ]
+                    , hr [] []
+                    ]
+                , div [ class "row" ]
+                    [ div [ class "col-sm-12" ]
+                        [ h3 []
+                            [ text "Results" ]
+                        ]
+                    ]
+                , div [ class "row" ]
+                    [ div [ class "col-sm-12" ]
+                        [ table [ class "table table-striped" ]
+                            [ toTableHeader (List.head successResponse.data)
+                            , tbody [] (List.map toTableRow (filterToPage pagedData))
+                            ]
+                        , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                        ]
+                    ]
+                ]
+
+        _ ->
+            div [ class "row" ] []
+
+
+downloadButton : Model -> Html Msg
+downloadButton model =
+    let
+        dropDownClass =
+            case model.showDownloadTypeSelector of
+                True ->
+                    "btn-group open"
 
                 _ ->
-                    div [ class "row" ] []
+                    "btn-group"
     in
-    output
+    div [ class dropDownClass ]
+        [ button [ class "btn", onClick FileDownload ]
+            [ i [ class "fa fa-download mr5" ]
+                []
+            , text "Download predictions"
+            ]
+        , button [ attribute "aria-expanded" "false", attribute "aria-haspopup" "true", class "btn btn-danger dropdown-toggle", attribute "data-toggle" "dropdown", type_ "button", onClick ToggleFileTypeSelector ]
+            [ span [ class "caret" ]
+                []
+            , span [ class "sr-only" ]
+                [ text "Toggle Dropdown" ]
+            ]
+        , ul [ class "dropdown-menu" ]
+            [ li []
+                [ a [ onClick (SetDownloadContentType DataFormat.Csv) ]
+                    [ text "CSV" ]
+                ]
+            , li []
+                [ a [ onClick (SetDownloadContentType DataFormat.Json) ]
+                    [ text "JSON" ]
+                ]
+            ]
+        ]
 
 
 toTableHeader : Maybe (Dict String String) -> Html Msg

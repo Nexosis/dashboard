@@ -106,7 +106,7 @@ setRoute route app =
 
                 Just AppRoutes.Home ->
                     let
-                        (pageModel, initCmd) =
+                        ( pageModel, initCmd ) =
                             Home.init app.config
                     in
                     ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )

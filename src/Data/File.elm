@@ -1,6 +1,5 @@
-module Data.File exposing (FileReadStatus(..), dataFormatToContentType, fileReadStatusDecoder, filenameToType)
+module Data.File exposing (FileReadStatus(..), fileReadStatusDecoder)
 
-import Data.DataFormat as DataFormat
 import Json.Decode
 
 
@@ -24,30 +23,3 @@ fileReadStatusDecoder =
                     _ ->
                         Json.Decode.succeed ReadError
             )
-
-
-filenameToType : String -> DataFormat.DataFormat
-filenameToType name =
-    let
-        lowerString =
-            String.toLower name
-    in
-    if String.endsWith ".json" lowerString then
-        DataFormat.Json
-    else if String.endsWith ".csv" lowerString then
-        DataFormat.Csv
-    else
-        DataFormat.Other
-
-
-dataFormatToContentType : DataFormat.DataFormat -> String
-dataFormatToContentType uploadType =
-    case uploadType of
-        DataFormat.Json ->
-            "application/json"
-
-        DataFormat.Csv ->
-            "text/csv"
-
-        _ ->
-            ""
