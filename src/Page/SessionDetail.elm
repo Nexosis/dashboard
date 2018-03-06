@@ -485,7 +485,7 @@ renderTable matrix =
     div [ class "row" ]
         [ div [ class "col-sm-12" ]
             [ h3 [] [ text "Confusion Matrix" ]
-            , table [ class "table" ]
+            , table [ class "confusion-matrix" ]
                 [ tbody []
                     (List.map (\r -> toTableRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
                         -- footer is the set of classes

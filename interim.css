@@ -182,8 +182,12 @@ ul.algorithm-metrics li{
     padding-bottom: 7px
 }
 
-table .footer td, table .header {
+table.confusion-matrix td {
+    padding: 8px;
     background-color: #EFEFEF;
+}
+table.confusion-matrix td.header {
+    text-align: right
 }
 
 /* ------- Bootstrap Updates ------- */
