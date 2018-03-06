@@ -6,7 +6,6 @@ import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToSt
 import Data.Model exposing (ModelData, ModelList)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
-import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
