@@ -13,7 +13,7 @@ import Request.DataSet
 import Request.Log exposing (logHttpError)
 import SelectWithStyle as UnionSelect
 import Table
-import Util exposing ((=>))
+import Util exposing ((=>), commaFormatInteger, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -456,29 +456,29 @@ statsDisplay columnStats =
             div [ class "row m0" ]
                 [ div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Min: " ]
-                    , text <| toString stats.min
+                    , styledNumber <| formatFloatToString stats.min
                     , br [] []
                     , strong [] [ text "Max: " ]
-                    , text <| toString stats.max
+                    , styledNumber <| formatFloatToString stats.max
                     , br [] []
                     , strong [] [ text "Standard Deviation: " ]
-                    , text <| toString stats.stddev
+                    , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
                     , strong [ class "text-danger" ] [ text "Errors: " ]
-                    , text <| toString stats.errors
+                    , styledNumber <| commaFormatInteger stats.errors
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
-                    , text <| toString stats.row_count
+                    , styledNumber <| commaFormatInteger stats.row_count
                     , br [] []
                     , strong [ class "text-danger" ] [ text "# Missing: " ]
-                    , text <| toString stats.missing
+                    , styledNumber <| commaFormatInteger stats.missing
                     , br [] []
                     , strong [] [ text "Mean: " ]
-                    , text <| toString stats.mean
+                    , styledNumber <| formatFloatToString stats.mean
                     , br [] []
                     , strong [] [ text "Median: " ]
-                    , text <| toString stats.median
+                    , styledNumber <| formatFloatToString stats.median
                     ]
                 ]
 
