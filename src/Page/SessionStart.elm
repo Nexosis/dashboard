@@ -227,6 +227,7 @@ update msg model =
                                     , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
                                     , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
                                     , columns = []
+                                    , resultInterval = model.resultInterval
                                     }
                             in
                             postForecast model.config forecastReq
@@ -243,6 +244,7 @@ update msg model =
                                     , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
                                     , columns = []
                                     , eventName = model.eventName |> Maybe.withDefault ""
+                                    , resultInterval = model.resultInterval
                                     }
                             in
                             postImpact model.config impactReq
