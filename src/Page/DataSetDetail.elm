@@ -103,9 +103,6 @@ update msg model =
                             Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName newModel.modifiedMetadata)
                                 |> Remote.sendRequest
                                 |> Cmd.map MetadataUpdated
-
-                a =
-                    Debug.log "Response" (toString requestMsg)
             in
             { model | columnMetadataEditorModel = newModel }
                 => requestMsg
