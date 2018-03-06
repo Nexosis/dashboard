@@ -17,6 +17,7 @@ import Request.Session exposing (getForDataset)
 import Util exposing ((=>), dataSizeWithSuffix)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
+import View.Error as Error
 import View.RelatedLinks as Related exposing (view)
 
 
@@ -30,6 +31,7 @@ type alias Model =
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
+    , updateResponse : Remote.WebData ()
     }
 
 
@@ -49,7 +51,7 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName
     in
-    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks [])
+    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData
           , loadRelatedSessions config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -73,6 +75,7 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
+    | MetadataUpdated (Remote.WebData ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -90,9 +93,19 @@ update msg model =
             let
                 ( ( newModel, cmd ), updateMsg ) =
                     ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel
+
+                requestMsg =
+                    case updateMsg of
+                        ColumnMetadataEditor.NoOp ->
+                            Cmd.none
+
+                        ColumnMetadataEditor.Updated ->
+                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName newModel.modifiedMetadata)
+                                |> Remote.sendRequest
+                                |> Cmd.map MetadataUpdated
             in
             { model | columnMetadataEditorModel = newModel }
-                => Cmd.map ColumnMetadataEditorMsg cmd
+                => requestMsg
 
         ShowDeleteDialog ->
             let
@@ -137,6 +150,26 @@ update msg model =
                 _ ->
                     model => Cmd.none
 
+        MetadataUpdated response ->
+            let
+                metadataModel =
+                    model.columnMetadataEditorModel
+
+                newMetadataModel =
+                    { metadataModel | modifiedMetadata = [] }
+            in
+            case response of
+                Remote.Success () ->
+                    { model | columnMetadataEditorModel = newMetadataModel, updateResponse = response }
+                        => Cmd.none
+
+                Remote.Failure err ->
+                    { model | updateResponse = response }
+                        => logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
 
 
 -- VIEW --
@@ -160,7 +193,9 @@ view model =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ ColumnMetadataEditor.view model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg ]
+                [ viewError model
+                , ColumnMetadataEditor.view model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+                ]
             ]
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete DataSet"
@@ -190,6 +225,19 @@ viewIdRow model =
             [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
             ]
         ]
+
+
+viewError : Model -> Html Msg
+viewError model =
+    case model.updateResponse of
+        Remote.Failure error ->
+            div [ class "alert alert-danger" ] [ Error.viewHttpError error ]
+
+        Remote.Success resp ->
+            div [ class "alert alert-success" ] [ text "metadata updated" ]
+
+        _ ->
+            span [] []
 
 
 viewDetailsRow : Model -> Html Msg

@@ -1,6 +1,6 @@
 module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
-import Data.Columns exposing (ColumnMetadata)
+import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet exposing (DataSetName, dataSetNameToString)
 import Data.PredictionDomain exposing (PredictionDomain)
@@ -210,24 +210,6 @@ encodeImpactSessionRequest sessionRequest =
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
-        ]
-
-
-encodeColumnMetadataList : List ColumnMetadata -> Encode.Value
-encodeColumnMetadataList columns =
-    Encode.object <|
-        (columns
-            |> List.map (\c -> ( c.name, encodeColumnValues c ))
-        )
-
-
-encodeColumnValues : ColumnMetadata -> Encode.Value
-encodeColumnValues column =
-    Encode.object
-        [ ( "dataType", Encode.string <| toString <| column.dataType )
-        , ( "role", Encode.string <| toString <| column.role )
-        , ( "imputation", Encode.string <| toString <| column.imputation )
-        , ( "aggregation", Encode.string <| toString <| column.aggregation )
         ]
 
 
