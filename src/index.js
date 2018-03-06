@@ -70,7 +70,7 @@ fetch('./config.json').then(function (response) {
         app.ports.drawVegaChart.subscribe(function (specObject) {
             requestAnimationFrame(() => {
                 for (let name of Object.keys(specObject)) {
-                    vegaEmbed(`#histogram_${name}`, specObject[name], {
+                    vegaEmbed(`#${name}`, specObject[name], {
                         actions: false, logLevel: vega.Warn
                     }).catch(console.warn);
                 }

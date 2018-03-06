@@ -51,6 +51,7 @@ type alias SessionData =
 
 type alias SessionResults =
     { metrics : Dict String Float
+    , data : List (Dict String String)
     }
 
 
@@ -75,6 +76,7 @@ decodeSessionResults : Decode.Decoder SessionResults
 decodeSessionResults =
     decode SessionResults
         |> required "metrics" (Decode.dict Decode.float)
+        |> required "data" (Decode.list (Decode.dict Decode.string))
 
 
 decodeSession : Decode.Decoder SessionData

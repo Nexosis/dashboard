@@ -1,9 +1,11 @@
-module Request.DataSet exposing (delete, get, getRetrieveDetail, getStats, put)
+module Request.DataSet exposing (MetadataUpdateRequest, delete, get, getRetrieveDetail, getStats, put, updateMetadata)
 
+import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
+import Json.Encode as Encode
 import Set
 
 
@@ -85,3 +87,26 @@ pageParams page pageSize =
     [ ( "page", page |> toString )
     , ( "pageSize", pageSize |> toString )
     ]
+
+
+updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()
+updateMetadata { baseUrl, token } request =
+    (baseUrl ++ "/data/" ++ dataSetNameToString request.dataSetName)
+        |> HttpBuilder.put
+        |> withAuthorization token
+        |> HttpBuilder.withJsonBody (encodeMetadataPutDataRequest request)
+        |> HttpBuilder.toRequest
+
+
+type alias MetadataUpdateRequest =
+    { dataSetName : DataSetName
+    , columns : List ColumnMetadata
+    }
+
+
+encodeMetadataPutDataRequest : MetadataUpdateRequest -> Encode.Value
+encodeMetadataPutDataRequest request =
+    Encode.object
+        [ ( "dataSetName", Encode.string <| dataSetNameToString request.dataSetName )
+        , ( "columns", encodeColumnMetadataList <| request.columns )
+        ]

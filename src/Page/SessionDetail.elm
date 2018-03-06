@@ -6,21 +6,29 @@ import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.Message exposing (..)
+import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
-import Data.Status exposing (Status)
-import Dict
+import Data.Status as Status exposing (Status)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Html.Keyed
+import Json.Encode
 import List exposing (filter, foldr, head)
 import List.Extra as ListX
 import Page.Helpers exposing (..)
+import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
+import Task
 import Util exposing ((=>), formatFloatToString)
+import View.Charts as Charts
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
+import Window
 
 
 type alias Model =
@@ -29,7 +37,22 @@ type alias Model =
     , resultsResponse : Remote.WebData SessionResults
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
+    , windowWidth : Int
     }
+
+
+init : Config -> String -> ( Model, Cmd Msg )
+init config sessionId =
+    let
+        loadModelDetail =
+            Request.Session.getOne config sessionId
+                |> Remote.sendRequest
+                |> Cmd.map SessionResponse
+
+        getWindowWidth =
+            Task.attempt GetWindowWidth Window.width
+    in
+    Model sessionId Remote.Loading Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -37,6 +60,7 @@ type Msg
     | ResultsResponse (Remote.WebData SessionResults)
     | ShowDeleteDialog Model
     | DeleteDialogMsg DeleteDialog.Msg
+    | GetWindowWidth (Result String Int)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -45,11 +69,15 @@ update msg model =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                        => (Request.Session.results model.config model.sessionId 0 1
-                                |> Remote.sendRequest
-                                |> Cmd.map ResultsResponse
-                           )
+                    if sessionInfo.status == Status.Completed then
+                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
+                            => (Request.Session.results model.config model.sessionId 0 1000
+                                    |> Remote.sendRequest
+                                    |> Cmd.map ResultsResponse
+                               )
+                    else
+                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
+                            => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -58,9 +86,23 @@ update msg model =
                     model => Cmd.none
 
         ResultsResponse response ->
-            case response of
-                Remote.Success contestInfo ->
-                    { model | resultsResponse = response } => Cmd.none
+            case Remote.map2 (,) response model.sessionResponse of
+                Remote.Success ( results, session ) ->
+                    let
+                        cmd =
+                            case session.predictionDomain of
+                                PredictionDomain.Forecast ->
+                                    "result-vis"
+                                        => Charts.forecastResults results session model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
+                                _ ->
+                                    Cmd.none
+                    in
+                    { model | resultsResponse = response }
+                        => cmd
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -94,6 +136,13 @@ update msg model =
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
+        GetWindowWidth result ->
+            let
+                newWidth =
+                    Result.withDefault 1140 result
+            in
+            { model | windowWidth = newWidth } => Cmd.none
+
 
 view : Model -> Html Msg
 view model =
@@ -113,6 +162,8 @@ view model =
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
+        , hr [] []
+        , viewResultsGraph model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
             , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
@@ -129,7 +180,7 @@ viewSessionDetails model =
             loadingOrView model.sessionResponse
 
         pendingOrCompleted model session =
-            if session.status == Data.Status.Completed then
+            if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
                     , loadingOrView model.resultsResponse viewMetricsList
@@ -226,8 +277,8 @@ viewSessionHeader model =
             , div [ class "col-sm-4" ]
                 [ p [ class "small" ]
                     [ strong []
-                        [ text "Session Type:" ]
-                    , text "Classification"
+                        [ text "Session Type: " ]
+                    , loadingOr (\s -> text <| toString s.predictionDomain)
                     ]
                 ]
             , div [ class "col-sm-4 right" ]
@@ -264,7 +315,7 @@ viewPredictButton session =
 
 viewSessionDetail : SessionData -> Html Msg
 viewSessionDetail session =
-    if session.status == Data.Status.Completed then
+    if session.status == Status.Completed then
         viewCompletedSession session
     else
         viewPendingSession session
@@ -407,12 +458,9 @@ viewSessionId session =
         ]
 
 
-init : Config -> String -> ( Model, Cmd Msg )
-init config sessionId =
-    let
-        loadModelDetail =
-            Request.Session.getOne config sessionId
-                |> Remote.sendRequest
-                |> Cmd.map SessionResponse
-    in
-    Model sessionId Remote.Loading Remote.NotAsked config Nothing => loadModelDetail
+viewResultsGraph : Model -> Html Msg
+viewResultsGraph model =
+    div [ class "col-sm-12" ]
+        [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
+
