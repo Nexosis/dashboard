@@ -464,14 +464,3 @@ viewResultsGraph model =
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
 
 
-loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
-loadingOrView request view =
-    case request of
-        Remote.Success resp ->
-            view resp
-
-        Remote.Loading ->
-            div [ class "loading--line" ] []
-
-        _ ->
-            div [] []

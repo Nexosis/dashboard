@@ -130,8 +130,8 @@ fetch('./config.json').then(function (response) {
 
 
         Intercept.addResponseCallback(function (xhr) {
-
-            if (xhr.url.startsWith(config.url)) {
+            
+            if (xhr.url.startsWith(config.apiUrl)) {
                 let xhrInfo = {
                     status: xhr.status,
                     statusText: xhr.statusText,
