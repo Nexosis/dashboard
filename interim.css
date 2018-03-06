@@ -182,6 +182,10 @@ ul.algorithm-metrics li{
     padding-bottom: 7px
 }
 
+table .footer td, table .header {
+    background-color: #EFEFEF;
+}
+
 /* ------- Bootstrap Updates ------- */
 .modal-body, .modal-footer {padding: 15px;}
 .well {border-radius: 5px;}

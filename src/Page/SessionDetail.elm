@@ -1,11 +1,14 @@
 module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
+import Array
 import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
+import Data.ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.PredictionDomain
 import Data.Session exposing (..)
 import Data.Status exposing (Status)
 import Dict
@@ -18,7 +21,7 @@ import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
-import Util exposing ((=>),formatFloatToString)
+import Util exposing ((=>), formatFloatToString)
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
 
@@ -27,6 +30,7 @@ type alias Model =
     { sessionId : String
     , sessionResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
+    , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
@@ -37,6 +41,7 @@ type Msg
     | ResultsResponse (Remote.WebData SessionResults)
     | ShowDeleteDialog Model
     | DeleteDialogMsg DeleteDialog.Msg
+    | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -45,11 +50,24 @@ update msg model =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
+                    let
+                        details =
+                            case sessionInfo.predictionDomain of
+                                Data.PredictionDomain.Classification ->
+                                    confusionMatrix model.config model.sessionId 0 25
+                                        |> Remote.sendRequest
+                                        |> Cmd.map ConfusionMatrixLoaded
+
+                                _ ->
+                                    Cmd.none
+                    in
                     { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                        => (Request.Session.results model.config model.sessionId 0 1
+                        => Cmd.batch
+                            [ Request.Session.results model.config model.sessionId 0 1
                                 |> Remote.sendRequest
                                 |> Cmd.map ResultsResponse
-                           )
+                            , details
+                            ]
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -94,6 +112,9 @@ update msg model =
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
+        ConfusionMatrixLoaded response ->
+            { model | confusionMatrixResponse = response } => Cmd.none
+
 
 view : Model -> Html Msg
 view model =
@@ -113,6 +134,8 @@ view model =
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
+        , hr [] []
+        , viewResultsVisualization model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
             , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
@@ -226,7 +249,7 @@ viewSessionHeader model =
             , div [ class "col-sm-4" ]
                 [ p [ class "small" ]
                     [ strong []
-                        [ text "Session Type:" ]
+                        [ text "Session Type: " ]
                     , text "Classification"
                     ]
                 ]
@@ -397,7 +420,7 @@ viewSessionId session =
     div [ class "col-sm-4" ]
         [ p [ class "small" ]
             [ strong []
-                [ text "Session ID:" ]
+                [ text "Session ID: " ]
             , text session.sessionId
             , a []
                 [ i [ class "fa fa-copy color-mediumGray" ]
@@ -405,6 +428,16 @@ viewSessionId session =
                 ]
             ]
         ]
+
+
+viewResultsVisualization : Model -> Html Msg
+viewResultsVisualization model =
+    case model.confusionMatrixResponse of
+        Remote.Success response ->
+            viewConfusionMatrix model
+
+        _ ->
+            div [] []
 
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
@@ -428,4 +461,78 @@ init config sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked config Nothing => loadModelDetail
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked config Nothing => loadModelDetail
+
+
+viewConfusionMatrix : Model -> Html Msg
+viewConfusionMatrix model =
+    case model.confusionMatrixResponse of
+        Remote.NotAsked ->
+            div [] []
+
+        Remote.Loading ->
+            div [] []
+
+        Remote.Success response ->
+            renderTable response
+
+        Remote.Failure _ ->
+            div [] [ text "Error" ]
+
+
+renderTable : ConfusionMatrix -> Html Msg
+renderTable matrix =
+    div [ class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ h3 [] [ text "Confusion Matrix" ]
+            , table [ class "table" ]
+                [ tbody []
+                    (List.map (\r -> toTableRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
+                        -- footer is the set of classes
+                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ text c ]) (Array.toList matrix.classes)) ]
+                    )
+                ]
+            ]
+        ]
+
+
+toTableRow : Array.Array String -> ( Int, Array.Array Int ) -> Html Msg
+toTableRow classes ( rowNumber, data ) =
+    let
+        rowMax =
+            List.maximum (Array.toList data)
+                |> Maybe.withDefault 0
+    in
+    tr []
+        -- prefix each row with the class
+        (td [ class "header" ] [ text (Maybe.withDefault "" (Array.get rowNumber classes)) ]
+            :: List.map
+                (\( index, value ) ->
+                    td [ style [ ( "backgroundColor", colorFromValue rowMax value (index == rowNumber) ) ] ] [ text (toString value) ]
+                )
+                (Array.toIndexedList data)
+        )
+
+
+colorFromValue : Int -> Int -> Bool -> String
+colorFromValue maxValue value isTarget =
+    let
+        scaled =
+            round ((toFloat value / toFloat maxValue) * 100)
+    in
+    if scaled == 0 then
+        if isTarget then
+            "#F23131"
+        else
+            "#CABDBD"
+    else if scaled < 33 then
+        "#EFE975"
+    else if scaled < 66 then
+        "#FFB01D"
+    else if scaled <= 100 then
+        if isTarget then
+            "#2DB27D"
+        else
+            "#F23131"
+    else
+        "#4CFFFC"
