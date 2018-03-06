@@ -1,9 +1,10 @@
-module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, enumDataType, enumRole)
+module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
 
 import Data.AggregationStrategy as Aggregate exposing (AggregationStrategy)
 import Data.ImputationStrategy as Impute exposing (ImputationStrategy)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
+import Json.Encode as Encode
 
 
 type alias ColumnMetadata =
@@ -175,3 +176,21 @@ decodeAggregation =
                     unknown ->
                         fail <| "Unknown aggregation strategy: " ++ unknown
             )
+
+
+encodeColumnMetadataList : List ColumnMetadata -> Encode.Value
+encodeColumnMetadataList columns =
+    Encode.object <|
+        (columns
+            |> List.map (\c -> ( c.name, encodeColumnValues c ))
+        )
+
+
+encodeColumnValues : ColumnMetadata -> Encode.Value
+encodeColumnValues column =
+    Encode.object
+        [ ( "dataType", Encode.string <| toString <| column.dataType )
+        , ( "role", Encode.string <| toString <| column.role )
+        , ( "imputation", Encode.string <| toString <| column.imputation )
+        , ( "aggregation", Encode.string <| toString <| column.aggregation )
+        ]

@@ -34,7 +34,7 @@ layout config linkedEntityResponse =
             [ h4 [ class "related-section" ]
                 [ a
                     [ href "#sessions" ]
-                    [ i [ class "fa fa-plus-circle" ] [], text "Sessions" ]
+                    [ i [ class "fa fa-plus-circle" ] [], text (listType config entity.links) ]
                 ]
             , div [ class "panel-collapse collapse in" ]
                 [ div [ class "panel-body" ]
@@ -54,6 +54,16 @@ layout config linkedEntityResponse =
 
         _ ->
             []
+
+
+listType : Config -> List Link -> String
+listType config links =
+    case List.head links of
+        Just link ->
+            Extras.toTitleCase (extractLinkEntity config link.href)
+
+        Nothing ->
+            "Sessions"
 
 
 linkList : Config -> Link -> Html msg
@@ -84,7 +94,11 @@ listItem config link input =
 
 linkTransform : Config -> Link -> String
 linkTransform config link =
-    case fromApiUrl (Extras.replace "v2" "v1" config.baseUrl) link.href of
+    let
+        a =
+            Debug.log "href" (Extras.replace "v1" "v2" config.baseUrl)
+    in
+    case fromApiUrl config.baseUrl link.href of
         Just route ->
             routeToString route
 
@@ -94,17 +108,17 @@ linkTransform config link =
 
 extractLinkEntity : Config -> String -> String
 extractLinkEntity config input =
-    case String.left 4 (Extras.replace "" config.baseUrl input) of
-        "sess" ->
+    case String.left 5 (Extras.replace config.baseUrl "" input) of
+        "/sess" ->
             "session"
 
-        "data" ->
+        "/data" ->
             "data"
 
-        "mode" ->
+        "/mode" ->
             "model"
 
-        "voca" ->
+        "/voca" ->
             "vocabulary"
 
         _ ->
