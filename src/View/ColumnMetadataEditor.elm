@@ -1,8 +1,9 @@
-module View.ColumnMetadataEditor exposing (Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
+module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
-import Data.Columns as Columns exposing (ColumnMetadata, Role)
+import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -10,6 +11,7 @@ import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
+import SelectWithStyle as UnionSelect
 import Table
 import Util exposing ((=>))
 import VegaLite exposing (Spec)
@@ -24,7 +26,13 @@ type alias Model =
     , dataSetName : DataSetName
     , tableState : Table.State
     , config : Config
+    , modifiedMetadata : List ColumnMetadata
     }
+
+
+type ExternalMsg
+    = NoOp
+    | Updated
 
 
 type alias ColumnMetadataListing =
@@ -47,11 +55,14 @@ type Msg
     | SetTableState Table.State
     | ChangePage Int
     | ChangePageSize Int
+    | TypeSelectionChanged ColumnMetadata DataType
+    | RoleSelectionChanged ColumnMetadata Role
+    | ImputationSelectionChanged ColumnMetadata ImputationStrategy
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    Model Remote.Loading dataSetName (Table.initialSort "columnName") config
+    Model Remote.Loading dataSetName (Table.initialSort "columnName") config []
         => Cmd.none
 
 
@@ -107,7 +118,7 @@ updateDataSetResponse model dataSetResponse =
            )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         StatsResponse resp ->
@@ -117,31 +128,97 @@ update msg model =
                         updatedColumnInfo =
                             Remote.map2 mergeListingAndStats model.columnMetadata resp
                     in
-                    { model | columnMetadata = updatedColumnInfo } => Cmd.none
+                    { model | columnMetadata = updatedColumnInfo } => Cmd.none => NoOp
 
                 Remote.Failure err ->
-                    model => logHttpError err
+                    model => logHttpError err => NoOp
 
                 _ ->
-                    model => Cmd.none
+                    model => Cmd.none => NoOp
 
         SetTableState newState ->
             { model | tableState = newState }
                 => Cmd.none
+                => NoOp
 
         ChangePage pageNumber ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd
+            { model | columnMetadata = columnListing } => cmd => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd
+            { model | columnMetadata = columnListing } => cmd => NoOp
+
+        RoleSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+                => Updated
+
+        TypeSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+                => Updated
+
+        ImputationSelectionChanged metadata selection ->
+            { model
+                | modifiedMetadata =
+                    updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                        |> maybeAppendColumn model.modifiedMetadata
+            }
+                => Cmd.none
+                => Updated
+
+
+getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata
+getExistingOrOriginalColumn modifiedList column =
+    case ListX.find (\a -> a.name == column.name) modifiedList of
+        Just existing ->
+            existing
+
+        Nothing ->
+            column
+
+
+updateImputation : ColumnMetadata -> ImputationStrategy -> ( ColumnMetadata, Bool )
+updateImputation column value =
+    { column | imputation = value } => column.imputation == value
+
+
+updateRole : ColumnMetadata -> Role -> ( ColumnMetadata, Bool )
+updateRole column value =
+    { column | role = value } => column.role == value
+
+
+updateDataType : ColumnMetadata -> DataType -> ( ColumnMetadata, Bool )
+updateDataType column value =
+    { column | dataType = value } => column.dataType == value
+
+
+maybeAppendColumn : List ColumnMetadata -> ( ColumnMetadata, Bool ) -> List ColumnMetadata
+maybeAppendColumn list ( metadata, unchanged ) =
+    if unchanged then
+        list
+    else
+        case ListX.find (\a -> a.name == metadata.name) list of
+            Just col ->
+                ListX.replaceIf (\a -> a.name == metadata.name) metadata list
+
+            Nothing ->
+                List.append list [ metadata ]
 
 
 updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
@@ -315,11 +392,7 @@ typeColumn makeIcon =
 
 dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
 dataTypeCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.dataType ]
-            ]
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column.metadata) column.metadata.dataType ]
 
 
 roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
@@ -335,11 +408,12 @@ roleColumn makeIcon =
 
 roleCell : ColumnInfo -> Table.HtmlDetails Msg
 roleCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.role ]
-            ]
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column.metadata) column.metadata.role ]
+
+
+enumOption : e -> e -> Html Msg
+enumOption roleOption roleModel =
+    option [ selected (roleOption == roleModel) ] [ text (toString roleOption) ]
 
 
 imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
@@ -355,11 +429,7 @@ imputationColumn makeIcon =
 
 imputationCell : ColumnInfo -> Table.HtmlDetails Msg
 imputationCell column =
-    Table.HtmlDetails [ class "form-group" ]
-        [ select [ class "form-control" ]
-            [ option [] [ text <| toString column.metadata.imputation ]
-            ]
-        ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column.metadata) column.metadata.imputation ]
 
 
 statsColumn : Grid.Column ColumnInfo Msg

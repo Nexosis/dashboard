@@ -1,4 +1,4 @@
-module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata)
+module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, enumDataType, enumRole)
 
 import Data.AggregationStrategy as Aggregate exposing (AggregationStrategy)
 import Data.ImputationStrategy as Impute exposing (ImputationStrategy)
@@ -24,12 +24,33 @@ type DataType
     | Text
 
 
+enumDataType : List DataType
+enumDataType =
+    [ NumericMeasure
+    , Numeric
+    , String
+    , Logical
+    , Date
+    , Text
+    ]
+
+
 type Role
     = None
     | Timestamp
     | Target
     | Feature
     | Key
+
+
+enumRole : List Role
+enumRole =
+    [ None
+    , Timestamp
+    , Target
+    , Feature
+    , Key
+    ]
 
 
 decodeColumnMetadata : Decoder (List ColumnMetadata)
