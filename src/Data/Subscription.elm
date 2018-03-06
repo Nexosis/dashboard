@@ -8,7 +8,7 @@ import Json.Decode.Pipeline exposing (decode, optional, required)
 type alias Subscription =
     { id : String
     , name : String
-    , key : Maybe String
+    , key : String
     }
 
 
@@ -22,4 +22,4 @@ decodeSubscription =
     decode Subscription
         |> required "Id" string
         |> required "Name" string
-        |> optional "key" (Decode.map Just string) Nothing
+        |> required "Key" string

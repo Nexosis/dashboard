@@ -9,7 +9,6 @@ import Data.Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
-import List.Extra exposing (find)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
 import Page.Models as Models exposing (viewModelGridReadonly)
@@ -31,7 +30,7 @@ type alias Model =
     , sessionList : Remote.WebData SessionList
     , modelList : Remote.WebData ModelList
     , subscriptionList : Remote.WebData (List Subscription)
-    , subscriptionKeys : List (Remote.WebData Subscription)
+    , keysShown : List String
     , config : Config
     }
 
@@ -72,11 +71,19 @@ type Msg
     | ModelListResponse (Remote.WebData ModelList)
     | SubscriptionListResponse (Remote.WebData (List Subscription))
     | ShowApiKey String
-    | ApiKeyRetrieved (Remote.WebData Subscription)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        toggleKeyShown id =
+            case List.member id model.keysShown of
+                False ->
+                    id :: model.keysShown
+
+                True ->
+                    List.filter (\a -> a /= id) model.keysShown
+    in
     case msg of
         None ->
             ( model, Cmd.none )
@@ -94,14 +101,7 @@ update msg model =
             { model | subscriptionList = resp } => Cmd.none
 
         ShowApiKey id ->
-            ( model
-            , Request.Subscription.getKey model.config id
-                |> Remote.sendRequest
-                |> Cmd.map ApiKeyRetrieved
-            )
-
-        ApiKeyRetrieved resp ->
-            { model | subscriptionKeys = resp :: model.subscriptionKeys } => Cmd.none
+            { model | keysShown = toggleKeyShown id } => Cmd.none
 
 
 
@@ -137,35 +137,6 @@ viewSidePanel view =
 
 viewSubscriptions : Model -> List Subscription -> Html Msg
 viewSubscriptions model subscriptions =
-    --please forgive me Zach
-    let
-        retrievedKeys : List Subscription
-        retrievedKeys =
-            List.filterMap maybeGetKey model.subscriptionKeys
-
-        maybeGetKey : Remote.WebData Subscription -> Maybe Subscription
-        maybeGetKey response =
-            case response of
-                Remote.Success sub ->
-                    Just sub
-
-                _ ->
-                    Nothing
-
-        getRetrievedOrUnretrieved : List Subscription -> Subscription -> Subscription
-        getRetrievedOrUnretrieved retrievedKeys sub =
-            case find (\s -> s.id == sub.id) retrievedKeys of
-                Nothing ->
-                    sub
-
-                Just found ->
-                    found
-
-        mergedKeys : List Subscription -> List Subscription
-        mergedKeys subscriptions =
-            subscriptions
-                |> List.map (getRetrievedOrUnretrieved retrievedKeys)
-    in
     div [ class "row m0" ]
         [ h4 [ class "mb15" ]
             [ strong
@@ -174,13 +145,8 @@ viewSubscriptions model subscriptions =
             ]
         , div
             []
-            (List.map
-                (viewSubscription
-                    model
-                )
-                (mergedKeys
-                    subscriptions
-                )
+            (subscriptions
+                |> List.map (viewSubscription model)
             )
         ]
 
@@ -197,20 +163,20 @@ viewSubscription model subscription =
                 [ i [ class "fa fa-eye" ] []
                 ]
             , p [ class "obfuscate" ]
-                [ viewApiKey subscription
+                [ viewApiKey model subscription
                 ]
             ]
         ]
 
 
-viewApiKey : Subscription -> Html Msg
-viewApiKey subscription =
-    case subscription.key of
-        Nothing ->
+viewApiKey : Model -> Subscription -> Html Msg
+viewApiKey model subscription =
+    case List.member subscription.id model.keysShown of
+        False ->
             text "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
-        Just key ->
-            text key
+        True ->
+            text subscription.key
 
 
 modelListView : Model -> Html Msg
