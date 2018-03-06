@@ -146,6 +146,7 @@ type alias ForecastSessionRequest =
     , targetColumn : String
     , startDate : DateTime
     , endDate : DateTime
+    , resultInterval : ResultInterval
     }
 
 
@@ -172,6 +173,7 @@ encodeForecastSessionRequest sessionRequest =
         , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
 
 
@@ -183,6 +185,7 @@ type alias ImpactSessionRequest =
     , startDate : DateTime
     , endDate : DateTime
     , eventName : String
+    , resultInterval : ResultInterval
     }
 
 
@@ -210,6 +213,7 @@ encodeImpactSessionRequest sessionRequest =
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
+        , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
 
 
