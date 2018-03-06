@@ -18,7 +18,7 @@ statusDisplay model =
             coloredStatusButton (toString model) "success"
 
         Requested ->
-            coloredStatusButton "pending" "info"
+            coloredStatusButton "Pending" "info"
 
         Started ->
             coloredStatusButton (toString model) "warning"
@@ -30,4 +30,4 @@ statusDisplay model =
             coloredStatusButton (toString model) "dark"
 
         CancellationPending ->
-            coloredStatusButton "cancellation pending" "dark"
+            coloredStatusButton "Cancellation Pending" "dark"
