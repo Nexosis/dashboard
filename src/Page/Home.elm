@@ -5,15 +5,19 @@ import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
 import Data.Session exposing (SessionData, SessionList)
+import Data.Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (class)
+import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
+import Page.Helpers exposing (..)
 import Page.Models as Models exposing (viewModelGridReadonly)
 import Page.Sessions as Sessions exposing (viewSessionGridReadonly)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Model
 import Request.Session
+import Request.Subscription
 import Table
 import Util exposing ((=>))
 
@@ -25,6 +29,8 @@ type alias Model =
     { dataSetList : Remote.WebData DataSetList
     , sessionList : Remote.WebData SessionList
     , modelList : Remote.WebData ModelList
+    , subscriptionList : Remote.WebData (List Subscription)
+    , keysShown : List String
     , config : Config
     }
 
@@ -35,6 +41,8 @@ init config =
         Remote.Loading
         Remote.Loading
         Remote.Loading
+        Remote.Loading
+        []
         config
         => Cmd.batch
             [ Request.DataSet.get config 0 5
@@ -46,6 +54,9 @@ init config =
             , Request.Model.get config 0 5
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
+            , Request.Subscription.list config
+                |> Remote.sendRequest
+                |> Cmd.map SubscriptionListResponse
             ]
 
 
@@ -58,10 +69,21 @@ type Msg
     | DataSetListResponse (Remote.WebData DataSetList)
     | SessionListResponse (Remote.WebData SessionList)
     | ModelListResponse (Remote.WebData ModelList)
+    | SubscriptionListResponse (Remote.WebData (List Subscription))
+    | ShowApiKey String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        toggleKeyShown id =
+            case List.member id model.keysShown of
+                False ->
+                    id :: model.keysShown
+
+                True ->
+                    List.filter (\a -> a /= id) model.keysShown
+    in
     case msg of
         None ->
             ( model, Cmd.none )
@@ -74,6 +96,12 @@ update msg model =
 
         ModelListResponse resp ->
             { model | modelList = resp } => Cmd.none
+
+        SubscriptionListResponse resp ->
+            { model | subscriptionList = resp } => Cmd.none
+
+        ShowApiKey id ->
+            { model | keysShown = toggleKeyShown id } => Cmd.none
 
 
 
@@ -91,8 +119,64 @@ view model =
                 , viewRecentPanel "Session" (sessionListView model) (AppRoutes.Sessions => Nothing)
                 , viewRecentPanel "Model" (modelListView model) (AppRoutes.Models => Nothing)
                 ]
+            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
+                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
+                ]
             ]
         ]
+
+
+viewSidePanel : Html Msg -> Html Msg
+viewSidePanel view =
+    div [ class "panel" ]
+        [ div [ class "panel-body p15" ]
+            [ view
+            ]
+        ]
+
+
+viewSubscriptions : Model -> List Subscription -> Html Msg
+viewSubscriptions model subscriptions =
+    div [ class "row m0" ]
+        [ h4 [ class "mb15" ]
+            [ strong
+                []
+                [ text "API Keys" ]
+            ]
+        , div
+            []
+            (subscriptions
+                |> List.map (viewSubscription model)
+            )
+        ]
+
+
+viewSubscription : Model -> Subscription -> Html Msg
+viewSubscription model subscription =
+    div []
+        [ p [ class "mb5" ]
+            [ strong [] [ text subscription.name ]
+            , button
+                [ class "btn btn-sm"
+                , onClick (ShowApiKey subscription.id)
+                ]
+                [ i [ class "fa fa-eye" ] []
+                ]
+            , p [ class "obfuscate" ]
+                [ viewApiKey model subscription
+                ]
+            ]
+        ]
+
+
+viewApiKey : Model -> Subscription -> Html Msg
+viewApiKey model subscription =
+    case List.member subscription.id model.keysShown of
+        False ->
+            text "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+        True ->
+            text subscription.key
 
 
 modelListView : Model -> Html Msg
