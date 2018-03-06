@@ -88,7 +88,7 @@ update msg model =
 
         ColumnMetadataEditorMsg subMsg ->
             let
-                ( newModel, cmd ) =
+                ( ( newModel, cmd ), updateMsg ) =
                     ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel
             in
             { model | columnMetadataEditorModel = newModel }

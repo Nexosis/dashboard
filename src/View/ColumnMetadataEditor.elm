@@ -1,4 +1,4 @@
-module View.ColumnMetadataEditor exposing (Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
+module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Config exposing (Config)
@@ -28,6 +28,11 @@ type alias Model =
     , config : Config
     , modifiedMetadata : List ColumnMetadata
     }
+
+
+type ExternalMsg
+    = NoOp
+    | Updated
 
 
 type alias ColumnMetadataListing =
@@ -113,7 +118,7 @@ updateDataSetResponse model dataSetResponse =
            )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model =
     case msg of
         StatsResponse resp ->
@@ -123,31 +128,32 @@ update msg model =
                         updatedColumnInfo =
                             Remote.map2 mergeListingAndStats model.columnMetadata resp
                     in
-                    { model | columnMetadata = updatedColumnInfo } => Cmd.none
+                    { model | columnMetadata = updatedColumnInfo } => Cmd.none => NoOp
 
                 Remote.Failure err ->
-                    model => logHttpError err
+                    model => logHttpError err => NoOp
 
                 _ ->
-                    model => Cmd.none
+                    model => Cmd.none => NoOp
 
         SetTableState newState ->
             { model | tableState = newState }
                 => Cmd.none
+                => NoOp
 
         ChangePage pageNumber ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd
+            { model | columnMetadata = columnListing } => cmd => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd
+            { model | columnMetadata = columnListing } => cmd => NoOp
 
         RoleSelectionChanged metadata selection ->
             { model
@@ -156,6 +162,7 @@ update msg model =
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
+                => Updated
 
         TypeSelectionChanged metadata selection ->
             { model
@@ -164,6 +171,7 @@ update msg model =
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
+                => Updated
 
         ImputationSelectionChanged metadata selection ->
             { model
@@ -172,6 +180,7 @@ update msg model =
                         |> maybeAppendColumn model.modifiedMetadata
             }
                 => Cmd.none
+                => Updated
 
 
 getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata

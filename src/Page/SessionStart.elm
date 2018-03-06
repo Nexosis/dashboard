@@ -305,7 +305,7 @@ update msg model =
 
         ( _, ColumnMetadataEditorMsg subMsg ) ->
             let
-                ( newModel, cmd ) =
+                ( ( newModel, cmd ), updateCmd ) =
                     ColumnMetadataEditor.update subMsg model.columnEditorModel
             in
             { model | columnEditorModel = newModel }
