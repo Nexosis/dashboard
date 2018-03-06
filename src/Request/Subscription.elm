@@ -2,8 +2,9 @@ module Request.Subscription exposing (getKey, list)
 
 import Data.Config as Config exposing (Config)
 import Data.Subscription exposing (..)
+import Dict exposing (Dict)
 import Http
-import HttpBuilder exposing (get, toRequest, withExpect)
+import HttpBuilder exposing (get, toRequest, withCredentials, withExpect)
 
 
 list : Config -> Http.Request (List Subscription)
@@ -16,14 +17,15 @@ list { subscriptionUrl } =
     subscriptionUrl
         |> get
         |> withExpect expect
+        |> withCredentials
         |> toRequest
 
 
-getKey : Config -> String -> Http.Request SubscriptionKey
+getKey : Config -> String -> Http.Request Subscription
 getKey { subscriptionUrl } id =
     let
         expect =
-            decodeSubscriptionKey
+            decodeSubscription
                 |> Http.expectJson
     in
     subscriptionUrl
@@ -31,4 +33,5 @@ getKey { subscriptionUrl } id =
         ++ id
         |> get
         |> withExpect expect
+        |> withCredentials
         |> toRequest

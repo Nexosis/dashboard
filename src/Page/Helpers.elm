@@ -2,8 +2,9 @@ module Page.Helpers exposing (..)
 
 import Data.Session exposing (SessionData)
 import Data.Status exposing (..)
-import Html exposing (Html, span, text)
+import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
+import RemoteData as Remote
 
 
 coloredStatusButton : String -> String -> Html a
@@ -31,3 +32,16 @@ statusDisplay model =
 
         CancellationPending ->
             coloredStatusButton "cancellation pending" "dark"
+
+
+loadingOrView : Remote.WebData a -> (a -> Html msg) -> Html msg
+loadingOrView request view =
+    case request of
+        Remote.Success resp ->
+            view resp
+
+        Remote.Loading ->
+            div [ class "loading--line" ] []
+
+        _ ->
+            div [] []

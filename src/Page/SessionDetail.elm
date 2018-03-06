@@ -18,7 +18,7 @@ import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
-import Util exposing ((=>),formatFloatToString)
+import Util exposing ((=>), formatFloatToString)
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
 
@@ -405,19 +405,6 @@ viewSessionId session =
                 ]
             ]
         ]
-
-
-loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
-loadingOrView request view =
-    case request of
-        Remote.Success resp ->
-            view resp
-
-        Remote.Loading ->
-            div [ class "loading--line" ] []
-
-        _ ->
-            div [] []
 
 
 init : Config -> String -> ( Model, Cmd Msg )
