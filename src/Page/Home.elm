@@ -138,6 +138,7 @@ viewSidePanel view =
 
 viewSubscriptions : Model -> List Subscription -> Html Msg
 viewSubscriptions model subscriptions =
+    --please forgive me Zach
     let
         retrievedKeys : List Subscription
         retrievedKeys =
