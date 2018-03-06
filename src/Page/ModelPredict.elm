@@ -8,6 +8,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
+import Http
 import Json.Decode exposing (succeed)
 import Ports exposing (fileContentRead, fileSaved, requestSaveFile, uploadFileSelected)
 import RemoteData as Remote
@@ -23,7 +24,6 @@ type alias Model =
     { config : Config
     , modelId : String
     , activeTab : Tab
-    , processState : State
     , inputType : DataFormat.DataFormat
     , outputType : DataFormat.DataFormat
     , fileName : String
@@ -48,7 +48,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile Initialized DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
+    Model config modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -70,13 +70,6 @@ type Msg
 type Tab
     = UploadFile
     | PasteIn
-
-
-type State
-    = Initialized
-    | PredictionsStarted
-    | PredictionsComplete
-    | FileDownloaded
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -162,19 +155,14 @@ update msg model =
         PredictionStarted ->
             let
                 value =
-                    case model.dataInput of
-                        Just input ->
-                            input
-
-                        Nothing ->
-                            ""
+                    Maybe.withDefault "" model.dataInput
 
                 predictRequest =
                     predict model.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
-            { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading, processState = PredictionsStarted } => predictRequest
+            { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading } => predictRequest
 
         ToggleFileTypeSelector ->
             { model | showDownloadTypeSelector = not model.showDownloadTypeSelector } => Cmd.none
@@ -185,12 +173,7 @@ update msg model =
         FileDownload ->
             let
                 value =
-                    case model.dataInput of
-                        Just input ->
-                            input
-
-                        Nothing ->
-                            ""
+                    Maybe.withDefault "" model.dataInput
 
                 predictRequest =
                     predictRaw model.config model.modelId value (DataFormat.dataFormatToContentType model.outputType)
@@ -202,10 +185,10 @@ update msg model =
         PredictResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | processState = PredictionsComplete, uploadResponse = result } => Cmd.none
+                    { model | uploadResponse = result, canProceedWithPrediction = True } => Cmd.none
 
                 Remote.Failure err ->
-                    { model | processState = PredictionsComplete, uploadResponse = result } => Log.logHttpError err
+                    { model | uploadResponse = result } => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -222,13 +205,13 @@ update msg model =
                     model => Cmd.none
 
         DownloadComplete success ->
-            { model | processState = FileDownloaded } => Cmd.none
+            model => Cmd.none
 
         ChangePage pageNum ->
             { model | currentPage = pageNum } => Cmd.none
 
         PredictAgain ->
-            { model | processState = Initialized, uploadResponse = Remote.NotAsked, downloadResponse = Remote.NotAsked, outputType = DataFormat.Json } => Cmd.none
+            { model | uploadResponse = Remote.NotAsked, downloadResponse = Remote.NotAsked, inputType = DataFormat.Json, outputType = DataFormat.Json, canProceedWithPrediction = False, currentPage = 0 } => Cmd.none
 
 
 formatFilename : Model -> String
@@ -238,11 +221,11 @@ formatFilename model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    case model.processState of
-        Initialized ->
+    case model.uploadResponse of
+        Remote.NotAsked ->
             fileContentRead FileContentRead
 
-        PredictionsComplete ->
+        Remote.Success _ ->
             fileSaved DownloadComplete
 
         _ ->
@@ -253,23 +236,23 @@ view : Model -> Html Msg
 view model =
     let
         ( buttonText, action ) =
-            case model.processState of
-                Initialized ->
-                    text "Start predictions" => PredictionStarted
+            case model.uploadResponse of
+                Remote.NotAsked ->
+                    ( text "Start predictions", PredictionStarted )
 
-                PredictionsStarted ->
-                    spinner => PredictionStarted
+                Remote.Loading ->
+                    ( spinner, PredictionStarted )
 
-                PredictionsComplete ->
-                    text "Predict again" => PredictAgain
+                Remote.Failure _ ->
+                    ( text "Start predictions", PredictionStarted )
 
-                FileDownloaded ->
-                    text "Predict again" => PredictAgain
+                Remote.Success _ ->
+                    ( text "Predict again", PredictAgain )
     in
     div [ class "row" ]
         [ div [ class "col-sm-12" ] (predictInput model)
         , div [ class "col-sm-12" ]
-            [ button [ class "btn", disabled (model.processState == PredictionsStarted), onClick action ]
+            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick action ]
                 [ buttonText ]
             , showTable model
             ]
@@ -278,12 +261,15 @@ view model =
 
 predictInput : Model -> List (Html Msg)
 predictInput model =
-    case model.processState of
-        Initialized ->
+    case model.uploadResponse of
+        Remote.NotAsked ->
             viewPredictInput model
 
-        PredictionsStarted ->
+        Remote.Success _ ->
             viewPredictInput model
+
+        Remote.Failure err ->
+            viewPredictFailure model err
 
         _ ->
             [ div [] [] ]
@@ -398,6 +384,48 @@ viewPasteData model =
                 ]
             ]
         ]
+
+
+viewPredictFailure : Model -> Http.Error -> List (Html Msg)
+viewPredictFailure model error =
+    let
+        severity =
+            case error of
+                Http.Timeout ->
+                    "alert-warning"
+
+                Http.NetworkError ->
+                    "alert-warning"
+
+                _ ->
+                    "alert-danger"
+    in
+    [ div [ class ("alert " ++ severity) ]
+        [ h5 [ class "mt15 mb15 center" ]
+            [ text "Error in request" ]
+        , div [ class "mt10 center" ]
+            [ text (createErrorMessage error) ]
+        ]
+    ]
+
+
+createErrorMessage : Http.Error -> String
+createErrorMessage httpError =
+    case httpError of
+        Http.BadUrl message ->
+            message
+
+        Http.Timeout ->
+            "Server is taking too long to respond. Please try again later."
+
+        Http.NetworkError ->
+            "It appears you don't have an Internet connection right now."
+
+        Http.BadStatus response ->
+            response.status.message
+
+        Http.BadPayload message response ->
+            message
 
 
 mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing

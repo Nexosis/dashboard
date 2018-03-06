@@ -67,9 +67,6 @@ update msg model =
             case response of
                 Remote.Success modelInfo ->
                     let
-                        getValue =
-                            ()
-
                         nextCommand =
                             if showPredict then
                                 Task.perform TogglePredict (Task.succeed ())
@@ -265,6 +262,7 @@ metricListItem ( name, value ) =
         , br [] []
         , text (formatFloatToString value)
         ]
+
 
 padSpace : String -> String
 padSpace input =
