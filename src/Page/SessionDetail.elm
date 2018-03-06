@@ -54,7 +54,7 @@ update msg model =
                         details =
                             case sessionInfo.predictionDomain of
                                 Data.PredictionDomain.Classification ->
-                                    confusionMatrix model.config model.sessionId 0 25
+                                    getConfusionMatrix model.config model.sessionId 0 25
                                         |> Remote.sendRequest
                                         |> Cmd.map ConfusionMatrixLoaded
 

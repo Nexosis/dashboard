@@ -1,4 +1,4 @@
-module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, confusionMatrix, delete, get, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -55,8 +55,8 @@ pageParams page pageSize =
     ]
 
 
-confusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
-confusionMatrix { baseUrl, token } sessionId page pageSize =
+getConfusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
+getConfusionMatrix { baseUrl, token } sessionId page pageSize =
     let
         expect =
             decodeConfusionMatrix
