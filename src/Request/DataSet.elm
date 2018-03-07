@@ -1,4 +1,4 @@
-module Request.DataSet exposing (MetadataUpdateRequest, delete, get, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -36,6 +36,25 @@ getRetrieveDetail { baseUrl, token } name =
 
         params =
             pageParams 0 Config.pageSize
+    in
+    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> Http.Request DataSetData
+getDataByDateRange { baseUrl, token } name dateRange =
+    let
+        expect =
+            DataSet.decodeDataSetData
+                |> Http.expectJson
+
+        params =
+            pageParams 0 1000
+                ++ dateParams dateRange
     in
     (baseUrl ++ "/data/" ++ dataSetNameToString name)
         |> HttpBuilder.get
@@ -87,6 +106,16 @@ pageParams page pageSize =
     [ ( "page", page |> toString )
     , ( "pageSize", pageSize |> toString )
     ]
+
+
+dateParams : Maybe ( String, String ) -> List ( String, String )
+dateParams dateRange =
+    case dateRange of
+        Just dates ->
+            [ ( "startDate", Tuple.first dates ), ( "endDate", Tuple.second dates ) ]
+
+        Nothing ->
+            []
 
 
 updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()

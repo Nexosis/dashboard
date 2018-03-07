@@ -1,8 +1,9 @@
-module View.Charts exposing (forecastResults, renderConfusionMatrix)
+module View.Charts exposing (forecastResults, impactResults, renderConfusionMatrix)
 
 import Array
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
+import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -40,6 +41,58 @@ forecastResults sessionResults session windowWidth =
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
                 , VegaLite.mark Line []
+                , enc []
+                ]
+
+        _ ->
+            toVegaLite
+                []
+
+
+impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
+impactResults session sessionResults dataSet windowWidth =
+    let
+        targetColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Target)
+
+        timestampColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Timestamp)
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    case Maybe.map2 (,) targetColumn timestampColumn of
+        Just ( targetCol, timestampCol ) ->
+            let
+                sessionData =
+                    List.map (\dict -> Dict.insert "Source" "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert "Source" "Observations" dict) dataSet.data
+
+                enc =
+                    encoding
+                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << color
+                            [ MName "Source"
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "Observations", "#04850d" )
+                                    ]
+                            ]
+            in
+            toVegaLite
+                [ VegaLite.title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
+                , VegaLite.width chartWidth
+                , VegaLite.height chartHeight
+                , autosize [ AFit, APadding ]
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
 
