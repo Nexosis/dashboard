@@ -53,6 +53,9 @@ forecastResults sessionResults session windowWidth =
 impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
 impactResults session sessionResults dataSet windowWidth =
     let
+        pointTypeName =
+            "Result Type"
+
         targetColumn =
             session.columns
                 |> find (\c -> c.role == Columns.Target)
@@ -68,17 +71,17 @@ impactResults session sessionResults dataSet windowWidth =
         Just ( targetCol, timestampCol ) ->
             let
                 sessionData =
-                    List.map (\dict -> Dict.insert "Source" "Predictions" dict) sessionResults.data
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
 
                 dataSetData =
-                    List.map (\dict -> Dict.insert "Source" "Observations" dict) dataSet.data
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
 
                 enc =
                     encoding
                         << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
                         << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
                         << color
-                            [ MName "Source"
+                            [ MName pointTypeName
                             , MmType Nominal
                             , MScale <|
                                 categoricalDomainMap
