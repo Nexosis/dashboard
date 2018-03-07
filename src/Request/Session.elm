@@ -1,7 +1,8 @@
-module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
+import Data.ConfusionMatrix exposing (..)
 import Data.DataSet exposing (DataSetName, dataSetNameToString)
 import Data.PredictionDomain exposing (PredictionDomain)
 import Data.Session exposing (..)
@@ -52,6 +53,24 @@ pageParams page pageSize =
     [ ( "page", page |> toString )
     , ( "pageSize", pageSize |> toString )
     ]
+
+
+getConfusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
+getConfusionMatrix { baseUrl, token } sessionId page pageSize =
+    let
+        expect =
+            decodeConfusionMatrix
+                |> Http.expectJson
+
+        params =
+            pageParams page pageSize
+    in
+    (baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
 
 
 getForDataset : Config -> DataSetName -> Http.Request SessionList

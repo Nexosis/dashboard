@@ -1,6 +1,5 @@
 module Page.Helpers exposing (..)
 
-import Data.Session exposing (SessionData)
 import Data.Status exposing (..)
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
@@ -19,7 +18,7 @@ statusDisplay model =
             coloredStatusButton (toString model) "success"
 
         Requested ->
-            coloredStatusButton "pending" "info"
+            coloredStatusButton "Pending" "info"
 
         Started ->
             coloredStatusButton (toString model) "warning"
@@ -31,7 +30,7 @@ statusDisplay model =
             coloredStatusButton (toString model) "dark"
 
         CancellationPending ->
-            coloredStatusButton "cancellation pending" "dark"
+            coloredStatusButton "Cancellation Pending" "dark"
 
 
 loadingOrView : Remote.WebData a -> (a -> Html msg) -> Html msg
