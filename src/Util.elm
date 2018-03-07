@@ -2,7 +2,6 @@ module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatT
 
 import Html
 import Html.Attributes
-import String.Extra as Extras
 
 
 (=>) : a -> b -> ( a, b )
@@ -88,7 +87,7 @@ formatFloatToString input =
                 String.padLeft 5 '0' expand
 
             result =
-                String.left (len - 5) filled ++ "." ++ String.right 5 filled
+                trimRightZeroes (String.left (len - 5) filled ++ "." ++ String.right 5 filled)
         in
         if String.left 1 result == "." then
             "0" ++ result
@@ -96,6 +95,42 @@ formatFloatToString input =
             result
     else
         commaFormatInteger <| truncate input
+
+
+trimRightZeroes : String -> String
+trimRightZeroes input =
+    let
+        strings =
+            String.split "." input
+
+        left =
+            case List.head strings of
+                Just x ->
+                    x
+
+                Nothing ->
+                    ""
+
+        right =
+            case List.tail strings of
+                Just y ->
+                    y
+
+                Nothing ->
+                    []
+    in
+    if right == [ "" ] then
+        left
+    else
+        case String.reverse input |> String.uncons of
+            Just ( h, tl ) ->
+                if h == '0' then
+                    trimRightZeroes <| String.reverse tl
+                else
+                    input
+
+            Nothing ->
+                ""
 
 
 isActuallyInteger : Float -> Bool
