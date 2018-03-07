@@ -98,52 +98,90 @@ regressionResults sessionResults session windowWidth =
                 b =
                     meanY - m * meanX
 
-                trans =
-                    transform
-                        << calculateAs (toString m ++ "* datum[\"" ++ targetCol.name ++ ":actual\"] + " ++ toString b) (targetCol.name ++ ":error")
+                actualName =
+                    targetCol.name ++ ":actual"
 
-                resultSpec =
+                pointTypeName =
+                    "Result Type"
+
+                enc =
+                    encoding
+                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << position X [ PName actualName, PmType Quantitative ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "1:1 Baseline", "#04850d" )
+                                    , ( "Regression Line", "#990000" )
+                                    ]
+                            ]
+
+                lineSpec =
                     asSpec
-                        [ encoding
-                            << position Y [ PName targetCol.name, PmType Quantitative ]
-                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
-                          <|
-                            []
+                        [ enc []
+                        , mark Line []
+                        , transform << filter (FOneOf pointTypeName (Strings [ "1:1 Baseline", "Regression Line" ])) <| []
+                        ]
+
+                pointSpec =
+                    asSpec
+                        [ enc []
                         , mark Circle []
                         ]
 
-                errorSpec =
-                    asSpec
-                        [ encoding
-                            << position Y [ PName <| targetCol.name ++ ":error", PmType Quantitative ]
-                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
-                          <|
-                            []
-                        , mark Line [ MColor "#990000" ]
-                        ]
+                resultData =
+                    sessionResults.data
+                        |> List.map
+                            (\values ->
+                                Dict.insert pointTypeName "Predictions" values
+                            )
 
-                baselineSpec =
-                    asSpec
-                        [ encoding
-                            << position Y [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
-                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
-                          <|
-                            []
-                        , mark Line [ MColor "#04850d" ]
-                        ]
+                baselineData =
+                    List.map
+                        (\values ->
+                            let
+                                actual =
+                                    Dict.get actualName values
+                                        |> Maybe.withDefault "0"
+                            in
+                            values
+                                |> Dict.insert pointTypeName "1:1 Baseline"
+                                |> Dict.insert targetCol.name actual
+                        )
+                        sessionResults.data
+
+                regressionData =
+                    sessionResults.data
+                        |> List.map
+                            (\values ->
+                                let
+                                    actual =
+                                        Dict.get actualName values
+                                            |> Maybe.withDefault "0"
+                                            |> String.toFloat
+                                            |> Result.withDefault 0
+                                in
+                                values
+                                    |> Dict.insert pointTypeName "Regression Line"
+                                    |> Dict.insert targetCol.name (toString <| m * actual + b)
+                            )
+
+                joinedData =
+                    resultData ++ baselineData ++ regressionData
             in
             toVegaLite
                 [ title "Results"
                 , width chartWidth
                 , height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
+                , dataFromRows [] <| List.concatMap resultsToRows joinedData
                 , layer
-                    [ resultSpec
-                    , errorSpec
-                    , baselineSpec
+                    [ lineSpec
+                    , pointSpec
                     ]
-                , trans []
                 ]
 
         _ ->
