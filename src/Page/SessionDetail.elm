@@ -116,6 +116,13 @@ update msg model =
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
 
+                                PredictionDomain.Regression ->
+                                    "result-vis"
+                                        => Charts.regressionResults results session model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
                                 PredictionDomain.Impact ->
                                     let
                                         dates =

@@ -24,6 +24,9 @@ floatFormatterTests =
     describe "float formatter"
         [ test "returns integer format when not decimal"
             (\_ -> Expect.equal "15" (formatFloatToString 15.0))
+        , test
+            "returns integer formatted with commas"
+            (\_ -> Expect.equal "15,000" (formatFloatToString 15000.0))
         , test "returns all five decimals"
             (\_ -> Expect.equal "15.12345" (formatFloatToString 15.12345))
         , test "returns only five decimals rounded"
@@ -32,6 +35,8 @@ floatFormatterTests =
             (\_ -> Expect.equal "0.12345" (formatFloatToString 0.12345))
         , test "returns zero as just 0"
             (\_ -> Expect.equal "0" (formatFloatToString 0.0))
+        , test "removes all trailing decimal zeroes"
+            (\_ -> Expect.equal "1" (formatFloatToString 1.0))
         ]
 
 
