@@ -1,4 +1,4 @@
-module View.Charts exposing (forecastResults, renderConfusionMatrix)
+module View.Charts exposing (forecastResults, regressionResults, renderConfusionMatrix)
 
 import Array
 import Data.Columns as Columns exposing (ColumnMetadata)
@@ -46,6 +46,124 @@ forecastResults sessionResults session windowWidth =
         _ ->
             toVegaLite
                 []
+
+
+regressionResults : SessionResults -> SessionData -> Int -> Spec
+regressionResults sessionResults session windowWidth =
+    let
+        targetColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Target)
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    case targetColumn of
+        Just targetCol ->
+            let
+                dataValues =
+                    sessionResults.data
+                        |> List.map (resultsToPredictedObserved targetCol.name)
+
+                ( sumX, sumY ) =
+                    List.foldl (\( x, y ) ( sx, sy ) -> ( sx + x, sy + y )) ( 0, 0 ) dataValues
+
+                sumXSquare =
+                    List.foldl (\( x, _ ) s -> s + x ^ 2) 0 dataValues
+
+                sumXY =
+                    List.foldl (\( x, y ) s -> s + (x * y)) 0 dataValues
+
+                valuesLength =
+                    List.length dataValues |> toFloat
+
+                meanX =
+                    sumX / valuesLength
+
+                meanY =
+                    sumY / valuesLength
+
+                meanXY =
+                    sumXY / valuesLength
+
+                meanXSquare =
+                    sumXSquare / valuesLength
+
+                meanSquareX =
+                    meanX ^ 2
+
+                m =
+                    (meanXY - (meanX * meanY)) / (meanXSquare - meanSquareX)
+
+                b =
+                    meanY - m * meanX
+
+                trans =
+                    transform
+                        << calculateAs (toString m ++ "* datum[\"" ++ targetCol.name ++ ":actual\"] + " ++ toString b) (targetCol.name ++ ":error")
+
+                resultSpec =
+                    asSpec
+                        [ encoding
+                            << position Y [ PName targetCol.name, PmType Quantitative ]
+                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
+                          <|
+                            []
+                        , mark Circle []
+                        ]
+
+                errorSpec =
+                    asSpec
+                        [ encoding
+                            << position Y [ PName <| targetCol.name ++ ":error", PmType Quantitative ]
+                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
+                          <|
+                            []
+                        , mark Line [ MColor "#990000" ]
+                        ]
+
+                baselineSpec =
+                    asSpec
+                        [ encoding
+                            << position Y [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
+                            << position X [ PName <| targetCol.name ++ ":actual", PmType Quantitative ]
+                          <|
+                            []
+                        , mark Line [ MColor "#04850d" ]
+                        ]
+            in
+            toVegaLite
+                [ title "Results"
+                , width chartWidth
+                , height chartHeight
+                , autosize [ AFit, APadding ]
+                , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
+                , layer
+                    [ resultSpec
+                    , errorSpec
+                    , baselineSpec
+                    ]
+                , trans []
+                ]
+
+        _ ->
+            toVegaLite
+                []
+
+
+resultsToPredictedObserved : String -> Dict String String -> ( Float, Float )
+resultsToPredictedObserved target result =
+    let
+        targetValue =
+            Dict.get target result
+
+        actualValue =
+            Dict.get (target ++ ":actual") result
+    in
+    Maybe.map2 (,) targetValue actualValue
+        |> Maybe.withDefault ( "0", "0" )
+        |> Tuple.mapFirst (String.toFloat >> Result.withDefault 0)
+        |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
 
 
 resultsToRows : Dict String String -> List DataRow
