@@ -1,6 +1,7 @@
 module View.Charts exposing (forecastResults, impactResults, renderConfusionMatrix)
 
 import Array
+import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
@@ -75,7 +76,7 @@ impactResults session sessionResults dataSet windowWidth =
                 enc =
                     encoding
                         << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
-                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
                         << color
                             [ MName "Source"
                             , MmType Nominal
@@ -119,6 +120,29 @@ resultIntervalToTimeUnit resultInterval =
 
         _ ->
             YearMonthDate
+
+
+mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
+mapAggregation aggregate =
+    case aggregate of
+        AggregationStrategy.Sum ->
+            Sum
+
+        AggregationStrategy.Mean ->
+            Mean
+
+        AggregationStrategy.Median ->
+            Median
+
+        -- HACK: VegaLite doesn't support Mode, and it's a little weird anyhow. Faking it for now.
+        AggregationStrategy.Mode ->
+            Mean
+
+        AggregationStrategy.Min ->
+            Min
+
+        AggregationStrategy.Max ->
+            Max
 
 
 widthToSize : Int -> ( Float, Float )
