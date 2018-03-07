@@ -88,6 +88,16 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
 
 
+getQuotas : Maybe Response.Response -> Maybe Response.Quotas
+getQuotas resp =
+    case resp of
+        Nothing ->
+            Nothing
+
+        Just resp ->
+            Just resp.quotas
+
+
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
 setRoute route app =
     case app.config.token of
@@ -107,7 +117,7 @@ setRoute route app =
                 Just AppRoutes.Home ->
                     let
                         ( pageModel, initCmd ) =
-                            Home.init app.config
+                            Home.init app.config (getQuotas app.lastResponse)
                     in
                     ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )
 
@@ -233,11 +243,16 @@ updatePage page msg app =
             toPage SessionStart SessionStartMsg SessionStart.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
+            let
+                quotaUpdatedMsg : Home.Msg
+                quotaUpdatedMsg =
+                    Home.QuotasUpdated (getQuotas (Just response))
+            in
             { app
                 | lastResponse = Just response
                 , messages = app.messages ++ response.messages
             }
-                => Ports.prismHighlight ()
+                => Cmd.batch [ Ports.prismHighlight (), Task.perform HomeMsg (Task.succeed quotaUpdatedMsg) ]
 
         ( ResponseReceived (Err err), _ ) ->
             { app | lastResponse = Nothing }

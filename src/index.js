@@ -132,12 +132,28 @@ fetch('./config.json').then(function (response) {
         Intercept.addResponseCallback(function (xhr) {
             
             if (xhr.url.startsWith(config.apiUrl)) {
+
+                const getQuotaHeader = (xhr, name) => {
+                    return {
+                        allotted : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
+                        current : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                    }
+                }
+
+                let quotas = {  
+                    dataSets : getQuotaHeader(xhr, "DataSetCount"),
+                    predictions : getQuotaHeader(xhr, "PredictionCount"),
+                    sessions : getQuotaHeader(xhr, "SessionCount"),
+                }
+
+
                 let xhrInfo = {
                     status: xhr.status,
                     statusText: xhr.statusText,
                     response: JSON.stringify(JSON.parse(xhr.response), null, 2),
                     method: xhr.method,
                     url: xhr.url,
+                    quotas : quotas,
                     timestamp: new Date().toISOString()
                 };
 

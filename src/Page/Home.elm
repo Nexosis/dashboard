@@ -1,9 +1,10 @@
-module Page.Home exposing (Model, Msg, init, update, view)
+module Page.Home exposing (Model, Msg(..), init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
+import Data.Response exposing (Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
@@ -31,18 +32,20 @@ type alias Model =
     , modelList : Remote.WebData ModelList
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
+    , quotas : Maybe Quotas
     , config : Config
     }
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
+init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
+init config quotas =
     Model
         Remote.Loading
         Remote.Loading
         Remote.Loading
         Remote.Loading
         []
+        quotas
         config
         => Cmd.batch
             [ Request.DataSet.get config 0 5
@@ -71,6 +74,7 @@ type Msg
     | ModelListResponse (Remote.WebData ModelList)
     | SubscriptionListResponse (Remote.WebData (List Subscription))
     | ShowApiKey String
+    | QuotasUpdated (Maybe Quotas)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -102,6 +106,9 @@ update msg model =
 
         ShowApiKey id ->
             { model | keysShown = toggleKeyShown id } => Cmd.none
+
+        QuotasUpdated quotas ->
+            { model | quotas = quotas } => Cmd.none
 
 
 
