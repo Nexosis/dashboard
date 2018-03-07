@@ -6,7 +6,6 @@ import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
-import Data.Message exposing (..)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
 import Data.Status as Status exposing (Status)
@@ -462,5 +461,3 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
-
-

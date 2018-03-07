@@ -1,6 +1,5 @@
 module Page.Helpers exposing (..)
 
-import Data.Session exposing (SessionData)
 import Data.Status exposing (..)
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
