@@ -182,7 +182,7 @@ view model =
         , hr [] []
         , viewSessionDetails model
         , hr [] []
-        , viewResultsVisualization model
+        , viewConfusionMatrix model
         , viewResultsGraph model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -476,16 +476,6 @@ viewSessionId session =
                 ]
             ]
         ]
-
-
-viewResultsVisualization : Model -> Html Msg
-viewResultsVisualization model =
-    case model.confusionMatrixResponse of
-        Remote.Success response ->
-            viewConfusionMatrix model
-
-        _ ->
-            div [] []
 
 
 viewResultsGraph : Model -> Html Msg

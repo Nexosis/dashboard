@@ -1,7 +1,8 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isJust, spinner)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber)
 
 import Html
 import Html.Attributes
+import String.Extra as Extras
 
 
 (=>) : a -> b -> ( a, b )
@@ -75,14 +76,33 @@ splitThousands integers =
 
 formatFloatToString : Float -> String
 formatFloatToString input =
-    let
-        expand =
-            toString (ceiling (input * 100000))
+    if not <| isActuallyInteger input then
+        let
+            expand =
+                toString (ceiling (input * 100000))
 
-        len =
-            String.length expand
+            len =
+                String.length expand
 
-        filled =
-            String.padLeft 5 '0' expand
-    in
-    String.left (len - 5) filled ++ "." ++ String.right 5 filled
+            filled =
+                String.padLeft 5 '0' expand
+
+            result =
+                String.left (len - 5) filled ++ "." ++ String.right 5 filled
+        in
+        if String.left 1 result == "." then
+            "0" ++ result
+        else
+            result
+    else
+        commaFormatInteger <| truncate input
+
+
+isActuallyInteger : Float -> Bool
+isActuallyInteger input =
+    (input / 1.0 - (toFloat <| round input)) == 0
+
+
+styledNumber : String -> Html.Html msg
+styledNumber input =
+    Html.span [ Html.Attributes.style [ ( "font-family", "verdana" ) ] ] [ Html.text input ]
