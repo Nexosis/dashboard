@@ -1,7 +1,6 @@
 module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Array
 import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)

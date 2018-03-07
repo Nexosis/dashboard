@@ -83,7 +83,7 @@ renderConfusionMatrix matrix =
     div [ class "row" ]
         [ div [ class "col-sm-12" ]
             [ h3 [] [ Html.text "Confusion Matrix" ]
-            , table [ class "confusion-matrix" ]
+            , table [ class "table table-bordered confusion-matrix" ]
                 [ tbody []
                     (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
                         -- footer is the set of classes
