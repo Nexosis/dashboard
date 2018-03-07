@@ -85,7 +85,7 @@ update msg model =
                         in
                         { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
                             => Cmd.batch
-                                [ Request.Session.results model.config model.sessionId 0 1
+                                [ Request.Session.results model.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
