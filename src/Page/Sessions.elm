@@ -318,7 +318,6 @@ createdColumn =
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
-        --TODO: date from SessionData model. change decoder
         [ text (toShortDateString model.requestedDate)
         ]
 
