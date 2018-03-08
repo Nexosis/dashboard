@@ -15,8 +15,6 @@ type alias Config =
     , subscriptionUrl : String
     , toolTips : Dict String String
     , explainerContent : Dict String String
-
-    --, docsContent : Dict String Maybe String
     }
 
 
