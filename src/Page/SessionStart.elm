@@ -14,6 +14,7 @@ import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (postForecast, postImpact, postModel)
@@ -85,7 +86,7 @@ init config dataSetName =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Request.DataSet.getRetrieveDetail config dataSetName 
+            Request.DataSet.getRetrieveDetail config dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -379,8 +380,7 @@ viewNameSession model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "How to name your session" ]
-                , p [] [ text "Name your session something descriptive yet memorable so that you can easily recall the purpose of each session." ]
+                [ explainer model.config "how_name_session"
                 ]
             ]
         ]
