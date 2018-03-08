@@ -147,7 +147,7 @@ view model =
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ]
-                        [ explainer model.config "datasets"
+                        [ explainer model.config "what_is_dataset"
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize ]

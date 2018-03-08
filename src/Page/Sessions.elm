@@ -142,7 +142,7 @@ view model =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ] [ h3 [] [ text "Session Explainer" ] ]
+                    [ div [ class "col-sm-6" ] [ explainer model.config "what_is_session" ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize ]
                     ]
