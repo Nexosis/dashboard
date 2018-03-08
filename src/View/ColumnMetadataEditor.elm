@@ -35,6 +35,7 @@ type alias Model =
     , autoState : Autocomplete.State
     , targetQuery : String
     , showAutocomplete : Bool
+    , showTarget : Bool
     }
 
 
@@ -65,9 +66,9 @@ type Msg
     | SetQuery String
 
 
-init : Config -> DataSetName -> ( Model, Cmd Msg )
-init config dataSetName =
-    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config Dict.empty Autocomplete.empty "" False
+init : Config -> DataSetName -> Bool -> ( Model, Cmd Msg )
+init config dataSetName showTarget =
+    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config Dict.empty Autocomplete.empty "" False showTarget
         => Cmd.none
 
 
@@ -422,13 +423,16 @@ viewKeyFormGroup key =
 
 viewTargetFormGroup : Model -> Html Msg
 viewTargetFormGroup model =
-    div [ class "form-group" ]
-        [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
-        , div [ class "col-sm-8" ]
-            [ input [ type_ "text", class "form-control", value model.targetQuery, onInput SetQuery ] []
-            , viewIf (\() -> Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata))) model.showAutocomplete
+    if model.showTarget then
+        div [ class "form-group" ]
+            [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+            , div [ class "col-sm-8" ]
+                [ input [ type_ "text", class "form-control", value model.targetQuery, onInput SetQuery ] []
+                , viewIf (\() -> Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata))) model.showAutocomplete
+                ]
             ]
-        ]
+    else
+        div [] []
 
 
 viewConfig : Autocomplete.ViewConfig ColumnMetadata
