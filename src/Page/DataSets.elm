@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
@@ -146,7 +147,7 @@ view model =
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ]
-                        [ h3 [] [ text "Dataset explainer" ]
+                        [ explainer model.config "datasets"
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize ]

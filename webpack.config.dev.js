@@ -21,7 +21,7 @@ export default {
         extensions: ['*', '.js', '.elm']
     },
     resolveLoader: {
-        modules: [path.resolve(__dirname, 'tools'), 'node_modules']
+        modules: [path.resolve(__dirname, 'tools'), path.resolve(__dirname, 'docs'), 'node_modules']
     },
     plugins: [
         new webpack.DefinePlugin({
@@ -91,6 +91,15 @@ export default {
                     {
                         loader: 'file-loader',
                         options: { name: '[name].[ext]' }
+                    }
+                ]
+            },
+            {
+                test: /(\.md)$/,
+                use: [
+                    {
+                        loader: 'file-loader',
+                        options: { name: 'docs/[name].[ext]' }
                     }
                 ]
             },

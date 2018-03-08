@@ -1,14 +1,22 @@
 module Page.Helpers exposing (..)
 
+import Data.Config exposing (Config)
 import Data.Status exposing (..)
+import Dict
 import Html exposing (Html, div, span, text)
 import Html.Attributes exposing (class)
+import Markdown
 import RemoteData as Remote
 
 
 coloredStatusButton : String -> String -> Html a
 coloredStatusButton input labelType =
     span [ class ("label label-" ++ labelType) ] [ text input ]
+
+
+explainer : Config -> String -> Html msg
+explainer config name =
+    Markdown.toHtml [] (Maybe.withDefault "" (Dict.get name config.explainerContent))
 
 
 statusDisplay : Status -> Html a

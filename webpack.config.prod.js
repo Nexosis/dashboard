@@ -109,6 +109,15 @@ export default {
                 use: [
                     { loader: 'json-loader' }
                 ]
+            },
+            {
+                test: /(\.md)$/,
+                use: [
+                    {
+                        loader: 'file-loader',
+                        options: { name: '[name].[ext]' }
+                    }
+                ]
             }
         ]
     }
