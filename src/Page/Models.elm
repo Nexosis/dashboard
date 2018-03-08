@@ -8,6 +8,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import Table
@@ -128,26 +129,7 @@ view model =
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row mb25" ]
                         [ div [ class "col-sm-6" ]
-                            [ h3 [] [ text "Model Types" ]
-                            , p []
-                                [ text "The type of model to build is determined by the"
-                                , code [] [ text "predictionDomain" ]
-                                , text "property on the request. Acceptable values are: "
-                                ]
-                            , ul []
-                                [ li []
-                                    [ code [] [ text "regression" ]
-                                    , text ": Builds a regression model"
-                                    ]
-                                , li []
-                                    [ code [] [ text "classification" ]
-                                    , text ": Builds a classification model"
-                                    ]
-                                , li []
-                                    [ code [] [ text "anomalies" ]
-                                    , text ": Builds an anomaly detection model"
-                                    ]
-                                ]
+                            [ explainer model.config "what_is_model"
                             ]
                         , div [ class "col-sm-2 col-sm-offset-4 right" ]
                             [ PageSize.view ChangePageSize ]
