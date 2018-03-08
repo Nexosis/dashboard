@@ -232,10 +232,6 @@ update msg model =
                     oldTarget
                         |> Maybe.map
                             (\old ->
-                                let
-                                    l =
-                                        Debug.log "old" old
-                                in
                                 updateRole (getExistingOrOriginalColumn metadataWithNew old) Feature
                                     |> maybeAppendColumn metadataWithNew
                             )

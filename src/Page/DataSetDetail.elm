@@ -157,7 +157,12 @@ update msg model =
                     model.columnMetadataEditorModel
 
                 newMetadataModel =
-                    { metadataModel | modifiedMetadata = Dict.empty }
+                    { metadataModel
+                        | modifiedMetadata = Dict.empty
+                        , columnMetadata =
+                            metadataModel.columnMetadata
+                                |> Remote.map (\cm -> { cm | metadata = Dict.union metadataModel.modifiedMetadata cm.metadata })
+                    }
             in
             case response of
                 Remote.Success () ->
