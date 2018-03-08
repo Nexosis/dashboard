@@ -9,6 +9,7 @@ import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationS
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onInput)
 import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
@@ -17,6 +18,7 @@ import SelectWithStyle as UnionSelect
 import Table
 import Util exposing ((=>), commaFormatInteger, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
+import View.Extra exposing (viewIf)
 import View.Grid as Grid
 import View.PageSize as PageSize
 import View.Pager as Pager
@@ -25,12 +27,14 @@ import View.Tooltip exposing (helpIcon)
 
 type alias Model =
     { columnMetadata : Remote.WebData ColumnMetadataListing
+    , statsResponse : Remote.WebData DataSetStats
     , dataSetName : DataSetName
     , tableState : Table.State
     , config : Config
     , modifiedMetadata : List ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
+    , showAutocomplete : Bool
     }
 
 
@@ -44,13 +48,7 @@ type alias ColumnMetadataListing =
     , totalPages : Int
     , pageSize : Int
     , totalCount : Int
-    , metadataList : List ColumnInfo
-    }
-
-
-type alias ColumnInfo =
-    { metadata : ColumnMetadata
-    , stats : Maybe ColumnStats
+    , metadata : List ColumnMetadata
     }
 
 
@@ -64,11 +62,12 @@ type Msg
     | ImputationSelectionChanged ColumnMetadata ImputationStrategy
     | SetAutoCompleteState Autocomplete.Msg
     | SetTarget String
+    | SetQuery String
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    Model Remote.Loading dataSetName (Table.initialSort "columnName") config [] Autocomplete.empty ""
+    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config [] Autocomplete.empty "" False
         => Cmd.none
 
 
@@ -85,30 +84,8 @@ mapColumnListToPagedListing columns =
     , totalPages = count // 10
     , pageSize = pageSize
     , totalCount = count
-    , metadataList =
-        List.map
-            (\m ->
-                { metadata = m
-                , stats = Nothing
-                }
-            )
-            columns
+    , metadata = columns
     }
-
-
-mergeListingAndStats : ColumnMetadataListing -> DataSetStats -> ColumnMetadataListing
-mergeListingAndStats metadataListing stats =
-    let
-        updatedListing =
-            metadataListing.metadataList
-                |> List.map
-                    (\i ->
-                        { metadata = i.metadata
-                        , stats = Dict.get i.metadata.name stats.columns
-                        }
-                    )
-    in
-    { metadataListing | metadataList = updatedListing }
 
 
 updateDataSetResponse : Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
@@ -116,8 +93,16 @@ updateDataSetResponse model dataSetResponse =
     let
         mappedColumns =
             Remote.map (.columns >> mapColumnListToPagedListing) dataSetResponse
+
+        targetName =
+            mappedColumns
+                |> Remote.map .metadata
+                |> Remote.withDefault []
+                |> ListX.find (\m -> m.role == Columns.Target)
+                |> Maybe.map .name
+                |> Maybe.withDefault ""
     in
-    { model | columnMetadata = mappedColumns }
+    { model | columnMetadata = mappedColumns, targetQuery = targetName, showAutocomplete = False }
         => (Request.DataSet.getStats model.config model.dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map StatsResponse
@@ -130,11 +115,7 @@ update msg model =
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    let
-                        updatedColumnInfo =
-                            Remote.map2 mergeListingAndStats model.columnMetadata resp
-                    in
-                    { model | columnMetadata = updatedColumnInfo } => Cmd.none => NoOp
+                    { model | statsResponse = resp } => Cmd.none => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -188,39 +169,83 @@ update msg model =
                 => Cmd.none
                 => Updated
 
+        SetQuery query ->
+            let
+                showAutocomplete =
+                    not << List.isEmpty <| filterColumnNames query model.columnMetadata
+            in
+            { model | targetQuery = query, showAutocomplete = showAutocomplete } => Cmd.none => NoOp
+
         SetAutoCompleteState autoMsg ->
             let
-                ( newState, _ ) =
-                    case model.columnMetadata of
-                        Remote.Success columnMetadata ->
-                            Autocomplete.update autocompleteUpdateConfig autoMsg 5 model.autoState (filterColumnNames model.targetQuery columnMetadata.metadataList)
+                ( newState, maybeMsg ) =
+                    Autocomplete.update autocompleteUpdateConfig autoMsg 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata)
 
-                        _ ->
-                            model.autoState => Nothing
+                newModel =
+                    { model | autoState = newState }
             in
-            model => Cmd.none => NoOp
+            case maybeMsg of
+                Nothing ->
+                    newModel => Cmd.none => NoOp
+
+                Just updateMsg ->
+                    update updateMsg newModel
 
         SetTarget targetName ->
-            -- let
-            --     withTarget =
-            --         updateRole (getExistingOrOriginalColumn model.modifiedMetadata newTarget) Target
-            --             |> maybeAppendColumn model.modifiedMetadata
-            -- in
-            -- { model
-            --     | modifiedMetadata = withTarget
-            -- }
-            --     => Cmd.none
-            --     => NoOp
-            model => Cmd.none => NoOp
+            let
+                ( newTarget, oldTarget ) =
+                    model.columnMetadata
+                        |> Remote.map
+                            (\cm ->
+                                let
+                                    newTarget =
+                                        cm.metadata
+                                            |> ListX.find (\c -> c.name == targetName)
+
+                                    oldTarget =
+                                        cm.metadata
+                                            |> ListX.find (\c -> c.role == Target)
+                                in
+                                ( newTarget, oldTarget )
+                            )
+                        |> Remote.withDefault ( Nothing, Nothing )
+
+                metadataWithNew =
+                    newTarget
+                        |> Maybe.map
+                            (\new ->
+                                updateRole (getExistingOrOriginalColumn model.modifiedMetadata new) Target
+                                    |> maybeAppendColumn model.modifiedMetadata
+                            )
+                        |> Maybe.withDefault model.modifiedMetadata
+
+                updatedMetadata =
+                    oldTarget
+                        |> Maybe.map
+                            (\old ->
+                                updateRole (getExistingOrOriginalColumn metadataWithNew old) Feature
+                                    |> maybeAppendColumn metadataWithNew
+                            )
+                        |> Maybe.withDefault metadataWithNew
+
+                targetName =
+                    newTarget
+                        |> Maybe.map .name
+                        |> Maybe.withDefault ""
+            in
+            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False } => Cmd.none => NoOp
 
 
-filterColumnNames : String -> List ColumnInfo -> List ColumnInfo
-filterColumnNames query columns =
+filterColumnNames : String -> Remote.WebData ColumnMetadataListing -> List ColumnMetadata
+filterColumnNames query columnMetadata =
     let
+        columns =
+            columnMetadata |> Remote.map (\cm -> cm.metadata) |> Remote.withDefault []
+
         lowerQuery =
             String.toLower query
     in
-    List.filter (String.contains lowerQuery << String.toLower << .name << .metadata) columns
+    List.filter (String.contains lowerQuery << String.toLower << .name) columns
 
 
 onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
@@ -249,12 +274,9 @@ autocompleteUpdateConfig =
 
 getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata
 getExistingOrOriginalColumn modifiedList column =
-    case ListX.find (\a -> a.name == column.name) modifiedList of
-        Just existing ->
-            existing
-
-        Nothing ->
-            column
+    modifiedList
+        |> ListX.find (\a -> a.name == column.name)
+        |> Maybe.withDefault column
 
 
 updateImputation : ColumnMetadata -> ImputationStrategy -> ( ColumnMetadata, Bool )
@@ -295,9 +317,9 @@ updateColumnPageSize pageSize columnListing =
     { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
 
 
-updateColumnMetadata : List ColumnInfo -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnMetadata : List ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
 updateColumnMetadata info columnListing =
-    { columnListing | metadataList = info } => Cmd.none
+    { columnListing | metadata = info } => Cmd.none
 
 
 generateVegaSpec : ColumnMetadata -> ( String, Spec )
@@ -313,6 +335,33 @@ generateVegaSpec column =
 
 view : Model -> Html Msg
 view model =
+    let
+        stats =
+            model.statsResponse
+                |> Remote.map (\sr -> sr.columns)
+                |> Remote.withDefault Dict.empty
+
+        mergedMetadata =
+            model.columnMetadata
+                |> Remote.map
+                    (\cm ->
+                        let
+                            modifiedDict =
+                                model.modifiedMetadata
+                                    |> List.map (\m -> ( m.name, m ))
+                                    |> Dict.fromList
+
+                            unionedMetadata =
+                                cm.metadata
+                                    |> List.map (\m -> ( m.name, m ))
+                                    |> Dict.fromList
+                                    |> Dict.union modifiedDict
+                                    |> Dict.toList
+                                    |> List.map Tuple.second
+                        in
+                        { cm | metadata = unionedMetadata }
+                    )
+    in
     div []
         [ div [ class "row mb25" ]
             [ div [ class "col-sm-3" ]
@@ -320,7 +369,7 @@ view model =
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
                 [ PageSize.view ChangePageSize ]
             ]
-        , Grid.view filterColumnsToDisplay (config model.config.toolTips) model.tableState model.columnMetadata
+        , Grid.view filterColumnsToDisplay (config model.config.toolTips stats) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
         ]
 
@@ -333,17 +382,12 @@ viewTargetAndKeyColumns model =
                 Remote.Success resp ->
                     let
                         keyGroup =
-                            resp.metadataList
-                                |> ListX.find (\m -> m.metadata.role == Columns.Key)
+                            resp.metadata
+                                |> ListX.find (\m -> m.role == Columns.Key)
                                 |> Maybe.map viewKeyFormGroup
                                 |> Maybe.withDefault (div [] [])
-
-                        targetGroup =
-                            resp.metadataList
-                                |> ListX.find (\m -> m.metadata.role == Columns.Target)
-                                |> viewTargetFormGroup
                     in
-                    ( keyGroup, targetGroup )
+                    ( keyGroup, viewTargetFormGroup model )
 
                 Remote.Loading ->
                     ( viewLoadingFormGroup, viewLoadingFormGroup )
@@ -368,82 +412,99 @@ viewLoadingFormGroup =
         ]
 
 
-viewKeyFormGroup : ColumnInfo -> Html Msg
+viewKeyFormGroup : ColumnMetadata -> Html Msg
 viewKeyFormGroup key =
     div [ class "form-group" ]
         [ label [ class "control-label col-sm-3 mr0 pr0" ]
             [ text "Key"
             ]
         , div [ class "col-sm-8" ]
-            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.metadata.name ]
+            [ p [ class "mb5", style [ ( "padding", "7px 10px 0;" ) ] ] [ text key.name ]
             , p [ class "small color-mediumGray" ] [ text "The key role can only be set when importing a new dataset." ]
             ]
         ]
 
 
-viewTargetFormGroup : Maybe ColumnInfo -> Html Msg
-viewTargetFormGroup target =
-    let
-        targetText =
-            target |> Maybe.map (\t -> t.metadata.name) |> Maybe.withDefault ""
-    in
+viewTargetFormGroup : Model -> Html Msg
+viewTargetFormGroup model =
     div [ class "form-group" ]
         [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
         , div [ class "col-sm-8" ]
-            --todo : this is probably supposed to be some other kind of control.
-            [ input [ type_ "text", class "form-control", value targetText ] []
+            [ input [ type_ "text", class "form-control", value model.targetQuery, onInput SetQuery ] []
+            , viewIf (\() -> Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata))) model.showAutocomplete
             ]
         ]
 
 
-filterColumnsToDisplay : ColumnMetadataListing -> List ColumnInfo
+viewConfig : Autocomplete.ViewConfig ColumnMetadata
+viewConfig =
+    let
+        customizedLi keySelected mouseSelected person =
+            { attributes =
+                [ classList
+                    [ ( "autocomplete-item", True )
+                    , ( "key-selected", keySelected )
+                    , ( "mouse-selected", mouseSelected )
+                    ]
+                ]
+            , children = [ Html.text person.name ]
+            }
+    in
+    Autocomplete.viewConfig
+        { toId = .name
+        , ul = [ class "autocomplete-list" ]
+        , li = customizedLi
+        }
+
+
+filterColumnsToDisplay : ColumnMetadataListing -> List ColumnMetadata
 filterColumnsToDisplay columnListing =
     let
         drop =
             columnListing.pageSize * columnListing.pageNumber
     in
-    columnListing.metadataList
+    columnListing.metadata
         |> List.drop drop
         |> List.take columnListing.pageSize
 
 
-config : Dict String String -> Grid.Config ColumnInfo Msg
-config toolTips =
+config : Dict String String -> ColumnStatsDict -> Grid.Config ColumnMetadata Msg
+config toolTips stats =
     let
         makeIcon =
             helpIcon toolTips
     in
     Grid.config
-        { toId = \c -> c.metadata.name
+        { toId = \c -> c.name
         , toMsg = SetTableState
         , columns =
             [ nameColumn
             , typeColumn makeIcon
             , roleColumn makeIcon
             , imputationColumn makeIcon
-            , statsColumn
+            , statsColumn stats
             ]
         }
 
 
-nameColumn : Grid.Column ColumnInfo Msg
+nameColumn : Grid.Column ColumnMetadata Msg
 nameColumn =
     Grid.veryCustomColumn
         { name = "Column Name"
         , viewData = columnNameCell
-        , sorter = Table.increasingOrDecreasingBy (\c -> c.metadata.name)
+        , sorter = Table.increasingOrDecreasingBy (\c -> c.name)
         , headAttributes = [ class "left per25" ]
         , headHtml = []
         }
 
 
-columnNameCell : ColumnInfo -> Table.HtmlDetails Msg
+columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
 columnNameCell column =
     Table.HtmlDetails [ class "name" ]
-        [ text column.metadata.name ]
+        [ text column.name ]
 
 
-typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
+typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
 typeColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Type"
@@ -454,12 +515,12 @@ typeColumn makeIcon =
         }
 
 
-dataTypeCell : ColumnInfo -> Table.HtmlDetails Msg
+dataTypeCell : ColumnMetadata -> Table.HtmlDetails Msg
 dataTypeCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column.metadata) column.metadata.dataType ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
 
 
-roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
+roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
 roleColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Role"
@@ -470,9 +531,9 @@ roleColumn makeIcon =
         }
 
 
-roleCell : ColumnInfo -> Table.HtmlDetails Msg
+roleCell : ColumnMetadata -> Table.HtmlDetails Msg
 roleCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column.metadata) column.metadata.role ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
 
 
 enumOption : e -> e -> Html Msg
@@ -480,7 +541,7 @@ enumOption roleOption roleModel =
     option [ selected (roleOption == roleModel) ] [ text (toString roleOption) ]
 
 
-imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnInfo Msg
+imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
 imputationColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Imputation"
@@ -491,26 +552,30 @@ imputationColumn makeIcon =
         }
 
 
-imputationCell : ColumnInfo -> Table.HtmlDetails Msg
+imputationCell : ColumnMetadata -> Table.HtmlDetails Msg
 imputationCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column.metadata) column.metadata.imputation ]
+    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
 
 
-statsColumn : Grid.Column ColumnInfo Msg
-statsColumn =
+statsColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
+statsColumn stats =
     Grid.veryCustomColumn
         { name = "Stats"
-        , viewData = statsCell
+        , viewData = statsCell stats
         , sorter = Table.unsortable
         , headAttributes = [ class "per20", colspan 2 ]
         , headHtml = []
         }
 
 
-statsCell : ColumnInfo -> Table.HtmlDetails Msg
-statsCell column =
+statsCell : ColumnStatsDict -> ColumnMetadata -> Table.HtmlDetails Msg
+statsCell stats column =
+    let
+        columnStats =
+            Dict.get column.name stats
+    in
     Table.HtmlDetails [ class "stats" ]
-        [ statsDisplay column.stats ]
+        [ statsDisplay columnStats ]
 
 
 statsDisplay : Maybe ColumnStats -> Html Msg
@@ -553,7 +618,7 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn : Grid.Column ColumnInfo Msg
+histogramColumn : Grid.Column ColumnMetadata Msg
 histogramColumn =
     Grid.veryCustomColumn
         { name = "Distribution"
@@ -564,7 +629,7 @@ histogramColumn =
         }
 
 
-histogram : ColumnInfo -> Table.HtmlDetails Msg
+histogram : ColumnMetadata -> Table.HtmlDetails Msg
 histogram column =
     Table.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.metadata.name) ] [] ]
+        [ div [ id ("histogram_" ++ column.name) ] [] ]
