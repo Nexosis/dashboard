@@ -104,20 +104,10 @@ trimRightZeroes input =
             String.split "." input
 
         left =
-            case List.head strings of
-                Just x ->
-                    x
-
-                Nothing ->
-                    ""
+            Maybe.withDefault "" (List.head strings)
 
         right =
-            case List.tail strings of
-                Just y ->
-                    y
-
-                Nothing ->
-                    []
+            Maybe.withDefault [] (List.tail strings)
     in
     if right == [ "" ] then
         left
