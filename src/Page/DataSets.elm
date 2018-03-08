@@ -3,6 +3,7 @@ module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
+import Data.Context exposing (..)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
@@ -11,6 +12,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
+import StateStorage exposing (loadAppState, saveAppState)
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
 import View.DeleteDialog as DeleteDialog
@@ -83,7 +85,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetListResponse resp ->
-            { model | dataSetList = resp } => Cmd.none
+            { model | dataSetList = resp } => saveAppState (ContextModel model.pageSize)
 
         SetTableState newState ->
             { model | tableState = newState }

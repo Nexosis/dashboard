@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
+import Data.Context exposing (ContextModel)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -25,6 +26,7 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
+import StateStorage as AppState exposing (Msg, loadAppState)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -48,7 +50,26 @@ type alias App =
     , lastResponse : Maybe Response.Response
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
+    , context : ContextModel
     }
+
+
+type Msg
+    = SetRoute (Maybe AppRoutes.Route)
+    | HomeMsg Home.Msg
+    | DataSetsMsg DataSets.Msg
+    | DataSetDetailMsg DataSetDetail.Msg
+    | DataSetAddMsg DataSetAdd.Msg
+    | ImportsMsg Imports.Msg
+    | SessionsMsg Sessions.Msg
+    | SessionDetailMsg SessionDetail.Msg
+    | SessionStartMsg SessionStart.Msg
+    | ModelsMsg Models.Msg
+    | ResponseReceived (Result String Response.Response)
+    | CheckToken Time.Time
+    | RenewToken (Result Http.Error NexosisToken)
+    | ModelDetailMsg ModelDetail.Msg
+    | OnAppStateLoaded AppState.Msg
 
 
 type Page
@@ -69,23 +90,6 @@ type Page
 
 
 ---- UPDATE ----
-
-
-type Msg
-    = SetRoute (Maybe AppRoutes.Route)
-    | HomeMsg Home.Msg
-    | DataSetsMsg DataSets.Msg
-    | DataSetDetailMsg DataSetDetail.Msg
-    | DataSetAddMsg DataSetAdd.Msg
-    | ImportsMsg Imports.Msg
-    | SessionsMsg Sessions.Msg
-    | SessionDetailMsg SessionDetail.Msg
-    | SessionStartMsg SessionStart.Msg
-    | ModelsMsg Models.Msg
-    | ResponseReceived (Result String Response.Response)
-    | CheckToken Time.Time
-    | RenewToken (Result Http.Error NexosisToken)
-    | ModelDetailMsg ModelDetail.Msg
 
 
 getQuotas : Maybe Response.Response -> Maybe Response.Quotas
@@ -453,7 +457,7 @@ init flags location =
                         appContext
             in
             Initialized app
-                => Cmd.batch [ cmd, Task.perform CheckToken Time.now ]
+                => Cmd.batch [ cmd, Task.perform CheckToken Time.now, loadAppState ]
 
         Err error ->
             ( InitializationError error, Cmd.none )
@@ -469,6 +473,7 @@ flagsDecoder =
         |> Pipeline.hardcoded Nothing
         |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
+        |> Pipeline.hardcoded (ContextModel 10)
 
 
 main : Program Value Model Msg

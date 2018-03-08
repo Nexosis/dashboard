@@ -11,6 +11,7 @@ import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../interim.css'
 import '../elm-datepicker.css'
+import { initLocalStoragePort } from './js/localStoragePort';
 
 
 if (!Intercept.isWired()) {
@@ -77,7 +78,8 @@ fetch('./config.json').then(function (response) {
             });
         });
 
-
+        initLocalStoragePort(app);
+        
         app.ports.uploadFileSelected.subscribe(function (id) {
 
             var node = document.getElementById(id);

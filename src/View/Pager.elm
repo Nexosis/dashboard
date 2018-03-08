@@ -1,9 +1,11 @@
 module View.Pager exposing (view)
 
+import Data.Context exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import RemoteData exposing (WebData)
+import StateStorage exposing (loadAppState, saveAppState)
 
 
 type alias PagedValues a =
