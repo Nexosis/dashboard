@@ -1,4 +1,4 @@
-module Data.Response exposing (GlobalMessage, Response, ResponseError, decodeResponse, decodeXhrResponse, responseErrorDecoder)
+module Data.Response exposing (GlobalMessage, Quota, Quotas, Response, ResponseError, decodeResponse, decodeXhrResponse, responseErrorDecoder)
 
 import AppRoutes exposing (Route)
 import Data.Message exposing (Severity, decodeSeverity)
@@ -17,6 +17,20 @@ type alias Response =
     , url : String
     , timestamp : String
     , messages : List GlobalMessage
+    , quotas : Quotas
+    }
+
+
+type alias Quotas =
+    { dataSets : Quota
+    , sessions : Quota
+    , predictions : Quota
+    }
+
+
+type alias Quota =
+    { allotted : Maybe Int
+    , current : Maybe Int
     }
 
 
@@ -60,6 +74,22 @@ decodeResponse baseUrl =
                         field "response" (nestedMessagesDecoder route)
                     )
             )
+        |> required "quotas" decodeQuotas
+
+
+decodeQuotas : Decoder Quotas
+decodeQuotas =
+    decode Quotas
+        |> required "sessions" decodeQuota
+        |> required "dataSets" decodeQuota
+        |> required "predictions" decodeQuota
+
+
+decodeQuota : Decoder Quota
+decodeQuota =
+    decode Quota
+        |> optional "allotted" (nullable int) Nothing
+        |> optional "current" (nullable int) Nothing
 
 
 nestedMessagesDecoder : Maybe Route -> Decoder (List GlobalMessage)

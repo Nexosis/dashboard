@@ -1,6 +1,5 @@
 module Data.Subscription exposing (..)
 
-import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, dict, list, string)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 

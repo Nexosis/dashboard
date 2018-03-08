@@ -3,6 +3,7 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -308,7 +309,7 @@ createdColumn =
     Grid.veryCustomColumn
         { name = "Created"
         , viewData = createdCell
-        , sorter = Table.decreasingOrIncreasingBy .requestedDate
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateString a.requestedDate)
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
@@ -317,8 +318,7 @@ createdColumn =
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
-        --TODO: date from SessionData model. change decoder
-        [ text (String.dropRight 22 model.requestedDate)
+        [ text (toShortDateString model.requestedDate)
         ]
 
 
