@@ -1,5 +1,7 @@
 module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
+import Autocomplete
+import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
@@ -27,6 +29,8 @@ type alias Model =
     , tableState : Table.State
     , config : Config
     , modifiedMetadata : List ColumnMetadata
+    , autoState : Autocomplete.State
+    , targetQuery : String
     }
 
 
@@ -58,11 +62,13 @@ type Msg
     | TypeSelectionChanged ColumnMetadata DataType
     | RoleSelectionChanged ColumnMetadata Role
     | ImputationSelectionChanged ColumnMetadata ImputationStrategy
+    | SetAutoCompleteState Autocomplete.Msg
+    | SetTarget String
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    Model Remote.Loading dataSetName (Table.initialSort "columnName") config []
+    Model Remote.Loading dataSetName (Table.initialSort "columnName") config [] Autocomplete.empty ""
         => Cmd.none
 
 
@@ -181,6 +187,64 @@ update msg model =
             }
                 => Cmd.none
                 => Updated
+
+        SetAutoCompleteState autoMsg ->
+            let
+                ( newState, _ ) =
+                    case model.columnMetadata of
+                        Remote.Success columnMetadata ->
+                            Autocomplete.update autocompleteUpdateConfig autoMsg 5 model.autoState (filterColumnNames model.targetQuery columnMetadata.metadataList)
+
+                        _ ->
+                            model.autoState => Nothing
+            in
+            model => Cmd.none => NoOp
+
+        SetTarget targetName ->
+            -- let
+            --     withTarget =
+            --         updateRole (getExistingOrOriginalColumn model.modifiedMetadata newTarget) Target
+            --             |> maybeAppendColumn model.modifiedMetadata
+            -- in
+            -- { model
+            --     | modifiedMetadata = withTarget
+            -- }
+            --     => Cmd.none
+            --     => NoOp
+            model => Cmd.none => NoOp
+
+
+filterColumnNames : String -> List ColumnInfo -> List ColumnInfo
+filterColumnNames query columns =
+    let
+        lowerQuery =
+            String.toLower query
+    in
+    List.filter (String.contains lowerQuery << String.toLower << .name << .metadata) columns
+
+
+onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
+onKeyDown code maybeId =
+    if code == 38 || code == 40 then
+        Nothing
+    else if code == 13 then
+        Maybe.map SetTarget maybeId
+    else
+        Nothing
+
+
+autocompleteUpdateConfig : Autocomplete.UpdateConfig Msg ColumnMetadata
+autocompleteUpdateConfig =
+    Autocomplete.updateConfig
+        { toId = .name
+        , onKeyDown = onKeyDown
+        , onTooLow = Nothing
+        , onTooHigh = Nothing
+        , onMouseEnter = \_ -> Nothing
+        , onMouseLeave = \_ -> Nothing
+        , onMouseClick = \id -> Just <| SetTarget id
+        , separateSelections = False
+        }
 
 
 getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata
