@@ -4,6 +4,7 @@ import AppRoutes
 import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
+import Data.ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
@@ -34,6 +35,7 @@ type alias Model =
     { sessionId : String
     , sessionResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
+    , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
@@ -51,7 +53,7 @@ init config sessionId =
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -59,6 +61,7 @@ type Msg
     | ResultsResponse (Remote.WebData SessionResults)
     | ShowDeleteDialog Model
     | DeleteDialogMsg DeleteDialog.Msg
+    | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | GetWindowWidth (Result String Int)
 
 
@@ -69,11 +72,24 @@ update msg model =
             case response of
                 Remote.Success sessionInfo ->
                     if sessionInfo.status == Status.Completed then
+                        let
+                            details =
+                                case sessionInfo.predictionDomain of
+                                    PredictionDomain.Classification ->
+                                        getConfusionMatrix model.config model.sessionId 0 25
+                                            |> Remote.sendRequest
+                                            |> Cmd.map ConfusionMatrixLoaded
+
+                                    _ ->
+                                        Cmd.none
+                        in
                         { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                            => (Request.Session.results model.config model.sessionId 0 1000
+                            => Cmd.batch
+                                [ Request.Session.results model.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
-                               )
+                                , details
+                                ]
                     else
                         { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
                             => Cmd.none
@@ -93,6 +109,13 @@ update msg model =
                                 PredictionDomain.Forecast ->
                                     "result-vis"
                                         => Charts.forecastResults results session model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
+                                PredictionDomain.Regression ->
+                                    "result-vis"
+                                        => Charts.regressionResults results session model.windowWidth
                                         |> List.singleton
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
@@ -135,6 +158,9 @@ update msg model =
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
+        ConfusionMatrixLoaded response ->
+            { model | confusionMatrixResponse = response } => Cmd.none
+
         GetWindowWidth result ->
             let
                 newWidth =
@@ -162,6 +188,7 @@ view model =
         , hr [] []
         , viewSessionDetails model
         , hr [] []
+        , viewConfusionMatrix model
         , viewResultsGraph model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -447,7 +474,7 @@ viewSessionId session =
     div [ class "col-sm-4" ]
         [ p [ class "small" ]
             [ strong []
-                [ text "Session ID:" ]
+                [ text "Session ID: " ]
             , text session.sessionId
             , a []
                 [ i [ class "fa fa-copy color-mediumGray" ]
@@ -461,3 +488,31 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
+loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
+loadingOrView request view =
+    case request of
+        Remote.Success resp ->
+            view resp
+
+        Remote.Loading ->
+            div [ class "loading--line" ] []
+
+        _ ->
+            div [] []
+
+
+viewConfusionMatrix : Model -> Html Msg
+viewConfusionMatrix model =
+    case model.confusionMatrixResponse of
+        Remote.NotAsked ->
+            div [] []
+
+        Remote.Loading ->
+            div [] []
+
+        Remote.Success response ->
+            Charts.renderConfusionMatrix response
+
+        Remote.Failure _ ->
+            div [] [ text "Error" ]

@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isJust, spinner)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber)
 
 import Html
 import Html.Attributes
@@ -75,14 +75,69 @@ splitThousands integers =
 
 formatFloatToString : Float -> String
 formatFloatToString input =
+    if not <| isActuallyInteger input then
+        let
+            expand =
+                toString (ceiling (input * 100000))
+
+            len =
+                String.length expand
+
+            filled =
+                String.padLeft 5 '0' expand
+
+            result =
+                trimRightZeroes (String.left (len - 5) filled ++ "." ++ String.right 5 filled)
+        in
+        if String.left 1 result == "." then
+            "0" ++ result
+        else
+            result
+    else
+        commaFormatInteger <| truncate input
+
+
+trimRightZeroes : String -> String
+trimRightZeroes input =
     let
-        expand =
-            toString (ceiling (input * 100000))
+        strings =
+            String.split "." input
 
-        len =
-            String.length expand
+        left =
+            case List.head strings of
+                Just x ->
+                    x
 
-        filled =
-            String.padLeft 5 '0' expand
+                Nothing ->
+                    ""
+
+        right =
+            case List.tail strings of
+                Just y ->
+                    y
+
+                Nothing ->
+                    []
     in
-    String.left (len - 5) filled ++ "." ++ String.right 5 filled
+    if right == [ "" ] then
+        left
+    else
+        case String.reverse input |> String.uncons of
+            Just ( h, tl ) ->
+                if h == '0' then
+                    trimRightZeroes <| String.reverse tl
+                else
+                    input
+
+            Nothing ->
+                ""
+
+
+isActuallyInteger : Float -> Bool
+isActuallyInteger input =
+    (input / 1.0 - (toFloat <| round input)) == 0
+
+
+styledNumber : String -> Html.Html msg
+styledNumber input =
+    Html.span [ Html.Attributes.style [ ( "class", "number" ) ] ] [ Html.text input ]

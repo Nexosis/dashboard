@@ -182,6 +182,16 @@ ul.algorithm-metrics li{
     padding-bottom: 7px
 }
 
+table.confusion-matrix td {
+    padding: 8px;
+    background-color: #EFEFEF;
+}
+
+table.confusion-matrix td.header, table.confusion-matrix tr.footer {
+    text-align: left;
+    font-weight: bold; 
+}
+
 /* ------- Bootstrap Updates ------- */
 .modal-body, .modal-footer {padding: 15px;}
 .well {border-radius: 5px;}

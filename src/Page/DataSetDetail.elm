@@ -14,7 +14,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
-import Util exposing ((=>), dataSizeWithSuffix)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
 import View.Error as Error
@@ -269,7 +269,7 @@ viewDetailsCol model =
                             text <| dataSizeWithSuffix resp.dataSetSize
 
                         shapeDisplay =
-                            text <| toString resp.totalCount ++ " x " ++ toString (List.length resp.columns)
+                            styledNumber <| commaFormatInteger resp.totalCount ++ " x " ++ toString (List.length resp.columns)
 
                         createdDisplay =
                             text <| toShortDateString resp.dateCreated
