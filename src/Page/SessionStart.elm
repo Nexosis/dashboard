@@ -413,11 +413,7 @@ viewSessionType model =
                 :: [ sessionTypePanel
                         "https://nexosis.com/assets/img/features/classification.png"
                         "Classification"
-                        (p []
-                            [ text "Classification allows you to organize your data in labeled, logical, and consumable buckets. "
-                            , strong [] [ text "If you want to know if something is or is not a thing, classification is for you." ]
-                            ]
-                        )
+                        (explainer model.config "session_classification")
                         model.selectedSessionType
                         Classification
                    , sessionTypePanel
