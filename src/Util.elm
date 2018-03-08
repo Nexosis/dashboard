@@ -130,4 +130,4 @@ isActuallyInteger input =
 
 styledNumber : String -> Html.Html msg
 styledNumber input =
-    Html.span [ Html.Attributes.style [ ( "class", "number" ) ] ] [ Html.text input ]
+    Html.span [ Html.Attributes.class "number" ] [ Html.text input ]

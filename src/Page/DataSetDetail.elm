@@ -266,7 +266,7 @@ viewDetailsCol model =
                 Remote.Success resp ->
                     let
                         sizeDisplay =
-                            text <| dataSizeWithSuffix resp.dataSetSize
+                            styledNumber <| dataSizeWithSuffix resp.dataSetSize
 
                         shapeDisplay =
                             styledNumber <| commaFormatInteger resp.totalCount ++ " x " ++ toString (List.length resp.columns)

@@ -3,6 +3,7 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (toDataSetName)
+import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -35,7 +36,6 @@ type alias Model =
 defaultColumns : Dict String String -> SessionColumns msg
 defaultColumns tooltips =
     SessionColumns nameColumn
-        resultsActionColumn
         statusColumn
         dataSourceColumn
         typeColumn
@@ -44,7 +44,6 @@ defaultColumns tooltips =
 
 type alias SessionColumns msg =
     { name : Grid.Column SessionData msg
-    , actions : Grid.Column SessionData msg
     , status : Grid.Column SessionData msg
     , dataSource : Grid.Column SessionData msg
     , sessionType : Grid.Column SessionData msg
@@ -180,7 +179,6 @@ config toolTips =
         , toMsg = SetTableState
         , columns =
             [ col.name
-            , col.actions
             , col.status
             , col.dataSource
             , col.sessionType
@@ -206,7 +204,6 @@ configSessionGridReadonly toolTips =
         , toMsg = Grid.Readonly
         , columns =
             [ col.name |> Grid.makeUnsortable
-            , col.actions |> Grid.makeUnsortable
             , col.status |> Grid.makeUnsortable
             , col.dataSource |> Grid.makeUnsortable
             , col.sessionType |> Grid.makeUnsortable
@@ -230,24 +227,6 @@ sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
     Table.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
-
-
-resultsActionColumn : Grid.Column SessionData msg
-resultsActionColumn =
-    Grid.veryCustomColumn
-        { name = ""
-        , viewData = resultsActionButton
-        , sorter = Table.unsortable
-        , headAttributes = []
-        , headHtml = []
-        }
-
-
-resultsActionButton : SessionData -> Table.HtmlDetails msg
-resultsActionButton model =
-    Table.HtmlDetails [ class "action" ]
-        --todo - make action buttons to something
-        [ button [ class "btn btn-sm" ] [ text "View Results" ] ]
 
 
 statusColumn : Grid.Column SessionData msg
@@ -317,7 +296,6 @@ createdColumn =
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
-        --TODO: date from SessionData model. change decoder
         [ text (String.dropRight 22 model.requestedDate)
         ]
 

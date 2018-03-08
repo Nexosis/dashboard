@@ -24,7 +24,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
-import Util exposing ((=>), formatFloatToString)
+import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Charts as Charts
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
@@ -442,7 +442,7 @@ viewMetricsList results =
                     [ text key ]
                 , br []
                     []
-                , text value
+                , styledNumber <| formatFloatToString value
                 ]
     in
     div []
@@ -451,7 +451,7 @@ viewMetricsList results =
                 [ text "Metrics" ]
             ]
         , ul [ class "small algorithm-metrics" ]
-            (Dict.foldr (\key val html -> listMetric key (formatFloatToString val) :: html) [] results.metrics)
+            (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
 
 

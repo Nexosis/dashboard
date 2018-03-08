@@ -12,7 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), dataSizeWithSuffix, isJust, spinner)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -37,8 +37,8 @@ defaultColumns : Dict String String -> DataSetColumns msg
 defaultColumns tooltips =
     DataSetColumns nameColumn
         actionsColumn
-        (Grid.customStringColumn "Size" (\a -> dataSizeWithSuffix a.dataSetSize) [ class "per10" ] [])
-        (Grid.customUnsortableColumn "Shape" (\a -> toString a.rowCount ++ " x " ++ toString a.columnCount) [ class "per15" ] (helpIcon tooltips "Shape"))
+        sizeColumn
+        (shapeColumn tooltips)
         (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
         (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
@@ -269,3 +269,35 @@ dataSetDeleteButton dataSet =
     Table.HtmlDetails []
         [ button [ onClick (ShowDeleteDialog dataSet), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
+
+
+sizeColumn : Grid.Column DataSet msg
+sizeColumn =
+    Grid.veryCustomColumn
+        { name = "Size"
+        , viewData = sizeCell
+        , sorter = Table.increasingOrDecreasingBy (\a -> toString a.dataSetSize)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
+
+sizeCell : DataSet -> Table.HtmlDetails msg
+sizeCell dataset =
+    Table.HtmlDetails [] [ styledNumber (dataSizeWithSuffix dataset.dataSetSize) ]
+
+
+shapeColumn : Dict String String -> Grid.Column DataSet msg
+shapeColumn tooltips =
+    Grid.veryCustomColumn
+        { name = "Shape"
+        , viewData = shapeCell
+        , sorter = Table.unsortable
+        , headAttributes = [ class "per15" ]
+        , headHtml = helpIcon tooltips "Shape"
+        }
+
+
+shapeCell : DataSet -> Table.HtmlDetails msg
+shapeCell dataset =
+    Table.HtmlDetails [] [ styledNumber (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]

@@ -16,7 +16,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Task
-import Util exposing ((=>), formatFloatToString)
+import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.DeleteDialog as DeleteDialog
 
 
@@ -260,7 +260,7 @@ metricListItem ( name, value ) =
     li []
         [ strong [] [ text name ]
         , br [] []
-        , text (formatFloatToString value)
+        , styledNumber <| formatFloatToString value
         ]
 
 
