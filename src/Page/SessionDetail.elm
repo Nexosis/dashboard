@@ -5,7 +5,7 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.ConfusionMatrix exposing (ConfusionMatrix)
-import Data.DataSet exposing (toDataSetName)
+import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
@@ -21,6 +21,7 @@ import List.Extra as ListX
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
+import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
@@ -36,6 +37,7 @@ type alias Model =
     , sessionResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
+    , dataSetResponse : Remote.WebData DataSetData
     , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
@@ -53,7 +55,7 @@ init config sessionId =
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -62,6 +64,7 @@ type Msg
     | ShowDeleteDialog Model
     | DeleteDialogMsg DeleteDialog.Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
+    | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
 
 
@@ -113,6 +116,22 @@ update msg model =
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
 
+                                PredictionDomain.Regression ->
+                                    "result-vis"
+                                        => Charts.regressionResults results session model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
+                                PredictionDomain.Impact ->
+                                    let
+                                        dates =
+                                            Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                                    in
+                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) dates
+                                        |> Remote.sendRequest
+                                        |> Cmd.map DataSetLoaded
+
                                 _ ->
                                     Cmd.none
                     in
@@ -153,6 +172,31 @@ update msg model =
 
         ConfusionMatrixLoaded response ->
             { model | confusionMatrixResponse = response } => Cmd.none
+
+        DataSetLoaded response ->
+            case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
+                Remote.Success ( results, session, data ) ->
+                    let
+                        cmd =
+                            case session.predictionDomain of
+                                PredictionDomain.Impact ->
+                                    "result-vis"
+                                        => Charts.impactResults session results data model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
+                                _ ->
+                                    Cmd.none
+                    in
+                    { model | dataSetResponse = response }
+                        => cmd
+
+                Remote.Failure err ->
+                    model => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
 
         GetWindowWidth result ->
             let
@@ -481,7 +525,6 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
-
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =

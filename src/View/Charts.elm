@@ -1,12 +1,14 @@
-module View.Charts exposing (forecastResults, renderConfusionMatrix)
+module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
+import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
+import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
-import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html exposing (Html, div, h3, table, tbody, td, tr)
+import Html.Attributes exposing (class, style)
 import List.Extra exposing (find)
 import VegaLite exposing (..)
 
@@ -48,6 +50,217 @@ forecastResults sessionResults session windowWidth =
                 []
 
 
+impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
+impactResults session sessionResults dataSet windowWidth =
+    let
+        pointTypeName =
+            "Result Type"
+
+        targetColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Target)
+
+        timestampColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Timestamp)
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    case Maybe.map2 (,) targetColumn timestampColumn of
+        Just ( targetCol, timestampCol ) ->
+            let
+                sessionData =
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+
+                enc =
+                    encoding
+                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "Observations", "#04850d" )
+                                    ]
+                            ]
+            in
+            toVegaLite
+                [ VegaLite.title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
+                , VegaLite.width chartWidth
+                , VegaLite.height chartHeight
+                , autosize [ AFit, APadding ]
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , VegaLite.mark Line [ MInterpolate Monotone ]
+                , enc []
+                ]
+
+        _ ->
+            toVegaLite
+                []
+
+
+regressionResults : SessionResults -> SessionData -> Int -> Spec
+regressionResults sessionResults session windowWidth =
+    let
+        targetColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Target)
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    case targetColumn of
+        Just targetCol ->
+            let
+                dataValues =
+                    sessionResults.data
+                        |> List.map (resultsToPredictedObserved targetCol.name)
+
+                ( sumX, sumY ) =
+                    List.foldl (\( x, y ) ( sx, sy ) -> ( sx + x, sy + y )) ( 0, 0 ) dataValues
+
+                sumXSquare =
+                    List.foldl (\( x, _ ) s -> s + x ^ 2) 0 dataValues
+
+                sumXY =
+                    List.foldl (\( x, y ) s -> s + (x * y)) 0 dataValues
+
+                valuesLength =
+                    List.length dataValues |> toFloat
+
+                meanX =
+                    sumX / valuesLength
+
+                meanY =
+                    sumY / valuesLength
+
+                meanXY =
+                    sumXY / valuesLength
+
+                meanXSquare =
+                    sumXSquare / valuesLength
+
+                meanSquareX =
+                    meanX ^ 2
+
+                m =
+                    (meanXY - (meanX * meanY)) / (meanXSquare - meanSquareX)
+
+                b =
+                    meanY - m * meanX
+
+                actualName =
+                    targetCol.name ++ ":actual"
+
+                pointTypeName =
+                    "Result Type"
+
+                enc =
+                    encoding
+                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << position X [ PName actualName, PmType Quantitative ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "1:1 Baseline", "#04850d" )
+                                    , ( "Regression Line", "#990000" )
+                                    ]
+                            ]
+
+                lineSpec =
+                    asSpec
+                        [ enc []
+                        , mark Line []
+                        , transform << filter (FOneOf pointTypeName (Strings [ "1:1 Baseline", "Regression Line" ])) <| []
+                        ]
+
+                pointSpec =
+                    asSpec
+                        [ enc []
+                        , mark Circle []
+                        ]
+
+                resultData =
+                    sessionResults.data
+                        |> List.map
+                            (\values ->
+                                Dict.insert pointTypeName "Predictions" values
+                            )
+
+                baselineData =
+                    List.map
+                        (\values ->
+                            let
+                                actual =
+                                    Dict.get actualName values
+                                        |> Maybe.withDefault "0"
+                            in
+                            values
+                                |> Dict.insert pointTypeName "1:1 Baseline"
+                                |> Dict.insert targetCol.name actual
+                        )
+                        sessionResults.data
+
+                regressionData =
+                    sessionResults.data
+                        |> List.map
+                            (\values ->
+                                let
+                                    actual =
+                                        Dict.get actualName values
+                                            |> Maybe.withDefault "0"
+                                            |> String.toFloat
+                                            |> Result.withDefault 0
+                                in
+                                values
+                                    |> Dict.insert pointTypeName "Regression Line"
+                                    |> Dict.insert targetCol.name (toString <| m * actual + b)
+                            )
+
+                joinedData =
+                    resultData ++ baselineData ++ regressionData
+            in
+            toVegaLite
+                [ title "Results"
+                , width chartWidth
+                , height chartHeight
+                , autosize [ AFit, APadding ]
+                , dataFromRows [] <| List.concatMap resultsToRows joinedData
+                , layer
+                    [ lineSpec
+                    , pointSpec
+                    ]
+                ]
+
+        _ ->
+            toVegaLite
+                []
+
+
+resultsToPredictedObserved : String -> Dict String String -> ( Float, Float )
+resultsToPredictedObserved target result =
+    let
+        targetValue =
+            Dict.get target result
+
+        actualValue =
+            Dict.get (target ++ ":actual") result
+    in
+    Maybe.map2 (,) targetValue actualValue
+        |> Maybe.withDefault ( "0", "0" )
+        |> Tuple.mapFirst (String.toFloat >> Result.withDefault 0)
+        |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
+
+
 resultsToRows : Dict String String -> List DataRow
 resultsToRows result =
     dataRow
@@ -66,6 +279,29 @@ resultIntervalToTimeUnit resultInterval =
 
         _ ->
             YearMonthDate
+
+
+mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
+mapAggregation aggregate =
+    case aggregate of
+        AggregationStrategy.Sum ->
+            Sum
+
+        AggregationStrategy.Mean ->
+            Mean
+
+        AggregationStrategy.Median ->
+            Median
+
+        -- HACK: VegaLite doesn't support Mode, and it's a little weird anyhow. Faking it for now.
+        AggregationStrategy.Mode ->
+            Mean
+
+        AggregationStrategy.Min ->
+            Min
+
+        AggregationStrategy.Max ->
+            Max
 
 
 widthToSize : Int -> ( Float, Float )

@@ -287,7 +287,7 @@ createdColumn =
     Grid.veryCustomColumn
         { name = "Created"
         , viewData = createdCell
-        , sorter = Table.decreasingOrIncreasingBy .requestedDate
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateString a.requestedDate)
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
@@ -296,7 +296,7 @@ createdColumn =
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
     Table.HtmlDetails []
-        [ text (String.dropRight 22 model.requestedDate)
+        [ text (toShortDateString model.requestedDate)
         ]
 
 

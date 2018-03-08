@@ -1,13 +1,14 @@
-module Page.Home exposing (Model, Msg, init, update, view)
+module Page.Home exposing (Model, Msg(..), init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
+import Data.Response exposing (Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (class)
+import Html.Attributes exposing (attribute, class)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -31,18 +32,20 @@ type alias Model =
     , modelList : Remote.WebData ModelList
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
+    , quotas : Maybe Quotas
     , config : Config
     }
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
+init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
+init config quotas =
     Model
         Remote.Loading
         Remote.Loading
         Remote.Loading
         Remote.Loading
         []
+        quotas
         config
         => Cmd.batch
             [ Request.DataSet.get config 0 5
@@ -71,6 +74,7 @@ type Msg
     | ModelListResponse (Remote.WebData ModelList)
     | SubscriptionListResponse (Remote.WebData (List Subscription))
     | ShowApiKey String
+    | QuotasUpdated (Maybe Quotas)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -103,6 +107,9 @@ update msg model =
         ShowApiKey id ->
             { model | keysShown = toggleKeyShown id } => Cmd.none
 
+        QuotasUpdated quotas ->
+            { model | quotas = quotas } => Cmd.none
+
 
 
 -- VIEW --
@@ -122,7 +129,63 @@ view model =
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
                 ]
+            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
+                [ viewSidePanel (viewQuotas model.quotas)
+                ]
             ]
+        ]
+
+
+viewQuotas : Maybe Quotas -> Html Msg
+viewQuotas quotas =
+    case quotas of
+        Nothing ->
+            div [] []
+
+        Just quotas ->
+            div []
+                [ div [ class "row m0" ]
+                    [ h4 [ class "mb15" ]
+                        [ text "Usage Stats" ]
+                    , viewQuota "DataSets" quotas.dataSets
+                    , viewQuota "Sessions" quotas.sessions
+                    , viewQuota "Predictions" quotas.predictions
+                    ]
+                ]
+
+
+viewQuota : String -> Quota -> Html Msg
+viewQuota name quota =
+    let
+        progressBarType : Float -> String
+        progressBarType percentUsed =
+            if percentUsed < 0.8 then
+                "success"
+            else if percentUsed < 0.95 then
+                "warning"
+            else
+                "error"
+
+        percentUsed : Quota -> Float
+        percentUsed quota =
+            toFloat (Maybe.withDefault 0 quota.current) / toFloat (Maybe.withDefault 1 quota.allotted)
+
+        value val =
+            Maybe.withDefault 0 val
+    in
+    div []
+        [ p [] [ text name ]
+        , div [ class "progress" ]
+            [ div
+                [ class ("progress-bar progress-bar-" ++ (progressBarType <| percentUsed quota))
+                , attribute "role" "progressbar"
+                , attribute "aria-valuenow" (value quota.current |> toString)
+                , attribute "aria-valuemin" "0"
+                , attribute "aria-valuemax" (value quota.allotted |> toString)
+                ]
+                [ text ((value quota.current |> toString) ++ "/" ++ (value quota.allotted |> toString)) ]
+            ]
+        , hr [] []
         ]
 
 
