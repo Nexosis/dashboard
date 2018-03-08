@@ -115,7 +115,7 @@ export default {
                 use: [
                     {
                         loader: 'file-loader',
-                        options: { name: '[name].[ext]' }
+                        options: { name: 'docs/[name].[ext]' }
                     }
                 ]
             }

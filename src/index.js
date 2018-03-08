@@ -54,7 +54,15 @@ fetch('./config.json').then(function (response) {
         const docsRequests = []
         for(let doc of config.explainers) {
             const tmp = doc;
-            docsRequests.push(fetch(`./docs/${doc}.md`).then(resp=>resp.text()).then(text => {return  {name: tmp, content: text}}));
+            docsRequests.push(
+                fetch(`./docs/${doc}.md`)
+                    .then (resp => {
+                        if(resp.ok) {
+                            return resp.text().then(text=>{return {name: tmp, content: text}});
+                        }
+                        return Promise.resolve({err : resp.status});
+                    }
+                ));
         }
 
         Promise.all(docsRequests).then(docsContent => {
@@ -64,7 +72,14 @@ fetch('./config.json').then(function (response) {
             
             config.explainerContent = {};
             for(let c of docsContent) {
-                config.explainerContent[c.name] = c.content
+                if(!c.err)
+                {
+                    config.explainerContent[c.name] = c.content
+                }
+                else {
+                    console.log(c.err);
+                }
+                    
             }
 
             const mountNode = document.getElementById('main');
