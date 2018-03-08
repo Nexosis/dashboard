@@ -83,7 +83,7 @@ init config dataSetName =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Request.DataSet.getRetrieveDetail config dataSetName
+            Request.DataSet.getRetrieveDetail config dataSetName 
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 

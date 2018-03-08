@@ -1,8 +1,10 @@
-module View.Charts exposing (forecastResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
+import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
+import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
@@ -40,6 +42,61 @@ forecastResults sessionResults session windowWidth =
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
                 , VegaLite.mark Line []
+                , enc []
+                ]
+
+        _ ->
+            toVegaLite
+                []
+
+
+impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
+impactResults session sessionResults dataSet windowWidth =
+    let
+        pointTypeName =
+            "Result Type"
+
+        targetColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Target)
+
+        timestampColumn =
+            session.columns
+                |> find (\c -> c.role == Columns.Timestamp)
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    case Maybe.map2 (,) targetColumn timestampColumn of
+        Just ( targetCol, timestampCol ) ->
+            let
+                sessionData =
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+
+                enc =
+                    encoding
+                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "Observations", "#04850d" )
+                                    ]
+                            ]
+            in
+            toVegaLite
+                [ VegaLite.title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
+                , VegaLite.width chartWidth
+                , VegaLite.height chartHeight
+                , autosize [ AFit, APadding ]
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
 
@@ -222,6 +279,29 @@ resultIntervalToTimeUnit resultInterval =
 
         _ ->
             YearMonthDate
+
+
+mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
+mapAggregation aggregate =
+    case aggregate of
+        AggregationStrategy.Sum ->
+            Sum
+
+        AggregationStrategy.Mean ->
+            Mean
+
+        AggregationStrategy.Median ->
+            Median
+
+        -- HACK: VegaLite doesn't support Mode, and it's a little weird anyhow. Faking it for now.
+        AggregationStrategy.Mode ->
+            Mean
+
+        AggregationStrategy.Min ->
+            Min
+
+        AggregationStrategy.Max ->
+            Max
 
 
 widthToSize : Int -> ( Float, Float )
