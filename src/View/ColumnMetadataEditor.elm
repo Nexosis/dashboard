@@ -7,10 +7,10 @@ import Data.Config exposing (Config)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
+import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onInput)
-import List.Extra as ListX
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -31,7 +31,7 @@ type alias Model =
     , dataSetName : DataSetName
     , tableState : Table.State
     , config : Config
-    , modifiedMetadata : List ColumnMetadata
+    , modifiedMetadata : Dict String ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
     , showAutocomplete : Bool
@@ -40,7 +40,7 @@ type alias Model =
 
 type ExternalMsg
     = NoOp
-    | Updated
+    | Updated (List ColumnMetadata)
 
 
 type alias ColumnMetadataListing =
@@ -48,7 +48,7 @@ type alias ColumnMetadataListing =
     , totalPages : Int
     , pageSize : Int
     , totalCount : Int
-    , metadata : List ColumnMetadata
+    , metadata : Dict String ColumnMetadata
     }
 
 
@@ -67,7 +67,7 @@ type Msg
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
 init config dataSetName =
-    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config [] Autocomplete.empty "" False
+    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config Dict.empty Autocomplete.empty "" False
         => Cmd.none
 
 
@@ -84,7 +84,7 @@ mapColumnListToPagedListing columns =
     , totalPages = count // 10
     , pageSize = pageSize
     , totalCount = count
-    , metadata = columns
+    , metadata = DictX.fromListBy .name columns
     }
 
 
@@ -97,9 +97,9 @@ updateDataSetResponse model dataSetResponse =
         targetName =
             mappedColumns
                 |> Remote.map .metadata
-                |> Remote.withDefault []
-                |> ListX.find (\m -> m.role == Columns.Target)
-                |> Maybe.map .name
+                |> Remote.withDefault Dict.empty
+                |> DictX.find (\_ m -> m.role == Columns.Target)
+                |> Maybe.map Tuple.first
                 |> Maybe.withDefault ""
     in
     { model | columnMetadata = mappedColumns, targetQuery = targetName, showAutocomplete = False }
@@ -124,9 +124,7 @@ update msg model =
                     model => Cmd.none => NoOp
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
-                => NoOp
+            { model | tableState = newState } => Cmd.none => NoOp
 
         ChangePage pageNumber ->
             let
@@ -143,31 +141,40 @@ update msg model =
             { model | columnMetadata = columnListing } => cmd => NoOp
 
         RoleSelectionChanged metadata selection ->
-            { model
-                | modifiedMetadata =
-                    updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                        |> maybeAppendColumn model.modifiedMetadata
-            }
-                => Cmd.none
-                => Updated
+            let
+                updatedModel =
+                    { model
+                        | modifiedMetadata =
+                            updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                                |> maybeAppendColumn model.modifiedMetadata
+                    }
+            in
+            if selection == Target then
+                update (SetTarget metadata.name) updatedModel
+            else
+                updatedModel
+                    => Cmd.none
+                    => Updated (Dict.values updatedModel.modifiedMetadata)
 
         TypeSelectionChanged metadata selection ->
-            { model
-                | modifiedMetadata =
+            let
+                modifiedMetadata =
                     updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
                         |> maybeAppendColumn model.modifiedMetadata
-            }
+            in
+            { model | modifiedMetadata = modifiedMetadata }
                 => Cmd.none
-                => Updated
+                => Updated (Dict.values modifiedMetadata)
 
         ImputationSelectionChanged metadata selection ->
-            { model
-                | modifiedMetadata =
+            let
+                modifiedMetadata =
                     updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
                         |> maybeAppendColumn model.modifiedMetadata
-            }
+            in
+            { model | modifiedMetadata = modifiedMetadata }
                 => Cmd.none
-                => Updated
+                => Updated (Dict.values modifiedMetadata)
 
         SetQuery query ->
             let
@@ -200,11 +207,13 @@ update msg model =
                                 let
                                     newTarget =
                                         cm.metadata
-                                            |> ListX.find (\c -> c.name == targetName)
+                                            |> Dict.get targetName
 
                                     oldTarget =
                                         cm.metadata
-                                            |> ListX.find (\c -> c.role == Target)
+                                            |> Dict.union model.modifiedMetadata
+                                            |> DictX.find (\_ c -> c.role == Target)
+                                            |> Maybe.map Tuple.second
                                 in
                                 ( newTarget, oldTarget )
                             )
@@ -223,6 +232,10 @@ update msg model =
                     oldTarget
                         |> Maybe.map
                             (\old ->
+                                let
+                                    l =
+                                        Debug.log "old" old
+                                in
                                 updateRole (getExistingOrOriginalColumn metadataWithNew old) Feature
                                     |> maybeAppendColumn metadataWithNew
                             )
@@ -233,14 +246,14 @@ update msg model =
                         |> Maybe.map .name
                         |> Maybe.withDefault ""
             in
-            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False } => Cmd.none => NoOp
+            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False } => Cmd.none => Updated (Dict.values updatedMetadata)
 
 
 filterColumnNames : String -> Remote.WebData ColumnMetadataListing -> List ColumnMetadata
 filterColumnNames query columnMetadata =
     let
         columns =
-            columnMetadata |> Remote.map (\cm -> cm.metadata) |> Remote.withDefault []
+            columnMetadata |> Remote.map (\cm -> Dict.values cm.metadata) |> Remote.withDefault []
 
         lowerQuery =
             String.toLower query
@@ -272,10 +285,10 @@ autocompleteUpdateConfig =
         }
 
 
-getExistingOrOriginalColumn : List ColumnMetadata -> ColumnMetadata -> ColumnMetadata
+getExistingOrOriginalColumn : Dict String ColumnMetadata -> ColumnMetadata -> ColumnMetadata
 getExistingOrOriginalColumn modifiedList column =
     modifiedList
-        |> ListX.find (\a -> a.name == column.name)
+        |> Dict.get column.name
         |> Maybe.withDefault column
 
 
@@ -294,17 +307,12 @@ updateDataType column value =
     { column | dataType = value } => column.dataType == value
 
 
-maybeAppendColumn : List ColumnMetadata -> ( ColumnMetadata, Bool ) -> List ColumnMetadata
-maybeAppendColumn list ( metadata, unchanged ) =
+maybeAppendColumn : Dict String ColumnMetadata -> ( ColumnMetadata, Bool ) -> Dict String ColumnMetadata
+maybeAppendColumn dict ( metadata, unchanged ) =
     if unchanged then
-        list
+        dict
     else
-        case ListX.find (\a -> a.name == metadata.name) list of
-            Just col ->
-                ListX.replaceIf (\a -> a.name == metadata.name) metadata list
-
-            Nothing ->
-                List.append list [ metadata ]
+        Dict.insert metadata.name metadata dict
 
 
 updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
@@ -317,7 +325,7 @@ updateColumnPageSize pageSize columnListing =
     { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
 
 
-updateColumnMetadata : List ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
+updateColumnMetadata : Dict String ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
 updateColumnMetadata info columnListing =
     { columnListing | metadata = info } => Cmd.none
 
@@ -346,18 +354,9 @@ view model =
                 |> Remote.map
                     (\cm ->
                         let
-                            modifiedDict =
-                                model.modifiedMetadata
-                                    |> List.map (\m -> ( m.name, m ))
-                                    |> Dict.fromList
-
                             unionedMetadata =
                                 cm.metadata
-                                    |> List.map (\m -> ( m.name, m ))
-                                    |> Dict.fromList
-                                    |> Dict.union modifiedDict
-                                    |> Dict.toList
-                                    |> List.map Tuple.second
+                                    |> Dict.union model.modifiedMetadata
                         in
                         { cm | metadata = unionedMetadata }
                     )
@@ -383,8 +382,8 @@ viewTargetAndKeyColumns model =
                     let
                         keyGroup =
                             resp.metadata
-                                |> ListX.find (\m -> m.role == Columns.Key)
-                                |> Maybe.map viewKeyFormGroup
+                                |> DictX.find (\_ m -> m.role == Columns.Key)
+                                |> Maybe.map (viewKeyFormGroup << Tuple.second)
                                 |> Maybe.withDefault (div [] [])
                     in
                     ( keyGroup, viewTargetFormGroup model )
@@ -464,6 +463,7 @@ filterColumnsToDisplay columnListing =
             columnListing.pageSize * columnListing.pageNumber
     in
     columnListing.metadata
+        |> Dict.values
         |> List.drop drop
         |> List.take columnListing.pageSize
 

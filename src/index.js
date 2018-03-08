@@ -11,6 +11,7 @@ import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../interim.css'
 import '../elm-datepicker.css'
+import '../elm-autocomplete.css'
 
 
 if (!Intercept.isWired()) {

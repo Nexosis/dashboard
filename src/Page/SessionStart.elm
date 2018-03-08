@@ -315,8 +315,8 @@ update msg model =
 
                 modifiedMetadata =
                     case updateCmd of
-                        ColumnMetadataEditor.Updated ->
-                            newModel.modifiedMetadata
+                        ColumnMetadataEditor.Updated modifiedMetadata ->
+                            modifiedMetadata
 
                         _ ->
                             model.sessionColumnMetadata
