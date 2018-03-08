@@ -375,10 +375,7 @@ viewPasteData model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 []
-                    [ text "How to enter data" ]
-                , p []
-                    [ text "Paste instructions go here" ]
+                [ explainer model.config "how_paste_data"
                 ]
             ]
         ]
