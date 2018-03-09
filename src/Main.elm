@@ -27,7 +27,7 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
-import StateStorage as AppState exposing (Msg, appStateLoaded, loadAppState, modelDecoder, updateContext)
+import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, modelDecoder, updateContext)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -70,7 +70,7 @@ type Msg
     | CheckToken Time.Time
     | RenewToken (Result Http.Error NexosisToken)
     | ModelDetailMsg ModelDetail.Msg
-    | OnAppStateLoaded AppState.Msg
+    | OnAppStateLoaded StateStorage.Msg
 
 
 type Page
@@ -307,6 +307,15 @@ updatePage page msg app =
                 --todo - Log needs to finish first, try re-writing with tasks.
                 => Cmd.batch
                     [ Navigation.load app.context.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
+
+        ( OnAppStateLoaded ctx, _ ) ->
+            case ctx of
+                StateStorage.OnAppStateLoaded mbctx ->
+                    let
+                        newApp =
+                            updateContext app mbctx
+                    in
+                    newApp => Cmd.none
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the

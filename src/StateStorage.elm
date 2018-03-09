@@ -1,13 +1,14 @@
 -- From https://raw.githubusercontent.com/flq/elmorse/
 
 
-module StateStorage exposing (Msg, appStateLoaded, loadAppState, modelDecoder, saveAppState, updateContext)
+module StateStorage exposing (Msg(..), appStateLoaded, loadAppState, modelDecoder, saveAppState, updateContext)
 
 import Data.Config exposing (Config, configDecoder)
 import Data.Context exposing (ContextModel)
+import Dict
 import Interop exposing (objectRetrieved, retrieveObject, storeObject)
 import Json.Decode as Decode exposing (Decoder, float, int, list, string)
-import Json.Decode.Pipeline exposing (decode, hardcoded, optional, required)
+import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (object)
 
 
@@ -18,6 +19,7 @@ type Msg
 type alias ContextContainer a =
     { a
         | context : ContextModel
+        , config : Config
     }
 
 
@@ -35,8 +37,12 @@ updateContext : ContextContainer a -> Maybe ContextModel -> ContextContainer a
 updateContext model context =
     case context of
         Just ctx ->
+            let
+                newContext =
+                    { ctx | config = model.config }
+            in
             { model
-                | context = ctx
+                | context = newContext
             }
 
         Nothing ->
@@ -81,5 +87,5 @@ encode ctx =
 modelDecoder : Decoder ContextModel
 modelDecoder =
     decode ContextModel
-        |> hardcoded 10
-        |> required "config" configDecoder
+        |> required "defaultPageSize" Decode.int
+        |> hardcoded (Config "" Nothing "" "" "" Dict.empty)
