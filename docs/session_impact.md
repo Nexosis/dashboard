@@ -1,0 +1,1 @@
+Impact analysis, a type of forecasting, uncovers the effect of past events on your data. **If you want to know what if, impact analysis has your answers.**

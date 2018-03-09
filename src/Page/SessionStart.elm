@@ -419,41 +419,25 @@ viewSessionType model =
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/regression.png"
                         "Regression"
-                        (p []
-                            [ text "Regression uncovers relationships in your data to estimate the unknown, missing, or unmeasured. "
-                            , strong [] [ text "If you want to know the unknown, regression is a good choice." ]
-                            ]
-                        )
+                        (explainer model.config "session_regression")
                         model.selectedSessionType
                         Regression
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/forecasting.png"
                         "Forecasting"
-                        (p []
-                            [ text "Forecasting finds patterns in your time series data to predict what's next. "
-                            , strong [] [ text "If you want to know the unknown, regression is a good choice." ]
-                            ]
-                        )
+                        (explainer model.config "session_forecasting")
                         model.selectedSessionType
                         Forecast
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/impact-analysis.png"
                         "Impact Analysis"
-                        (p []
-                            [ text "Impact analysis, a type of forecasting, uncovers the effect of past events on your data. "
-                            , strong [] [ text "If you want to know what if, impact analysis has your answers." ]
-                            ]
-                        )
+                        (explainer model.config "session_impact")
                         model.selectedSessionType
                         Impact
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/anomaly-detection.png"
                         "Anomaly Detection"
-                        (p []
-                            [ text "Anomaly detection discovers the unusual and outliers in your data. "
-                            , strong [] [ text "If you want to know what's weird, anomaly detection has your back." ]
-                            ]
-                        )
+                        (explainer model.config "session_anomaly")
                         model.selectedSessionType
                         Anomalies
                    ]
@@ -635,88 +619,7 @@ viewSetBalance model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Why should I balance my test set?" ]
-                , p [] [ text "Balancing your data ensures that your test set has data from every label. ", strong [] [ text "Your test set is balanced by default." ] ]
-                , p [] [ a [] [ text "Learn more." ] ]
-                , hr [] []
-                , div [ class "row well m15 p15" ]
-                    [ div [ class "col-sm-6" ]
-                        [ h6 [ class "center" ]
-                            [ text "Not balanced" ]
-                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
-                            [ tbody []
-                                [ tr []
-                                    [ th [ class "left" ]
-                                        [ text "Negative" ]
-                                    , td [ class "success" ]
-                                        [ text "710" ]
-                                    , td [ class "warning" ]
-                                        [ text "63" ]
-                                    , td [ class "warning" ]
-                                        [ text "27" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Neutral" ]
-                                    , td [ class "danger" ]
-                                        [ text "128" ]
-                                    , td [ class "success" ]
-                                        [ text "151" ]
-                                    , td [ class "warning" ]
-                                        [ text "29" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Positive" ]
-                                    , td [ class "warning" ]
-                                        [ text "46" ]
-                                    , td [ class "warning" ]
-                                        [ text "31" ]
-                                    , td [ class "success" ]
-                                        [ text "166" ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    , div [ class "col-sm-6" ]
-                        [ h6 [ class "center" ]
-                            [ text "Balanced" ]
-                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
-                            [ tbody []
-                                [ tr []
-                                    [ th [ class "left" ]
-                                        [ text "Negative" ]
-                                    , td [ class "success" ]
-                                        [ text "695" ]
-                                    , td [ class "warning" ]
-                                        [ text "72" ]
-                                    , td [ class "warning" ]
-                                        [ text "32" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Neutral" ]
-                                    , td [ class "danger" ]
-                                        [ text "107" ]
-                                    , td [ class "success" ]
-                                        [ text "169" ]
-                                    , td [ class "warning" ]
-                                        [ text "30" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Positive" ]
-                                    , td [ class "warning" ]
-                                        [ text "39" ]
-                                    , td [ class "warning" ]
-                                        [ text "29" ]
-                                    , td [ class "success" ]
-                                        [ text "176" ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
+                [ explainer model.config "session_classification_balance"
                 ]
             ]
         ]
