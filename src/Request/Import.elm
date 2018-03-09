@@ -1,4 +1,4 @@
-module Request.Import exposing (get, postUrl)
+module Request.Import exposing (PostUrlRequest, get, postUrl)
 
 import Data.Config exposing (Config, withAuthorization)
 import Data.Import exposing (ImportDetail, decodeImportDetail)
@@ -7,8 +7,14 @@ import HttpBuilder exposing (withExpectJson)
 import Json.Encode exposing (Value, encode)
 
 
-postUrl : Config -> String -> String -> Http.Request ImportDetail
-postUrl { token, baseUrl } dataSetName url =
+type alias PostUrlRequest =
+    { dataSetName : String
+    , url : String
+    }
+
+
+postUrl : Config -> PostUrlRequest -> Http.Request ImportDetail
+postUrl { token, baseUrl } { dataSetName, url } =
     (baseUrl ++ "/imports/url")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportUrl dataSetName url))

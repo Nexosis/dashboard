@@ -1,4 +1,4 @@
-module Request.DataSet exposing (MetadataUpdateRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -75,8 +75,15 @@ delete { baseUrl, token } name cascadeOptions =
         |> HttpBuilder.toRequest
 
 
-put : Config -> String -> String -> String -> Http.Request ()
-put { baseUrl, token } name content contentType =
+type alias PutUploadRequest =
+    { name : String
+    , content : String
+    , contentType : String
+    }
+
+
+put : Config -> PutUploadRequest -> Http.Request ()
+put { baseUrl, token } { name, content, contentType } =
     (baseUrl ++ "/data/" ++ name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)

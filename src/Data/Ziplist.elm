@@ -1,4 +1,4 @@
-module Data.Ziplist exposing (Ziplist, advance, create, rewind)
+module Data.Ziplist exposing (Ziplist, advance, create, find, rewind)
 
 import List.Extra as List
 
@@ -50,3 +50,37 @@ create prev current rest =
     , current = current
     , next = rest
     }
+
+
+first : Ziplist a -> Ziplist a
+first ({ previous, current, next } as zipper) =
+    case List.reverse previous of
+        [] ->
+            zipper
+
+        y :: ys ->
+            create [] y (ys ++ [ current ] ++ next)
+
+
+find : (a -> Bool) -> Ziplist a -> Maybe (Ziplist a)
+find pred ziplist =
+    let
+        resetToFirst =
+            first ziplist
+    in
+    findItem pred resetToFirst
+
+
+findItem : (a -> Bool) -> Ziplist a -> Maybe (Ziplist a)
+findItem pred ziplist =
+    if pred ziplist.current then
+        Just ziplist
+    else
+        let
+            nextZiplist =
+                advance ziplist
+        in
+        if nextZiplist == ziplist then
+            Nothing
+        else
+            findItem pred nextZiplist

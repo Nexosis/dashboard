@@ -1,4 +1,4 @@
-module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -96,7 +96,6 @@ type alias ModelSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : Maybe String
     , predictionDomain : PredictionDomain
     , balance : Maybe Bool
     , containsAnomalies : Maybe Bool
@@ -123,14 +122,6 @@ encodeModelSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn"
-          , case sessionRequest.targetColumn of
-                Just target ->
-                    Encode.string <| target
-
-                Nothing ->
-                    Encode.null
-          )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
         , ( "extraParameters", encodeExtraParameters <| sessionRequest )
         ]
@@ -140,9 +131,10 @@ type alias ForecastSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : DateTime
+        , endDate : DateTime
+        }
     , resultInterval : ResultInterval
     }
 
@@ -167,9 +159,8 @@ encodeForecastSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
 
@@ -178,9 +169,10 @@ type alias ImpactSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : DateTime
+        , endDate : DateTime
+        }
     , eventName : String
     , resultInterval : ResultInterval
     }
@@ -206,9 +198,8 @@ encodeImpactSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
