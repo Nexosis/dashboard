@@ -12,6 +12,7 @@ import { getCookie } from './js/cookies';
 import '../interim.css'
 import '../elm-datepicker.css'
 import { initLocalStoragePort } from './js/localStoragePort';
+import '../elm-autocomplete.css'
 
 
 if (!Intercept.isWired()) {

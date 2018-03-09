@@ -152,7 +152,7 @@ view model =
                 [ h2 [ class "mt10" ] [ text "Datasets" ]
                 ]
             , div [ class "col-sm-6 right" ]
-                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
                 ]
             ]
         , hr [] []
@@ -264,7 +264,7 @@ dataSetActionButton dataSet =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         --todo - Change the button text and color based on the status
-        [ a [ class "btn btn-sm", AppRoutes.href (AppRoutes.SessionStart dataSet.dataSetName) ] [ text "Start Session" ] ]
+        [ a [ AppRoutes.href (AppRoutes.SessionStart dataSet.dataSetName) ] [ button [ class "btn btn-danger btn-sm" ] [ text "Start Session" ] ] ]
 
 
 deleteColumn : Grid.Column DataSet Msg

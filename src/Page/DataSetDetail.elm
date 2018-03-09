@@ -7,6 +7,7 @@ import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, 
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
@@ -99,8 +100,8 @@ update msg model =
                         ColumnMetadataEditor.NoOp ->
                             Cmd.none
 
-                        ColumnMetadataEditor.Updated ->
-                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName newModel.modifiedMetadata)
+                        ColumnMetadataEditor.Updated modifiedMetadata ->
+                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                                 |> Cmd.map MetadataUpdated
             in
@@ -156,7 +157,12 @@ update msg model =
                     model.columnMetadataEditorModel
 
                 newMetadataModel =
-                    { metadataModel | modifiedMetadata = [] }
+                    { metadataModel
+                        | modifiedMetadata = Dict.empty
+                        , columnMetadata =
+                            metadataModel.columnMetadata
+                                |> Remote.map (\cm -> { cm | metadata = Dict.union metadataModel.modifiedMetadata cm.metadata })
+                    }
             in
             case response of
                 Remote.Success () ->
@@ -212,7 +218,7 @@ viewNameRow model =
         [ div [ class "col-sm-6" ]
             [ h2 [ class "mt10" ] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
-            [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn mt10" ] [ text "Start Session" ]
+            [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
         ]
 
