@@ -85,7 +85,7 @@ generatePageButtons currentPage numberOfPages changePageMsg =
         |> List.map
             (\num ->
                 button
-                    [ class "btn other"
+                    [ class "btn btn-default"
                     , disabled (num == currentPageDisplay)
                     , onClick (changePageMsg (num - 1))
                     ]
@@ -95,11 +95,11 @@ generatePageButtons currentPage numberOfPages changePageMsg =
 
 backButton : Bool -> msg -> Html msg
 backButton isEnabled msg =
-    button [ class "btn other", disabled (not isEnabled), onClick msg ]
+    button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
         [ i [ class "fa fa-angle-left" ] [] ]
 
 
 nextButton : Bool -> msg -> Html msg
 nextButton isEnabled msg =
-    button [ class "btn other", disabled (not isEnabled), onClick msg ]
+    button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
         [ i [ class "fa fa-angle-right" ] [] ]
