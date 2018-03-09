@@ -631,9 +631,7 @@ viewColumnMetadata model =
         [ h3 [ class "mt0" ] [ text "Edit your column metadata" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Working with column metadata" ]
-                , p [] [ text " Column metadata determines how the data in each column will be handled." ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_column_metadata"
                 ]
             ]
         , div [ class "form-group col-sm-6" ]
