@@ -1,7 +1,7 @@
 module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
 
 import AppRoutes
-import Data.Config as Config exposing (Config)
+import Data.Context as AppContext exposing (ContextModel)
 import Data.Response as Response exposing (GlobalMessage, Response)
 import Feature exposing (Feature)
 import Html exposing (..)
@@ -29,7 +29,7 @@ type alias PageValues a =
         | lastRequest : String
         , lastResponse : Maybe Response
         , messages : List GlobalMessage
-        , config : Config
+        , context : ContextModel
         , enabledFeatures : List Feature
     }
 

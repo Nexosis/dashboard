@@ -4,6 +4,7 @@ import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel)
 import Data.Response as Response
+import Dict
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
@@ -26,7 +27,7 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
-import StateStorage as AppState exposing (Msg, loadAppState)
+import StateStorage as AppState exposing (Msg, appStateLoaded, loadAppState, modelDecoder, updateContext)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -104,9 +105,9 @@ getQuotas resp =
 
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
 setRoute route app =
-    case app.config.token of
+    case app.context.config.token of
         Nothing ->
-            app => Navigation.load app.config.loginUrl
+            app => Navigation.load app.context.config.loginUrl
 
         Just _ ->
             let
@@ -121,70 +122,70 @@ setRoute route app =
                 Just AppRoutes.Home ->
                     let
                         ( pageModel, initCmd ) =
-                            Home.init app.config (getQuotas app.lastResponse)
+                            Home.init app.context.config (getQuotas app.lastResponse)
                     in
                     ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )
 
                 Just AppRoutes.DataSets ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSets.init app.config
+                            DataSets.init app.context.config
                     in
                     { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
                 Just (AppRoutes.DataSetDetail name) ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSetDetail.init app.config name
+                            DataSetDetail.init app.context.config name
                     in
                     { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
                 Just AppRoutes.DataSetAdd ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSetAdd.init app.config
+                            DataSetAdd.init app.context.config
                     in
                     { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd
 
                 Just AppRoutes.Imports ->
                     let
                         ( pageModel, initCmd ) =
-                            Imports.init app.config
+                            Imports.init app.context.config
                     in
                     ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
                 Just AppRoutes.Sessions ->
                     let
                         ( pageModel, initCmd ) =
-                            Sessions.init app.config
+                            Sessions.init app.context.config
                     in
                     ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
                 Just (AppRoutes.SessionDetail id) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionDetail.init app.config id
+                            SessionDetail.init app.context.config id
                     in
                     ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
 
                 Just (AppRoutes.SessionStart dataSetName) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionStart.init app.config dataSetName
+                            SessionStart.init app.context.config dataSetName
                     in
                     ( { app | page = SessionStart pageModel }, Cmd.map SessionStartMsg initCmd )
 
                 Just AppRoutes.Models ->
                     let
                         ( pageModel, initCmd ) =
-                            Models.init app.config
+                            Models.init app.context.config
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
                 Just (AppRoutes.ModelDetail id predict) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.config id predict
+                            ModelDetail.init app.context.config id predict
                     in
                     ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 
@@ -270,12 +271,12 @@ updatePage page msg app =
                         |> DateTime.addHours 1
                         |> DateTime.toTimestamp
             in
-            case app.config.token of
+            case app.context.config.token of
                 Just nexosisToken ->
                     if Jwt.isExpired hourFromNow nexosisToken.rawToken |> Result.toMaybe |> Maybe.withDefault True then
                         let
                             renewTokenRequest =
-                                Token.renewAccessToken app.config
+                                Token.renewAccessToken app.context.config
                                     |> Http.send RenewToken
                         in
                         app => renewTokenRequest
@@ -288,18 +289,24 @@ updatePage page msg app =
         ( RenewToken (Ok newToken), _ ) ->
             let
                 config =
-                    app.config
+                    app.context.config
 
                 newConfig =
                     { config | token = Just newToken }
+
+                context =
+                    app.context
+
+                newContext =
+                    { context | config = newConfig }
             in
-            { app | config = newConfig } => Cmd.none
+            { app | context = newContext } => Cmd.none
 
         ( RenewToken (Err err), _ ) ->
             app
                 --todo - Log needs to finish first, try re-writing with tasks.
                 => Cmd.batch
-                    [ Navigation.load app.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
+                    [ Navigation.load app.context.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
@@ -410,9 +417,10 @@ subscriptions model =
     case model of
         Initialized app ->
             Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse app.config.baseUrl >> ResponseReceived)
+                [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
+                , Sub.map OnAppStateLoaded appStateLoaded
                 ]
 
         InitializationError _ ->
@@ -452,9 +460,18 @@ init flags location =
     case flagDecodeResult of
         Ok appContext ->
             let
+                context =
+                    appContext.context
+
+                newContext =
+                    { context | config = appContext.config }
+
+                newApp =
+                    { appContext | context = newContext }
+
                 ( app, cmd ) =
                     setRoute (AppRoutes.fromLocation location)
-                        appContext
+                        newApp
             in
             Initialized app
                 => Cmd.batch [ cmd, Task.perform CheckToken Time.now, loadAppState ]
@@ -473,7 +490,7 @@ flagsDecoder =
         |> Pipeline.hardcoded Nothing
         |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
-        |> Pipeline.hardcoded (ContextModel 10)
+        |> Pipeline.hardcoded (ContextModel 10 (Config "" Nothing "" "" "" Dict.empty))
 
 
 main : Program Value Model Msg

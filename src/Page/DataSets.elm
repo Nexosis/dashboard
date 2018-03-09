@@ -85,7 +85,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         DataSetListResponse resp ->
-            { model | dataSetList = resp } => saveAppState (ContextModel model.pageSize)
+            { model | dataSetList = resp } => Cmd.none
 
         SetTableState newState ->
             { model | tableState = newState }
