@@ -226,7 +226,7 @@ viewSubscription model subscription =
             -- TODO : put this back in when we have time to wire up copy to clipboard
             --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm btn-link"
+                [ class "btn btn-sm btn-link btn-danger"
                 , onClick (ShowApiKey subscription.id)
                 ]
                 [ i [ class "fa fa-eye mr5" ] []

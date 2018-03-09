@@ -149,7 +149,7 @@ view model =
             [ dataSourceName model
             , div [ class "col-sm-3" ]
                 [ div [ class "mt10 right" ]
-                    [ button [ class "btn", onClick (TogglePredict ()) ] [ text "Predict" ]
+                    [ button [ class "btn btn-danger", onClick (TogglePredict ()) ] [ text "Predict" ]
                     ]
                 ]
             ]
