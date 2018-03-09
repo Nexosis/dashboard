@@ -263,7 +263,7 @@ viewSessionDetails model =
             [ loadingOr (pendingOrCompleted model) ]
 
         --, p []
-        --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+        --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
         , div [ class "col-sm-5" ]
@@ -359,7 +359,7 @@ viewSessionButtons model =
                 []
             , text "(TODO) Iterate session"
             ]
-        , button [ class "btn btn-xs secondary", onClick (ShowDeleteDialog model) ]
+        , button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
             [ i [ class "fa fa-trash-o mr5" ]
                 []
             , text "Delete"
@@ -525,6 +525,7 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =

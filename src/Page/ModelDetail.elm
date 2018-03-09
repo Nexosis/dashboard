@@ -168,7 +168,7 @@ view model =
                     ]
                 ]
             , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ]
+                [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
                     [ i [ class "fa fa-trash-o mr5" ] []
                     , text "Delete"
                     ]

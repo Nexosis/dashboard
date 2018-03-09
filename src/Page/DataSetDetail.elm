@@ -228,7 +228,7 @@ viewIdRow model =
     div [ class "row" ]
         [ div [ class "col-sm-8" ] []
         , div [ class "col-sm-4 right" ]
-            [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
+            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
             ]
         ]
 

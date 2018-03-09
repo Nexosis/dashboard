@@ -28,7 +28,7 @@ viewButtons wizardConfig canAdvance ziplist =
     in
     div [ class "form-group" ]
         [ button
-            [ class "btn secondary"
+            [ class "btn btn-primary"
             , onClick wizardConfig.prevMessage
             , tabindex -1
             , disabled <| not allowPrev

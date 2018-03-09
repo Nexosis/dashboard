@@ -491,7 +491,7 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
                                 [ classList
                                     [ ( "btn", True )
                                     , ( "other", not isSelected )
-                                    , ( "secondary", isSelected )
+                                    , ( "btn-primary", isSelected )
                                     ]
                                 , onClick (SelectSessionType selectCmd)
                                 ]
