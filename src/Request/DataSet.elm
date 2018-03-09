@@ -4,7 +4,7 @@ import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
-import HttpBuilder exposing (RequestBuilder, withExpect)
+import HttpBuilder exposing (RequestBuilder, withExpectJson)
 import Json.Encode as Encode
 import Set
 
@@ -12,16 +12,12 @@ import Set
 get : Config -> Int -> Int -> Http.Request DataSetList
 get { baseUrl, token } page pageSize =
     let
-        expect =
-            DataSet.decodeDataSetList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/data")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -30,16 +26,12 @@ get { baseUrl, token } page pageSize =
 getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
 getRetrieveDetail { baseUrl, token } name =
     let
-        expect =
-            DataSet.decodeDataSetData
-                |> Http.expectJson
-
         params =
             pageParams 0 Config.pageSize
     in
     (baseUrl ++ "/data/" ++ dataSetNameToString name)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -48,17 +40,13 @@ getRetrieveDetail { baseUrl, token } name =
 getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> Http.Request DataSetData
 getDataByDateRange { baseUrl, token } name dateRange =
     let
-        expect =
-            DataSet.decodeDataSetData
-                |> Http.expectJson
-
         params =
             pageParams 0 1000
                 ++ dateParams dateRange
     in
     (baseUrl ++ "/data/" ++ dataSetNameToString name)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -66,14 +54,9 @@ getDataByDateRange { baseUrl, token } name dateRange =
 
 getStats : Config -> DataSetName -> Http.Request DataSetStats
 getStats { baseUrl, token } name =
-    let
-        expect =
-            DataSet.decodeDataSetStats
-                |> Http.expectJson
-    in
     (baseUrl ++ "/data/" ++ dataSetNameToString name ++ "/stats")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
         |> withAuthorization token
         |> HttpBuilder.toRequest
 

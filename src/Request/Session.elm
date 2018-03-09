@@ -15,16 +15,12 @@ import Time.DateTime exposing (DateTime, toISO8601)
 get : Config -> Int -> Int -> Http.Request SessionList
 get { baseUrl, token } page pageSize =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -33,16 +29,12 @@ get { baseUrl, token } page pageSize =
 results : Config -> String -> Int -> Int -> Http.Request SessionResults
 results { baseUrl, token } sessionId page pageSize =
     let
-        expect =
-            decodeSessionResults
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionResults
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -58,16 +50,12 @@ pageParams page pageSize =
 getConfusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
 getConfusionMatrix { baseUrl, token } sessionId page pageSize =
     let
-        expect =
-            decodeConfusionMatrix
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeConfusionMatrix
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -76,16 +64,12 @@ getConfusionMatrix { baseUrl, token } sessionId page pageSize =
 getForDataset : Config -> DataSetName -> Http.Request SessionList
 getForDataset { baseUrl, token } dataSetName =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             [ ( "dataSetName", dataSetNameToString dataSetName ) ]
     in
     (baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -99,17 +83,11 @@ delete { baseUrl, token } sessionId =
         |> HttpBuilder.toRequest
 
 
-expectSessionData : Http.Expect SessionData
-expectSessionData =
-    decodeSession
-        |> Http.expectJson
-
-
 getOne : Config -> String -> Http.Request SessionData
 getOne { baseUrl, token } sessionId =
     (baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.toRequest
 
@@ -133,7 +111,7 @@ postModel { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/model")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
@@ -177,7 +155,7 @@ postForecast { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/forecast")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
@@ -216,7 +194,7 @@ postImpact { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/impact")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
