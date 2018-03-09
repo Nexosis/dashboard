@@ -591,9 +591,7 @@ viewContainsAnomalies model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Why does it matter whether my data has anomalies or not?" ]
-                , p [] [ text "Determining whether your dataset has anomalies will determine how the model is trained. If you don't have anomalies, the end model will treat anything unusual to the training set as anomaly. If it does, it will use the outliers to determine what an anomaly is. ", strong [] [ text "Your dataset has anomalies by default." ] ]
-                , p [] [ a [] [ text "Learn more." ] ]
+                [ explainer model.config "session_anomaly_details"
                 ]
             ]
         ]
