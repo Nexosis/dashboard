@@ -222,7 +222,9 @@ viewSubscription model subscription =
     div []
         [ p [ class "mb0" ]
             [ strong [] [ text subscription.name ]
-            , a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
+
+            -- TODO : put this back in when we have time to wire up copy to clipboard
+            --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
                 [ class "btn btn-sm btn-link"
                 , onClick (ShowApiKey subscription.id)
