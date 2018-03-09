@@ -112,11 +112,13 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div [ class "page-header", class "row" ]
-        [ div [ class "col-sm-12" ]
-            [ p [ class "breadcrumb" ]
-                [ span []
-                    [ a [ href "#" ] [ text "API Dashboard" ]
+    div []
+        [ div [ class "page-header", class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ p [ class "breadcrumb" ]
+                    [ span []
+                        [ a [ href "#" ] [ text "API Dashboard" ]
+                        ]
                     ]
                 ]
             ]
