@@ -2,7 +2,6 @@ module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), 
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
-import Data.Config exposing (Config)
 import Data.Context exposing (..)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
@@ -12,7 +11,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
-import StateStorage exposing (loadAppState, saveAppState)
+import StateStorage
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
 import View.DeleteDialog as DeleteDialog
@@ -50,22 +49,22 @@ type alias Model =
     , currentPage : Int
     , pageSize : Int
     , tableState : Table.State
-    , config : Config
+    , context : ContextModel
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
-loadDataSetList : Config -> Int -> Int -> Cmd Msg
-loadDataSetList config pageNum pageSize =
-    Request.DataSet.get config pageNum pageSize
+loadDataSetList : ContextModel -> Int -> Int -> Cmd Msg
+loadDataSetList context pageNum pageSize =
+    Request.DataSet.get context.config pageNum pageSize
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing
-        => loadDataSetList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading 0 context.defaultPageSize (Table.initialSort "dataSetName") context Nothing
+        => loadDataSetList context 0 context.defaultPageSize
 
 
 
@@ -93,11 +92,24 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList model.config pgNum model.pageSize
+                => loadDataSetList model.context pgNum model.context.defaultPageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadDataSetList model.config 0 pageSize
+            let
+                context =
+                    model.context
+
+                newContext =
+                    { context | defaultPageSize = pageSize }
+
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0, context = newContext }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadDataSetList model.context 0 pageSize
+                    , StateStorage.saveAppState newContext
+                    ]
 
         ShowDeleteDialog dataSet ->
             let
@@ -109,7 +121,7 @@ update msg model =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete model.context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -120,7 +132,7 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList model.config model.currentPage model.pageSize
+                            loadDataSetList model.context model.currentPage model.context.defaultPageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -151,9 +163,9 @@ view model =
                         [ h3 [] [ text "Dataset explainer" ]
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize ]
+                        [ PageSize.view ChangePageSize model.pageSize ]
                     ]
-                , viewDataSetGrid model.config.toolTips model.tableState model.dataSetList
+                , viewDataSetGrid model.context.config.toolTips model.tableState model.dataSetList
                 , hr [] []
                 , div [ class "center" ]
                     [ Pager.view model.dataSetList ChangePage ]

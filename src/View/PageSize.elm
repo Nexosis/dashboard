@@ -6,15 +6,15 @@ import Html.Events exposing (on, targetValue)
 import Json.Decode exposing (Decoder, andThen, fail, field, string, succeed)
 
 
-view : (Int -> msg) -> Html msg
-view changeSize =
+view : (Int -> msg) -> Int -> Html msg
+view changeSize pageSize =
     div [ class "mr5" ]
         [ label [] [ text "View" ]
         , select [ on "change" (Json.Decode.map changeSize decodeInt) ]
-            [ option [ value "10" ] [ text "10" ]
-            , option [ value "25" ] [ text "25" ]
-            , option [ value "50" ] [ text "50" ]
-            , option [ value "100" ] [ text "100" ]
+            [ option [ selected (pageSize == 10), value "10" ] [ text "10" ]
+            , option [ selected (pageSize == 25), value "25" ] [ text "25" ]
+            , option [ selected (pageSize == 50), value "50" ] [ text "50" ]
+            , option [ selected (pageSize == 100), value "100" ] [ text "100" ]
             ]
         ]
 

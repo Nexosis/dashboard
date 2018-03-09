@@ -150,7 +150,7 @@ view model =
                                 ]
                             ]
                         , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                            [ PageSize.view ChangePageSize ]
+                            [ PageSize.view ChangePageSize model.pageSize ]
                         ]
                     ]
                 ]

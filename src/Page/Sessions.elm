@@ -144,7 +144,7 @@ view model =
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ] [ h3 [] [ text "Session Explainer" ] ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize ]
+                        [ PageSize.view ChangePageSize model.pageSize ]
                     ]
                 , div []
                     [ viewSessionsGrid model.config.toolTips model.tableState model.sessionList

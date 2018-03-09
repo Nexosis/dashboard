@@ -5,7 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import RemoteData exposing (WebData)
-import StateStorage exposing (loadAppState, saveAppState)
+import StateStorage exposing (saveAppState)
 
 
 type alias PagedValues a =

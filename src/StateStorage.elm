@@ -30,6 +30,10 @@ stateKey =
 
 loadAppState : Cmd msg
 loadAppState =
+    let
+        x =
+            Debug.log "loadAppState" "Here"
+    in
     retrieveObject stateKey
 
 
@@ -53,6 +57,10 @@ appStateLoaded : Sub Msg
 appStateLoaded =
     let
         getModel json =
+            let
+                x =
+                    Debug.log "getModel" "here"
+            in
             case Decode.decodeValue modelDecoder json of
                 Ok m ->
                     Just m
@@ -69,6 +77,9 @@ appStateLoaded =
 saveAppState : ContextModel -> Cmd msg
 saveAppState model =
     let
+        x =
+            Debug.log "saveAppState" "here"
+
         map m =
             { defaultPageSize = m.defaultPageSize
             , config = m.config
