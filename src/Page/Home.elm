@@ -220,13 +220,14 @@ viewSubscriptions model subscriptions =
 viewSubscription : Model -> Subscription -> Html Msg
 viewSubscription model subscription =
     div []
-        [ p [ class "mb5" ]
+        [ p [ class "mb0" ]
             [ strong [] [ text subscription.name ]
+            , a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm"
+                [ class "btn btn-sm btn-link"
                 , onClick (ShowApiKey subscription.id)
                 ]
-                [ i [ class "fa fa-eye" ] []
+                [ i [ class "fa fa-eye mr5" ] []
                 ]
             , p [ class "obfuscate" ]
                 [ viewApiKey model subscription
@@ -269,7 +270,7 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
                     div [] []
 
                 Just route ->
-                    a [ AppRoutes.href route, class "btn btn-sm" ]
+                    a [ AppRoutes.href route, class "btn btn-danger btn-sm" ]
                         [ i [ class "fa fa-plus" ] []
                         , text (" Add " ++ String.toLower thing)
                         ]
@@ -277,11 +278,11 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-6 pl10" ]
+                [ div [ class "col-sm-6 p10" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
-                , div [ class "col-sm-6 right" ]
-                    [ a [ AppRoutes.href linkRoute, class "btn secondary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
+                , div [ class "col-sm-6 pt5 pr0 right" ]
+                    [ a [ AppRoutes.href linkRoute, class "btn btn-primary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
                     , addButton addRoute
                     ]
                 ]
