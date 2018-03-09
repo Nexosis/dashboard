@@ -230,7 +230,7 @@ predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ a
-            [ class "btn btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId True) ]
+            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId True) ]
             [ text "Predict" ]
         ]
 
