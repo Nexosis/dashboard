@@ -9,7 +9,7 @@ import '../config.json';
 import * as toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
-import '../interim.css'
+import '../dashboard.css'
 import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
 

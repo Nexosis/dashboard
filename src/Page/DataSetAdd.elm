@@ -479,7 +479,6 @@ viewUploadTab model =
             [ div [ class "form-group col-sm-8" ]
                 [ input
                     [ id "upload-dataset"
-                    , class "upload-file"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
                     ]
