@@ -1,6 +1,7 @@
 module Page.SessionStart exposing (Model, Msg, init, update, view)
 
 import AppRoutes exposing (Route)
+import Data.Columns as Columns
 import Data.Config exposing (Config)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
@@ -30,6 +31,7 @@ type alias Model =
     , dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
+    , sessionColumnMetadata : List Columns.ColumnMetadata
     , sessionName : String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
@@ -95,6 +97,7 @@ init config dataSetName =
         dataSetName
         Remote.Loading
         editorModel
+        []
         ""
         Nothing
         Remote.NotAsked
@@ -177,7 +180,7 @@ update msg model =
                                     , dataSourceName = model.dataSetName
                                     , targetColumn = Just ""
                                     , predictionDomain = PredictionDomain.Regression
-                                    , columns = []
+                                    , columns = model.sessionColumnMetadata
                                     , balance = Nothing
                                     , containsAnomalies = Nothing
                                     }
@@ -193,7 +196,7 @@ update msg model =
                                     , dataSourceName = model.dataSetName
                                     , targetColumn = Nothing
                                     , predictionDomain = PredictionDomain.Anomalies
-                                    , columns = []
+                                    , columns = model.sessionColumnMetadata
                                     , balance = Nothing
                                     , containsAnomalies = Just model.containsAnomalies
                                     }
@@ -209,7 +212,7 @@ update msg model =
                                     , dataSourceName = model.dataSetName
                                     , targetColumn = Just ""
                                     , predictionDomain = PredictionDomain.Classification
-                                    , columns = []
+                                    , columns = model.sessionColumnMetadata
                                     , balance = Just model.balance
                                     , containsAnomalies = Nothing
                                     }
@@ -226,7 +229,7 @@ update msg model =
                                     , targetColumn = ""
                                     , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
                                     , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , columns = []
+                                    , columns = model.sessionColumnMetadata
                                     , resultInterval = model.resultInterval
                                     }
                             in
@@ -242,7 +245,7 @@ update msg model =
                                     , targetColumn = ""
                                     , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
                                     , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , columns = []
+                                    , columns = model.sessionColumnMetadata
                                     , eventName = model.eventName |> Maybe.withDefault ""
                                     , resultInterval = model.resultInterval
                                     }
@@ -309,8 +312,19 @@ update msg model =
             let
                 ( ( newModel, cmd ), updateCmd ) =
                     ColumnMetadataEditor.update subMsg model.columnEditorModel
+
+                modifiedMetadata =
+                    case updateCmd of
+                        ColumnMetadataEditor.Updated modifiedMetadata ->
+                            modifiedMetadata
+
+                        _ ->
+                            model.sessionColumnMetadata
             in
-            { model | columnEditorModel = newModel }
+            { model
+                | columnEditorModel = newModel
+                , sessionColumnMetadata = modifiedMetadata
+            }
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         _ ->
