@@ -130,15 +130,16 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        --todo - breadcrumbs ?
-        [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ] [ text "Datasets" ]
-                ]
-            , div [ class "col-sm-6 right" ]
-                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+    div [ id "page-header", class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
+            , div [ class "row" ]
+                [ div [ class "col-sm-6" ]
+                    [ h2 [ class "mt10" ] [ text "Datasets" ]
+                    ]
+                , div [ class "col-sm-6 right" ]
+                    [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+                    ]
                 ]
             ]
         , hr [] []

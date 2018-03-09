@@ -183,13 +183,14 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        --todo breadcrumb
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "API Dashboard" ]
-                , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-                , a [ href "#" ] [ text "Datasets" ]
+    div [ id "page-header", class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ p [ class "breadcrumb" ]
+                [ span []
+                    [ a [ href "#" ] [ text "API Dashboard" ]
+                    , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
+                    , a [ href "#" ] [ text "Datasets" ]
+                    ]
                 ]
             ]
         , viewNameRow model
