@@ -489,9 +489,7 @@ viewStartEndDates model =
         [ h3 [ class "mt0" ] [ text "Select start and end dates" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Forecasting start and end dates" ]
-                , p [] [ text "Need info" ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_forecast_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
@@ -523,9 +521,7 @@ viewImpactStartEndDates model =
         [ h3 [ class "mt0" ] [ text "Event Details" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Event Info" ]
-                , p [] [ text "Need info" ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_impact_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
