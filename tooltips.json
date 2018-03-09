@@ -2,5 +2,6 @@
     "Shape": "Shape refers to the rows and columns in your dataset.  Shown as (rows x columns)",
     "Type": "The datatype of the column values.",
     "Role": "How the column should be used by machine learning algorithms.",
-    "Imputation": "Imputation method to use in case of missing values."
+    "Imputation": "Imputation method to use in case of missing values.",
+    "Datasets" : "A dataset is a unique set of observations, variables, and values from which a model is built."
 }
