@@ -3,5 +3,7 @@
     "Type": "The datatype of the column values.",
     "Role": "How the column should be used by machine learning algorithms.",
     "Imputation": "Imputation method to use in case of missing values.",
-    "Datasets" : "A dataset is a unique set of observations, variables, and values from which a model is built."
+    "Datasets" : "A dataset is a unique set of observations, variables, and values from which a model is built.",
+    "Models" : "A model is the type of algorithm selected for a dataset that is used for predictions.",
+    "Sessions": "A session is a request that initiates the process of creating a model from a dataset."
 }

@@ -17,6 +17,7 @@ import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
 import View.Pager as Pager
+import View.Tooltip exposing (helpIcon)
 
 
 ---- MODEL ----
@@ -120,7 +121,7 @@ view model =
                 ]
             ]
         , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Models" ] ]
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon model.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , div []
