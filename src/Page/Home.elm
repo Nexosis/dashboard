@@ -157,18 +157,20 @@ viewQuotas quotas =
 viewQuota : String -> Quota -> Html Msg
 viewQuota name quota =
     let
-        progressBarType : Float -> String
+        progressBarType : Int -> String
         progressBarType percentUsed =
-            if percentUsed < 0.8 then
+            if percentUsed < 80 then
                 "success"
-            else if percentUsed < 0.95 then
+            else if percentUsed < 95 then
                 "warning"
             else
                 "error"
 
-        percentUsed : Quota -> Float
+        percentUsed : Quota -> Int
         percentUsed quota =
-            toFloat (Maybe.withDefault 0 quota.current) / toFloat (Maybe.withDefault 1 quota.allotted)
+            (toFloat (Maybe.withDefault 0 quota.current) / toFloat (Maybe.withDefault 1 quota.allotted))
+                |> (\a -> a * 100)
+                |> truncate
 
         value val =
             Maybe.withDefault 0 val
@@ -182,6 +184,7 @@ viewQuota name quota =
                 , attribute "aria-valuenow" (value quota.current |> toString)
                 , attribute "aria-valuemin" "0"
                 , attribute "aria-valuemax" (value quota.allotted |> toString)
+                , attribute "style" ("width: " ++ toString (percentUsed quota) ++ "%")
                 ]
                 [ text ((value quota.current |> toString) ++ "/" ++ (value quota.allotted |> toString)) ]
             ]
