@@ -218,7 +218,7 @@ viewNameRow model =
         [ div [ class "col-sm-6" ]
             [ h2 [ class "mt10" ] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
-            [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn mt10" ] [ text "Start Session" ]
+            [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
         ]
 
