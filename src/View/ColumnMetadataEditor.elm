@@ -585,29 +585,32 @@ statsDisplay columnStats =
             div [ class "row m0" ]
                 [ div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Min: " ]
-                    , styledNumber <| formatFloatToString stats.min
+                    , styledNumber <| stats.min
                     , br [] []
                     , strong [] [ text "Max: " ]
-                    , styledNumber <| formatFloatToString stats.max
+                    , styledNumber <| stats.max
                     , br [] []
                     , strong [] [ text "Standard Deviation: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
                     , strong [ class "text-danger" ] [ text "Errors: " ]
-                    , styledNumber <| commaFormatInteger stats.errors
+                    , styledNumber <| commaFormatInteger stats.errorCount
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
-                    , styledNumber <| commaFormatInteger stats.row_count
+                    , styledNumber <| commaFormatInteger stats.totalCount
                     , br [] []
                     , strong [ class "text-danger" ] [ text "# Missing: " ]
-                    , styledNumber <| commaFormatInteger stats.missing
+                    , styledNumber <| commaFormatInteger stats.missingCount
                     , br [] []
                     , strong [] [ text "Mean: " ]
                     , styledNumber <| formatFloatToString stats.mean
                     , br [] []
                     , strong [] [ text "Median: " ]
                     , styledNumber <| formatFloatToString stats.median
+                    , br [] []
+                    , strong [] [ text "Mode: " ]
+                    , styledNumber <| stats.mode
                     ]
                 ]
 
