@@ -85,12 +85,12 @@ init config dataSetName =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Request.DataSet.getRetrieveDetail config dataSetName 
+            Request.DataSet.getRetrieveDetail config dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
-            ColumnMetadataEditor.init config dataSetName
+            ColumnMetadataEditor.init config dataSetName True
     in
     Model config
         steps
@@ -157,17 +157,27 @@ update msg model =
 
         ( SessionType, SelectSessionType sessionType ) ->
             let
-                steps =
+                columnModel =
+                    model.columnEditorModel
+
+                ( steps, showTarget ) =
                     if sessionType == Forecast || sessionType == Impact then
                         Ziplist.create model.steps.previous model.steps.current (StartEndDates :: defaultRemainingSteps)
+                            => True
                     else if sessionType == Anomalies then
                         Ziplist.create model.steps.previous model.steps.current (ContainsAnomalies :: defaultRemainingSteps)
+                            => False
                     else if sessionType == Classification then
                         Ziplist.create model.steps.previous model.steps.current (SetBalance :: defaultRemainingSteps)
+                            => True
                     else
                         Ziplist.create model.steps.previous model.steps.current defaultRemainingSteps
+                            => True
+
+                columnEditorModel =
+                    { columnModel | showTarget = showTarget }
             in
-            { model | selectedSessionType = Just sessionType, steps = steps } => Cmd.none
+            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel } => Cmd.none
 
         ( StartSession, StartTheSession ) ->
             let
