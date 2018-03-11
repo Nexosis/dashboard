@@ -366,15 +366,24 @@ view model =
 
             StartSession ->
                 viewStartSession model
-        , viewButtons configWizard (isValid model) model.steps
+        , div [class "col-sm-12 well well-sm right"]
+            [viewButtons configWizard (isValid model) model.steps
+            ]
         ]
 
 
 viewNameSession : Model -> Html Msg
 viewNameSession model =
-    div [ class "col-sm-12" ]
+    div [][
+    div [class "col-sm-12 session-step"]
+    [
+        div [class "col-sm-6 p10"] [h3 [] [text "Name your session"]]
+        , div [class "col-sm-6 right"]
+        [viewButtons configWizard (isValid model) model.steps]
+    ]
+    , div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-4" ]
-            [ h3 [ class "mt0" ] [ text "Session name" ]
+            [ label [ ] [ text "Session name" ]
             , input [ class "form-control", value model.sessionName, onInput ChangeSessionName ] []
             ]
         , div [ class "help col-sm-6 pull-right" ]
@@ -384,6 +393,7 @@ viewNameSession model =
                 ]
             ]
         ]
+    ]
 
 
 viewSelectDataSet : Model -> Html Msg
