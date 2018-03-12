@@ -1,0 +1,1 @@
+Anomaly detection discovers the unusual and outliers in your data. **If you want to know what's weird, anomaly detection has your back.**

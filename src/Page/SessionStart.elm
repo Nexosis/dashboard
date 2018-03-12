@@ -14,6 +14,7 @@ import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (postForecast, postImpact, postModel)
@@ -389,8 +390,7 @@ viewNameSession model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "How to name your session" ]
-                , p [] [ text "Name your session something descriptive yet memorable so that you can easily recall the purpose of each session." ]
+                [ explainer model.config "how_name_session"
                 ]
             ]
         ]
@@ -423,51 +423,31 @@ viewSessionType model =
                 :: [ sessionTypePanel
                         "https://nexosis.com/assets/img/features/classification.png"
                         "Classification"
-                        (p []
-                            [ text "Classification allows you to organize your data in labeled, logical, and consumable buckets. "
-                            , strong [] [ text "If you want to know if something is or is not a thing, classification is for you." ]
-                            ]
-                        )
+                        (explainer model.config "session_classification")
                         model.selectedSessionType
                         Classification
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/regression.png"
                         "Regression"
-                        (p []
-                            [ text "Regression uncovers relationships in your data to estimate the unknown, missing, or unmeasured. "
-                            , strong [] [ text "If you want to know the unknown, regression is a good choice." ]
-                            ]
-                        )
+                        (explainer model.config "session_regression")
                         model.selectedSessionType
                         Regression
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/forecasting.png"
                         "Forecasting"
-                        (p []
-                            [ text "Forecasting finds patterns in your time series data to predict what's next. "
-                            , strong [] [ text "If you want to know the unknown, regression is a good choice." ]
-                            ]
-                        )
+                        (explainer model.config "session_forecasting")
                         model.selectedSessionType
                         Forecast
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/impact-analysis.png"
                         "Impact Analysis"
-                        (p []
-                            [ text "Impact analysis, a type of forecasting, uncovers the effect of past events on your data. "
-                            , strong [] [ text "If you want to know what if, impact analysis has your answers." ]
-                            ]
-                        )
+                        (explainer model.config "session_impact")
                         model.selectedSessionType
                         Impact
                    , sessionTypePanel
                         "https://nexosis.com/assets/img/features/anomaly-detection.png"
                         "Anomaly Detection"
-                        (p []
-                            [ text "Anomaly detection discovers the unusual and outliers in your data. "
-                            , strong [] [ text "If you want to know what's weird, anomaly detection has your back." ]
-                            ]
-                        )
+                        (explainer model.config "session_anomaly")
                         model.selectedSessionType
                         Anomalies
                    ]
@@ -519,9 +499,7 @@ viewStartEndDates model =
         [ h3 [ class "mt0" ] [ text "Select start and end dates" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Forecasting start and end dates" ]
-                , p [] [ text "Need info" ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_forecast_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
@@ -553,9 +531,7 @@ viewImpactStartEndDates model =
         [ h3 [ class "mt0" ] [ text "Event Details" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Event Info" ]
-                , p [] [ text "Need info" ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_impact_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
@@ -625,9 +601,7 @@ viewContainsAnomalies model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Why does it matter whether my data has anomalies or not?" ]
-                , p [] [ text "Determining whether your dataset has anomalies will determine how the model is trained. If you don't have anomalies, the end model will treat anything unusual to the training set as anomaly. If it does, it will use the outliers to determine what an anomaly is. ", strong [] [ text "Your dataset has anomalies by default." ] ]
-                , p [] [ a [] [ text "Learn more." ] ]
+                [ explainer model.config "session_anomaly_details"
                 ]
             ]
         ]
@@ -649,88 +623,7 @@ viewSetBalance model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Why should I balance my test set?" ]
-                , p [] [ text "Balancing your data ensures that your test set has data from every label. ", strong [] [ text "Your test set is balanced by default." ] ]
-                , p [] [ a [] [ text "Learn more." ] ]
-                , hr [] []
-                , div [ class "row well m15 p15" ]
-                    [ div [ class "col-sm-6" ]
-                        [ h6 [ class "center" ]
-                            [ text "Not balanced" ]
-                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
-                            [ tbody []
-                                [ tr []
-                                    [ th [ class "left" ]
-                                        [ text "Negative" ]
-                                    , td [ class "success" ]
-                                        [ text "710" ]
-                                    , td [ class "warning" ]
-                                        [ text "63" ]
-                                    , td [ class "warning" ]
-                                        [ text "27" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Neutral" ]
-                                    , td [ class "danger" ]
-                                        [ text "128" ]
-                                    , td [ class "success" ]
-                                        [ text "151" ]
-                                    , td [ class "warning" ]
-                                        [ text "29" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Positive" ]
-                                    , td [ class "warning" ]
-                                        [ text "46" ]
-                                    , td [ class "warning" ]
-                                        [ text "31" ]
-                                    , td [ class "success" ]
-                                        [ text "166" ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    , div [ class "col-sm-6" ]
-                        [ h6 [ class "center" ]
-                            [ text "Balanced" ]
-                        , table [ class "table table-bordered", attribute "style" "background-color: #fff;" ]
-                            [ tbody []
-                                [ tr []
-                                    [ th [ class "left" ]
-                                        [ text "Negative" ]
-                                    , td [ class "success" ]
-                                        [ text "695" ]
-                                    , td [ class "warning" ]
-                                        [ text "72" ]
-                                    , td [ class "warning" ]
-                                        [ text "32" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Neutral" ]
-                                    , td [ class "danger" ]
-                                        [ text "107" ]
-                                    , td [ class "success" ]
-                                        [ text "169" ]
-                                    , td [ class "warning" ]
-                                        [ text "30" ]
-                                    ]
-                                , tr []
-                                    [ th [ class "left" ]
-                                        [ text "Positive" ]
-                                    , td [ class "warning" ]
-                                        [ text "39" ]
-                                    , td [ class "warning" ]
-                                        [ text "29" ]
-                                    , td [ class "success" ]
-                                        [ text "176" ]
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
+                [ explainer model.config "session_classification_balance"
                 ]
             ]
         ]
@@ -742,9 +635,7 @@ viewColumnMetadata model =
         [ h3 [ class "mt0" ] [ text "Edit your column metadata" ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Working with column metadata" ]
-                , p [] [ text " Column metadata determines how the data in each column will be handled." ]
-                , p [] [ a [] [ text "Read more in our documentation." ] ]
+                [ explainer model.config "session_column_metadata"
                 ]
             ]
         , div [ class "form-group col-sm-6" ]
