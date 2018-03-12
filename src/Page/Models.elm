@@ -205,7 +205,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId False) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
         ]
 
 
@@ -235,7 +235,7 @@ predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ a
-            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId True) ]
+            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId) ]
             [ text "Predict" ]
         ]
 

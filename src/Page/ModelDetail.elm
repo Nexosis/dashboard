@@ -30,13 +30,13 @@ type alias Model =
     }
 
 
-init : Config -> String -> Bool -> ( Model, Cmd Msg )
-init config modelId showPredict =
+init : Config -> String -> ( Model, Cmd Msg )
+init config modelId =
     let
         loadModelDetail =
             Request.Model.getOne config modelId
                 |> Remote.sendRequest
-                |> Cmd.map (ModelResponse showPredict)
+                |> Cmd.map ModelResponse
     in
     Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
 
@@ -53,8 +53,7 @@ subscriptions model =
 
 
 type Msg
-    = ModelResponse Bool (Remote.WebData ModelData)
-    | TogglePredict ()
+    = ModelResponse (Remote.WebData ModelData)
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
@@ -63,35 +62,16 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ModelResponse showPredict response ->
+        ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    let
-                        nextCommand =
-                            if showPredict then
-                                Task.perform TogglePredict (Task.succeed ())
-                            else
-                                Cmd.none
-                    in
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => nextCommand
+                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init model.config model.modelId) } => Cmd.none
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
 
                 _ ->
                     model => Cmd.none
-
-        TogglePredict _ ->
-            let
-                predictModel =
-                    case model.predictModel of
-                        Nothing ->
-                            Just (ModelPredict.init model.config model.modelId)
-
-                        Just _ ->
-                            Nothing
-            in
-            { model | predictModel = predictModel } => Cmd.none
 
         ModelPredictMsg subMsg ->
             let
@@ -142,7 +122,7 @@ view model =
             [ div [ class "col-sm-12" ]
                 [ p [ class "breadcrumb" ]
                     [ span []
-                        [ a [ href "#" ] [ text "Api Dashboard" ]
+                        [ a [ href "#" ] [ text "API Dashboard" ]
                         ]
                     , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
                     , span [] [ a [ href "/#/models" ] [ text "Models" ] ]
@@ -150,33 +130,9 @@ view model =
                 ]
             ]
         , div [ class "row" ]
-            [ dataSourceName model
+            [ modelName model
             , div [ class "col-sm-3" ]
-                [ div [ class "mt10 right" ]
-                    [ button [ class "btn btn-danger", onClick (TogglePredict ()) ] [ text "Predict" ]
-                    ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong [] [ text "Model ID:" ]
-                    , text (padSpace model.modelId)
-                    , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
-                    ]
-                ]
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong [] [ text "Model Type:" ]
-                    , text (padSpace (toString model.modelType))
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
-                    [ i [ class "fa fa-trash-o mr5" ] []
-                    , text "Delete"
-                    ]
-                ]
+                []
             ]
         , hr [] []
         , detailRow model
@@ -201,11 +157,11 @@ renderPredict model =
             div [] []
 
 
-dataSourceName : Model -> Html Msg
-dataSourceName model =
+modelName : Model -> Html Msg
+modelName model =
     case model.modelResponse of
         Remote.Success resp ->
-            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text ("Model for " ++ resp.dataSourceName) ] ]
+            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
         Remote.Loading ->
             text "Loading..."
@@ -234,8 +190,26 @@ detailRow model =
                         , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
                         ]
                     ]
-                , div [ class "col-sm-5" ] [ metricsList resp.algorithm.name resp.metrics ]
-                , div [ class "col-sm-3 " ] []
+                , div [ class "col-sm-4" ] [ metricsList resp.algorithm.name resp.metrics ]
+                , div [ class "col-sm-4 " ]
+                    [ p [] [ strong [] [ text "Model Type: " ], text (toString model.modelType) ]
+                    , p []
+                        [ strong [] [ text "Model ID:" ]
+                        , br [] []
+                        , text (padSpace model.modelId)
+                        , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
+                        ]
+                    , p []
+                        [ strong [] [ text "API Endpoint Url" ]
+                        , br [] []
+                        , text ("/models/" ++ model.modelId)
+                        , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
+                        ]
+                    , button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
+                        [ i [ class "fa fa-trash-o mr5" ] []
+                        , text "Delete Model"
+                        ]
+                    ]
                 ]
 
         Remote.Loading ->
@@ -252,10 +226,11 @@ metricsList algo metrics =
             [ strong [] [ text "Algorithm: " ]
             , text algo
             ]
-        , p [ class "small" ]
+        , p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "true", attribute "aria-controls" "metrics" ]
             [ strong [] [ text "Metrics" ]
+            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics" ] (List.map metricListItem (Dict.toList metrics))
+        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map metricListItem (Dict.toList metrics))
         ]
 
 

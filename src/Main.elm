@@ -177,10 +177,10 @@ setRoute route app =
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
-                Just (AppRoutes.ModelDetail id predict) ->
+                Just (AppRoutes.ModelDetail id) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.config id predict
+                            ModelDetail.init app.config id
                     in
                     ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 
