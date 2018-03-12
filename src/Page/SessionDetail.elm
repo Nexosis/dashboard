@@ -228,7 +228,6 @@ view model =
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
-        , hr [] []
         , viewConfusionMatrix model
         , viewResultsGraph model
         , DeleteDialog.view model.deleteDialogModel
@@ -256,7 +255,7 @@ viewSessionDetails model =
                 div []
                     [ viewPendingSession session ]
     in
-    div [ class "row" ]
+    div [ class "row", id "details" ]
         [ div [ class "col-sm-3" ]
             [ loadingOr (pendingOrCompleted model) ]
 
