@@ -255,34 +255,54 @@ viewSessionDetails model =
             else
                 div []
                     [ viewPendingSession session ]
-
-        statusHistoryOrMessages session =
-            if sessionIsCompleted session then
-                viewMessages session
-            else
-                viewStatusHistory session
     in
     div [ class "row" ]
-        [ div [ class "col-sm-4" ]
+        [ div [ class "col-sm-3" ]
             [ loadingOr (pendingOrCompleted model) ]
 
         --, p []
         --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
+        , div [ class "col-sm-4" ]
+            [ loadingOr (viewSessionInfo model)
+            ]
         , div [ class "col-sm-5" ]
-            [ --loadingOr statusHistoryOrMessages
-              loadingOr viewMessages
+            [ loadingOr viewMessages
             , loadingOr viewStatusHistory
             ]
-        , div [ class "col-sm-3" ]
-            []
+        ]
+
+
+viewSessionInfo : Model -> SessionData -> Html Msg
+viewSessionInfo model session =
+    div []
+        [ p []
+            [ strong []
+                [ text "Session Type: " ]
+            , text <| toString session.predictionDomain
+            ]
+        , p []
+            [ strong [] [ text "Session ID: " ]
+            , br [] []
+            , span [ class "small" ] [ text session.sessionId, a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            ]
+        , p []
+            [ deleteSessionButton model
+            ]
         ]
 
 
 viewMessages : SessionData -> Html Msg
 viewMessages session =
-    Messages.viewMessages session.messages
+    div []
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
+            [ strong [] [ text "Messages" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , Messages.viewMessagesCollapsed
+            session.messages
+        ]
 
 
 viewStatusHistory : SessionData -> Html Msg
@@ -298,9 +318,11 @@ viewStatusHistory session =
                 ]
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Status Log" ]
-        , table [ class "table table-striped" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" "false", attribute "aria-controls" "status-log" ]
+            [ strong [] [ text "Status log" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , table [ class "table table-striped collapse", id "status-log" ]
             [ thead []
                 [ tr []
                     [ th [ class "per10" ]
@@ -342,20 +364,6 @@ viewSessionHeader model =
                         ]
                     ]
                 ]
-
-            {- , div [ class "row" ]
-               [ loadingOr viewSessionId
-               , div [ class "col-sm-4" ]
-                   [ p [ class "small" ]
-                       [ strong []
-                           [ text "Session Type: " ]
-                       , loadingOr (\s -> text <| toString s.predictionDomain)
-                       ]
-                   ]
-               , div [ class "col-sm-4 right" ]
-                   [ viewSessionButtons model
-                   ]
-            -}
             ]
         ]
 
@@ -374,7 +382,7 @@ deleteSessionButton model =
     button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
         [ i [ class "fa fa-trash-o mr5" ]
             []
-        , text "Delete"
+        , text "Delete session"
         ]
 
 
