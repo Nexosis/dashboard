@@ -2,6 +2,7 @@ module Page.Models exposing (Model, Msg, init, update, view, viewModelGridReadon
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
@@ -57,8 +58,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         ModelListResponse resp ->
             { model | modelList = resp } => Cmd.none

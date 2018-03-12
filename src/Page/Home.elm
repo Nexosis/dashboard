@@ -2,6 +2,7 @@ module Page.Home exposing (Model, Msg(..), init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
 import Data.Response exposing (Quota, Quotas, Response)
@@ -77,8 +78,8 @@ type Msg
     | QuotasUpdated (Maybe Quotas)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     let
         toggleKeyShown id =
             case List.member id model.keysShown of

@@ -2,6 +2,7 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 
 import AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
@@ -77,8 +78,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         SessionListResponse resp ->
             { model | sessionList = resp } => Cmd.none

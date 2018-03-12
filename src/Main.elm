@@ -243,13 +243,6 @@ updatePage page msg app =
         toPage toModel toMsg subUpdate subMsg subModel =
             let
                 ( newModel, newCmd ) =
-                    subUpdate subMsg subModel
-            in
-            ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
-
-        toContextPage toModel toMsg subUpdate subMsg subModel =
-            let
-                ( newModel, newCmd ) =
                     subUpdate subMsg subModel app.context
             in
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
@@ -264,7 +257,7 @@ updatePage page msg app =
             toPage Home HomeMsg Home.update subMsg subModel
 
         ( DataSetsMsg subMsg, DataSets subModel ) ->
-            toContextPage DataSets DataSetsMsg DataSets.update subMsg subModel
+            toPage DataSets DataSetsMsg DataSets.update subMsg subModel
 
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel

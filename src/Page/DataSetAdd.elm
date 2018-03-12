@@ -2,6 +2,7 @@ module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataFormat as DataFormat
 import Data.DataSet
 import Data.File as File
@@ -161,8 +162,8 @@ type TabMsg
     | ImportUrlInputChange String
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case ( model.steps.current, msg ) of
         ( ChooseUploadType, ChangeName name ) ->
             { model | name = name }

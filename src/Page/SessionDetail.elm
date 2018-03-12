@@ -5,6 +5,7 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.ConfusionMatrix exposing (ConfusionMatrix)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
@@ -68,8 +69,8 @@ type Msg
     | GetWindowWidth (Result String Int)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         SessionResponse response ->
             case response of
@@ -525,6 +526,7 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =

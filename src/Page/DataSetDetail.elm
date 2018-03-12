@@ -3,6 +3,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
@@ -79,8 +80,8 @@ type Msg
     | MetadataUpdated (Remote.WebData ())
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         DataSetDataResponse resp ->
             let

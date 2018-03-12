@@ -3,6 +3,7 @@ module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
 import Data.Model exposing (..)
 import Data.PredictionDomain exposing (..)
@@ -60,8 +61,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         ModelResponse showPredict response ->
             case response of

@@ -3,6 +3,7 @@ module Page.SessionStart exposing (Model, Msg, init, update, view)
 import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval, SessionData)
@@ -149,8 +150,8 @@ defaultRemainingSteps =
     [ ColumnMetadata, StartSession ]
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case ( model.steps.current, msg ) of
         ( NameSession, ChangeSessionName sessionName ) ->
             { model | sessionName = sessionName } => Cmd.none
