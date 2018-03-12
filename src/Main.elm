@@ -218,6 +218,9 @@ update msg model =
                             in
                             Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd ]
 
+                OnAppStateUpdated ctx ->
+                    model => Cmd.none
+
                 _ ->
                     InitializationError
                         "Unknown initialization message"
@@ -243,6 +246,13 @@ updatePage page msg app =
                     subUpdate subMsg subModel
             in
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
+
+        toContextPage toModel toMsg subUpdate subMsg subModel =
+            let
+                ( newModel, newCmd ) =
+                    subUpdate subMsg subModel app.context
+            in
+            ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
     case ( msg, page ) of
         -- Update for page transitions
@@ -254,7 +264,7 @@ updatePage page msg app =
             toPage Home HomeMsg Home.update subMsg subModel
 
         ( DataSetsMsg subMsg, DataSets subModel ) ->
-            toPage DataSets DataSetsMsg DataSets.update subMsg subModel
+            toContextPage DataSets DataSetsMsg DataSets.update subMsg subModel
 
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
             toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
@@ -412,7 +422,7 @@ view model =
                         |> Html.map HomeMsg
 
                 DataSets subModel ->
-                    DataSets.view subModel
+                    DataSets.view subModel app.context
                         |> layout Page.DataSets
                         |> Html.map DataSetsMsg
 
