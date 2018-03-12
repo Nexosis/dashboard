@@ -1,4 +1,4 @@
--- From https://raw.githubusercontent.com/flq/elmorse/
+-- From https://github.com/flq/elmorse
 
 
 module StateStorage exposing (Msg(..), appStateLoaded, loadAppState, saveAppState, updateContext)

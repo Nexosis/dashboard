@@ -206,17 +206,22 @@ update msg model =
                     case ctx of
                         StateStorage.OnAppStateLoaded mbctx ->
                             let
+                                newContext =
+                                    { mbctx | config = initState.config }
+
                                 app =
-                                    App initialPage initState.config Nothing "" Nothing [] initState.enabledFeatures mbctx
+                                    App initialPage initState.config Nothing "" Nothing [] initState.enabledFeatures newContext
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
                                         app
                             in
-                            Initialized routedApp => cmd
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd ]
 
                 _ ->
-                    ConfigurationLoaded initState => Cmd.none
+                    InitializationError
+                        "Unknown initialization message"
+                        => Cmd.none
 
         Initialized app ->
             Tuple.mapFirst Initialized <| updatePage app.page msg app
@@ -363,7 +368,7 @@ view model =
                 |> Error.view
                 |> Page.basicLayout Page.Other
 
-        ConfigurationLoaded app ->
+        ConfigurationLoaded initState ->
             Html.text ""
                 |> Page.emptyLayout Page.Other
 
@@ -445,13 +450,12 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
         ConfigurationLoaded app ->
-            Sub.none
+            Sub.map OnAppStateLoaded appStateLoaded
 
         Initialized app ->
             Sub.batch
                 [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
-                , Sub.map OnAppStateLoaded appStateLoaded
                 , pageSubscriptions app.page
                 ]
 
@@ -494,9 +498,12 @@ init flags location =
             let
                 route =
                     AppRoutes.fromLocation location
+
+                x =
+                    Debug.log "route" route
             in
             ConfigurationLoaded { initState | route = route }
-                => Cmd.batch [ Task.perform CheckToken Time.now, loadAppState ]
+                => loadAppState
 
         Err error ->
             ( InitializationError error, Cmd.none )
