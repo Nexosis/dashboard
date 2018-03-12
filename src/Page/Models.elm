@@ -12,6 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
@@ -40,10 +41,10 @@ loadModelList config page pageSize =
         |> Cmd.map ModelListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading (Table.initialSort "createdDate") 0 10 Nothing
-        => loadModelList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading (Table.initialSort "createdDate") 0 context.userPageSize Nothing
+        => loadModelList context.config 0 context.userPageSize
 
 
 
@@ -104,8 +105,15 @@ update msg model context =
                 => loadModelList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadModelList context.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadModelList context.config 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
 
 

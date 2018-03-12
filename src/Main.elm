@@ -164,7 +164,7 @@ setRoute route app =
                 Just AppRoutes.Sessions ->
                     let
                         ( pageModel, initCmd ) =
-                            Sessions.init app.context.config
+                            Sessions.init app.context
                     in
                     ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
@@ -185,7 +185,7 @@ setRoute route app =
                 Just AppRoutes.Models ->
                     let
                         ( pageModel, initCmd ) =
-                            Models.init app.context.config
+                            Models.init app.context
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 

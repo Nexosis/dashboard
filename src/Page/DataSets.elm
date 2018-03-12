@@ -160,7 +160,7 @@ view model context =
                         [ explainer context.config "what_is_dataset"
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize model.pageSize ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 , viewDataSetGrid context.config.toolTips model.tableState model.dataSetList
                 , hr [] []

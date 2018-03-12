@@ -13,6 +13,7 @@ import Html.Events exposing (..)
 import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
@@ -59,10 +60,10 @@ loadSessionList config pageNo pageSize =
         |> Cmd.map SessionListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading (Table.initialSort "name") 10 0 Nothing
-        => loadSessionList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading (Table.initialSort "name") context.userPageSize 0 Nothing
+        => loadSessionList context.config 0 context.userPageSize
 
 
 
@@ -93,8 +94,15 @@ update msg model context =
                 => loadSessionList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadSessionList context.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadSessionList context.config 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
         ShowDeleteDialog sessionData ->
             { model | deleteDialogModel = Just (DeleteDialog.init sessionData.name sessionData.sessionId) }
