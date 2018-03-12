@@ -52,7 +52,6 @@ type alias InitState =
 
 type alias App =
     { page : Page
-    , config : Config
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
@@ -78,6 +77,7 @@ type Msg
     | RenewToken (Result Http.Error NexosisToken)
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
+    | OnAppStateUpdated StateStorage.Msg
 
 
 type Page
@@ -210,7 +210,7 @@ update msg model =
                                     { mbctx | config = initState.config }
 
                                 app =
-                                    App initialPage initState.config Nothing "" Nothing [] initState.enabledFeatures newContext
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -338,6 +338,21 @@ updatePage page msg app =
                 => Cmd.batch
                     [ Navigation.load app.context.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
 
+        ( OnAppStateUpdated externalMsg, _ ) ->
+            case externalMsg of
+                StateStorage.OnAppStateLoaded mbctx ->
+                    let
+                        existingConfig =
+                            app.context.config
+
+                        newContext =
+                            { mbctx | config = existingConfig }
+
+                        newApp =
+                            { app | context = newContext }
+                    in
+                    newApp => Cmd.none
+
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -457,6 +472,7 @@ subscriptions model =
                 [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
+                , Sub.map OnAppStateUpdated appStateLoaded
                 ]
 
         InitializationError _ ->

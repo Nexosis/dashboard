@@ -13,6 +13,7 @@ const storage = window.localStorage || {
 export function initLocalStoragePort(elmApp) {
   elmApp.ports.storeObject.subscribe(function ([key, state]) {
     storeObject(key, state);
+    elmApp.ports.objectRetrieved.send([key, state]);
   });
   elmApp.ports.retrieveObject.subscribe(function (key) {
     const o = retrieveObject(key);

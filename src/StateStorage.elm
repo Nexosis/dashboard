@@ -60,10 +60,10 @@ appStateLoaded =
 
 saveAppState : ContextModel -> Cmd msg
 saveAppState model =
-    let
-        map m =
-            { userPageSize = m.userPageSize
-            , config = m.config
-            }
-    in
-    storeObject ( stateKey, encode <| map model )
+    -- let
+    --     map m =
+    --         { userPageSize = m.userPageSize
+    --         , config = m.config
+    --         }
+    -- in
+    storeObject ( stateKey, encode model )
