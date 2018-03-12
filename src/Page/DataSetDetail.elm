@@ -51,7 +51,7 @@ init config dataSetName =
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
-            ColumnMetadataEditor.init config dataSetName
+            ColumnMetadataEditor.init config dataSetName True
     in
     Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData

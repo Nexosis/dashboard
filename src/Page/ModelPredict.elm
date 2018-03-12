@@ -10,6 +10,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Http
 import Json.Decode exposing (succeed)
+import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, fileSaved, requestSaveFile, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
@@ -346,10 +347,7 @@ viewUploadTab model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 []
-                    [ text "How to upload a CSV" ]
-                , p []
-                    [ text "CSV instructions go here" ]
+                [ explainer model.config "how_upload_csv"
                 ]
             ]
         ]
@@ -377,10 +375,7 @@ viewPasteData model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 []
-                    [ text "How to enter data" ]
-                , p []
-                    [ text "Paste instructions go here" ]
+                [ explainer model.config "how_paste_data"
                 ]
             ]
         ]

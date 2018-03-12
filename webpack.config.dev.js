@@ -95,6 +95,15 @@ export default {
                 ]
             },
             {
+                test: /(\.md)$/,
+                use: [
+                    {
+                        loader: 'file-loader',
+                        options: { name: 'docs/[name].[ext]' }
+                    }
+                ]
+            },
+            {
                 test: /(tooltips)\.json$/,
                 use: [
                     {

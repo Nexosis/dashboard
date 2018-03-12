@@ -1,0 +1,1 @@
+Classification allows you to organize your data in labeled, logical, and consumable buckets. **If you want to know if something is or is not a thing, classification is for you**
