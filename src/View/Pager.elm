@@ -48,9 +48,11 @@ view pagedValues changePageMsg =
                         changeMsg =
                             changePageMsg 0
                     in
-                    div [ class "btn-group", attribute "role" "group" ]
-                        [ backButton False changeMsg
-                        , nextButton False changeMsg
+                    div [ class "pagination" ]
+                        [ div [ class "btn-group", attribute "role" "group" ]
+                            [ backButton False changeMsg
+                            , nextButton False changeMsg
+                            ]
                         ]
     in
     pager
