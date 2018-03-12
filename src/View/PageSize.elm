@@ -8,9 +8,9 @@ import Json.Decode exposing (Decoder, andThen, fail, field, string, succeed)
 
 view : (Int -> msg) -> Html msg
 view changeSize =
-    div [ class "mr5" ]
+    div [ class "form-inline mr5" ]
         [ label [] [ text "View" ]
-        , select [ on "change" (Json.Decode.map changeSize decodeInt) ]
+        , select [ class "form-control", on "change" (Json.Decode.map changeSize decodeInt) ]
             [ option [ value "10" ] [ text "10" ]
             , option [ value "25" ] [ text "25" ]
             , option [ value "50" ] [ text "50" ]
