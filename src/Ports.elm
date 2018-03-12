@@ -1,4 +1,4 @@
-port module Ports exposing (drawVegaChart, fileContentRead, fileSaved, log, prismHighlight, requestSaveFile, requestSent, responseReceived, uploadFileSelected)
+port module Ports exposing (drawVegaChart, fileContentRead, fileSaved, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, storeObject, uploadFileSelected)
 
 import Json.Decode
 import Json.Encode
@@ -37,3 +37,12 @@ port requestSaveFile : Filespec -> Cmd msg
 
 
 port fileSaved : (Bool -> msg) -> Sub msg
+
+
+port storeObject : ( String, Json.Encode.Value ) -> Cmd msg
+
+
+port retrieveObject : String -> Cmd msg
+
+
+port objectRetrieved : (( String, Json.Encode.Value ) -> msg) -> Sub msg

@@ -63,8 +63,8 @@ loadDataSetList context pageNum pageSize =
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading 0 context.defaultPageSize (Table.initialSort "dataSetName") context Nothing
-        => loadDataSetList context 0 context.defaultPageSize
+    Model Remote.Loading 0 context.userPageSize (Table.initialSort "dataSetName") context Nothing
+        => loadDataSetList context 0 context.userPageSize
 
 
 
@@ -92,23 +92,17 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList model.context pgNum model.context.defaultPageSize
+                => loadDataSetList model.context pgNum model.context.userPageSize
 
         ChangePageSize pageSize ->
             let
-                context =
-                    model.context
-
-                newContext =
-                    { context | defaultPageSize = pageSize }
-
                 newModel =
-                    { model | pageSize = pageSize, currentPage = 0, context = newContext }
+                    { model | pageSize = pageSize, currentPage = 0, context = setPageSize model.context pageSize }
             in
             newModel
                 => Cmd.batch
                     [ loadDataSetList model.context 0 pageSize
-                    , StateStorage.saveAppState newContext
+                    , StateStorage.saveAppState newModel.context
                     ]
 
         ShowDeleteDialog dataSet ->
@@ -132,7 +126,7 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList model.context model.currentPage model.context.defaultPageSize
+                            loadDataSetList model.context model.currentPage model.context.userPageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]

@@ -2,9 +2,8 @@ module Main exposing (..)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, defaultContext, modelDecoder)
 import Data.Response as Response
-import Dict
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
@@ -27,7 +26,7 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
-import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, modelDecoder, updateContext)
+import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -517,7 +516,7 @@ flagsDecoder =
         |> Pipeline.hardcoded Nothing
         |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
-        |> Pipeline.hardcoded (ContextModel 10 (Config "" Nothing "" "" "" Dict.empty))
+        |> Pipeline.hardcoded defaultContext
         |> Pipeline.hardcoded Nothing
 
 
