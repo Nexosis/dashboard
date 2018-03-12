@@ -85,7 +85,7 @@ init config dataSetName =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Request.DataSet.getRetrieveDetail config dataSetName 
+            Request.DataSet.getRetrieveDetail config dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -338,62 +338,64 @@ view model =
             [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ] ]
         , hr [] []
         , div [ class "row mb20" ]
-            [ viewProgress configWizardSummary model.steps |> Html.map never ]
-        , case model.steps.current of
-            NameSession ->
-                viewNameSession model
+            [ viewProgress configWizardSummary model.steps |> Html.map never
+            , case model.steps.current of
+                NameSession ->
+                    viewNameSession model
 
-            SelectDataSet ->
-                viewSelectDataSet model
+                SelectDataSet ->
+                    viewSelectDataSet model
 
-            SessionType ->
-                viewSessionType model
+                SessionType ->
+                    viewSessionType model
 
-            StartEndDates ->
-                if model.selectedSessionType == Just Impact then
-                    viewImpactStartEndDates model
-                else
-                    viewStartEndDates model
+                StartEndDates ->
+                    if model.selectedSessionType == Just Impact then
+                        viewImpactStartEndDates model
+                    else
+                        viewStartEndDates model
 
-            ContainsAnomalies ->
-                viewContainsAnomalies model
+                ContainsAnomalies ->
+                    viewContainsAnomalies model
 
-            SetBalance ->
-                viewSetBalance model
+                SetBalance ->
+                    viewSetBalance model
 
-            ColumnMetadata ->
-                viewColumnMetadata model
+                ColumnMetadata ->
+                    viewColumnMetadata model
 
-            StartSession ->
-                viewStartSession model
-        , div [class "col-sm-12 well well-sm right"]
-            [viewButtons configWizard (isValid model) model.steps
+                StartSession ->
+                    viewStartSession model
+            , div [ class "col-sm-12" ]
+                [ div [ class "col-sm-12 well well-sm right" ]
+                    [ viewButtons configWizard (isValid model) model.steps
+                    ]
+                ]
             ]
         ]
 
 
 viewNameSession : Model -> Html Msg
 viewNameSession model =
-    div [][
-    div [class "col-sm-12 session-step"]
-    [
-        div [class "col-sm-6 p10"] [h3 [] [text "Name your session"]]
-        , div [class "col-sm-6 right"]
-        [viewButtons configWizard (isValid model) model.steps]
-    ]
-    , div [ class "col-sm-12" ]
-        [ div [ class "form-group col-sm-4" ]
-            [ label [ ] [ text "Session name" ]
-            , input [ class "form-control", value model.sessionName, onInput ChangeSessionName ] []
+    div []
+        [ div [ class "col-sm-12 session-step" ]
+            [ div [ class "col-sm-6 pl0" ] [ h3 [] [ text "Name your session" ] ]
+            , div [ class "col-sm-6 right" ]
+                [ viewButtons configWizard (isValid model) model.steps ]
             ]
-        , div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "How to name your session" ]
-                , p [] [ text "Name your session something descriptive yet memorable so that you can easily recall the purpose of each session." ]
+        , div [ class "col-sm-12" ]
+            [ div [ class "form-group col-sm-4" ]
+                [ label [] [ text "Session name" ]
+                , input [ class "form-control", value model.sessionName, onInput ChangeSessionName ] []
+                ]
+            , div [ class "help col-sm-6 pull-right" ]
+                [ div [ class "alert alert-info" ]
+                    [ h5 [] [ text "How to name your session" ]
+                    , p [] [ text "Name your session something descriptive yet memorable so that you can easily recall the purpose of each session." ]
+                    ]
                 ]
             ]
         ]
-    ]
 
 
 viewSelectDataSet : Model -> Html Msg
