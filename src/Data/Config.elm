@@ -14,6 +14,7 @@ type alias Config =
     , renewalUrl : String
     , subscriptionUrl : String
     , toolTips : Dict String String
+    , explainerContent : Dict String String
     }
 
 
@@ -38,6 +39,7 @@ configDecoder =
         |> required "renewalUrl" string
         |> required "subscriptionUrl" string
         |> required "toolTips" toolTipDictDecoder
+        |> required "explainerContent" (Decode.dict string)
 
 
 tokenDecoder : Decoder NexosisToken
@@ -55,6 +57,11 @@ nexosisTokenDecoder rawToken =
         |> optional "givenName" (nullable string) Nothing
         |> optional "email" (nullable string) Nothing
         |> hardcoded rawToken
+
+
+decodeDocs : Decoder (List String)
+decodeDocs =
+    Decode.list string
 
 
 toolTipDictDecoder : Decoder (Dict String String)

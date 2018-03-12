@@ -1,0 +1,1 @@
+Regression uncovers relationships in your data to estimate the unknown, missing, or unmeasured. **If you want to know the unknown, regression is a good choice.**

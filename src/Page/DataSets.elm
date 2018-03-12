@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
 import StateStorage
@@ -142,7 +143,10 @@ view model context =
         [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
         , div [ class "row" ]
             [ div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ] [ text "Datasets" ]
+                [ h2 [ class "mt10" ]
+                    ([ text "DataSets" ]
+                        ++ helpIcon context.config.toolTips "Datasets"
+                    )
                 ]
             , div [ class "col-sm-6 right" ]
                 [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
@@ -153,7 +157,7 @@ view model context =
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ]
-                        [ h3 [] [ text "Dataset explainer" ]
+                        [ explainer context.config "what_is_dataset"
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize model.pageSize ]

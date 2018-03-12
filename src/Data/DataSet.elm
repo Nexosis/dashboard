@@ -19,11 +19,12 @@ module Data.DataSet
 
 import Combine exposing ((<$>))
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
-import Data.DisplayDate exposing (dateDecoder)
+import Data.DisplayDate exposing (dateDecoder, toShortDateTimeString)
 import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.ZonedDateTime exposing (ZonedDateTime)
+import Util exposing (formatFloatToString)
 
 
 {-| Returned from /data/{dataSetName}
@@ -66,15 +67,18 @@ type alias DataSet =
 
 
 type alias ColumnStats =
-    { errors : Int
-    , max : Float
+    { distinctCount : Int
+    , errorCount : Int
+    , lastCalculated : ZonedDateTime
+    , max : String
     , mean : Float
     , median : Float
-    , min : Float
-    , missing : Int
-    , non_numeric : Int
-    , row_count : Int
+    , min : String
+    , missingCount : Int
+    , mode : String
     , stddev : Float
+    , suggestedType : String
+    , totalCount : Int
     , variance : Float
     }
 
@@ -178,13 +182,27 @@ decodeColumnStatsDict =
 decodeColumnStats : Decoder ColumnStats
 decodeColumnStats =
     decode ColumnStats
-        |> required "errors" int
-        |> required "max" float
-        |> required "mean" float
-        |> required "median" float
-        |> required "min" float
-        |> required "missing" int
-        |> required "non_numeric" int
-        |> required "row_count" int
-        |> required "stddev" float
-        |> required "variance" float
+        |> optional "distinctCount" int 0
+        |> optional "errorCount" int 0
+        |> required "lastCalculated" dateDecoder
+        |> optional "max" variableDecoder ""
+        |> optional "mean" float 0
+        |> optional "median" float 0
+        |> optional "min" variableDecoder ""
+        |> optional "missingCount" int 0
+        |> optional "mode" variableDecoder ""
+        |> optional "stddev" float 0
+        |> optional "suggestedType" string "numericMeasure"
+        |> required "totalCount" int
+        |> optional "variance" float 0
+
+
+variableDecoder : Decoder String
+variableDecoder =
+    Decode.oneOf
+        --Note that order matters.
+        [ Decode.float |> Decode.andThen (\f -> succeed (formatFloatToString f))
+        , Decode.bool |> Decode.andThen (\b -> succeed (toString b))
+        , dateDecoder |> Decode.andThen (\d -> succeed (toShortDateTimeString d))
+        , Decode.string
+        ]

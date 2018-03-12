@@ -15,6 +15,7 @@ import Html.Events exposing (on, onClick, onInput)
 import Http
 import Json.Decode exposing (succeed)
 import Navigation
+import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Process
 import Regex
@@ -455,10 +456,10 @@ viewTabContent model =
         content =
             case model.activeTab of
                 FileUploadTab fileUploadEntry ->
-                    viewUploadTab fileUploadEntry
+                    viewUploadTab model.config fileUploadEntry
 
                 UrlImportTab urlImportEntry ->
-                    viewImportUrlTab urlImportEntry
+                    viewImportUrlTab model.config urlImportEntry
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -466,8 +467,8 @@ viewTabContent model =
         ]
 
 
-viewUploadTab : FileUploadEntry -> Html Msg
-viewUploadTab model =
+viewUploadTab : Config -> FileUploadEntry -> Html Msg
+viewUploadTab config model =
     let
         uploadButtonText =
             if String.isEmpty model.fileName then
@@ -491,15 +492,14 @@ viewUploadTab model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "How to upload a CSV/JSON" ]
-                , p [] [ text "Instructions go here." ]
+                [ explainer config "how_upload_csv"
                 ]
             ]
         ]
 
 
-viewImportUrlTab : UrlImportEntry -> Html Msg
-viewImportUrlTab model =
+viewImportUrlTab : Config -> UrlImportEntry -> Html Msg
+viewImportUrlTab config model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
@@ -509,8 +509,7 @@ viewImportUrlTab model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "How to import from a URL" ]
-                , p [] [ text "URL instructions go here" ]
+                [ explainer config "how_upload_url"
                 ]
             ]
         ]

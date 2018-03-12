@@ -1,0 +1,1 @@
+Forecasting finds patterns in your time series data to predict what's next. **If you want to know the unknown, regression is a good choice.**

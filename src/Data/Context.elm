@@ -29,9 +29,9 @@ modelDecoder : Decoder ContextModel
 modelDecoder =
     decode ContextModel
         |> required "userPageSize" Decode.int
-        |> hardcoded (Config "" Nothing "" "" "" Dict.empty)
+        |> hardcoded (Config "" Nothing "" "" "" Dict.empty Dict.empty)
 
 
 defaultContext : ContextModel
 defaultContext =
-    ContextModel 10 (Config "" Nothing "" "" "" Dict.empty)
+    ContextModel 10 (Config "" Nothing "" "" "" Dict.empty Dict.empty)
