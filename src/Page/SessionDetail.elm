@@ -334,40 +334,47 @@ viewSessionHeader model =
         [ div [ class "row" ]
             [ loadingOr viewSessionName
             , div [ class "col-sm-3" ]
-                [ div [ class "mt10 right" ]
-                    [ loadingOr viewPredictButton
+                [ div [ class "mt5 right" ]
+                    [ div
+                        [ class "btn-group", attribute "role" "group" ]
+                        [ loadingOr iterateSessionButton
+                        , loadingOr viewPredictButton
+                        ]
                     ]
                 ]
-            ]
-        , div [ class "row" ]
-            [ loadingOr viewSessionId
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong []
-                        [ text "Session Type: " ]
-                    , loadingOr (\s -> text <| toString s.predictionDomain)
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ viewSessionButtons model
-                ]
+
+            {- , div [ class "row" ]
+               [ loadingOr viewSessionId
+               , div [ class "col-sm-4" ]
+                   [ p [ class "small" ]
+                       [ strong []
+                           [ text "Session Type: " ]
+                       , loadingOr (\s -> text <| toString s.predictionDomain)
+                       ]
+                   ]
+               , div [ class "col-sm-4 right" ]
+                   [ viewSessionButtons model
+                   ]
+            -}
             ]
         ]
 
 
-viewSessionButtons : Model -> Html Msg
-viewSessionButtons model =
-    div []
-        [ button [ class "btn btn-xs other" ]
-            [ i [ class "fa fa-repeat mr5" ]
-                []
-            , text "(TODO) Iterate session"
-            ]
-        , button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
-            [ i [ class "fa fa-trash-o mr5" ]
-                []
-            , text "Delete"
-            ]
+iterateSessionButton : SessionData -> Html Msg
+iterateSessionButton session =
+    button [ class "btn btn-primary" ]
+        [ i [ class "fa fa-repeat mr5" ]
+            []
+        , text "Iterate session"
+        ]
+
+
+deleteSessionButton : Model -> Html Msg
+deleteSessionButton model =
+    button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
+        [ i [ class "fa fa-trash-o mr5" ]
+            []
+        , text "Delete"
         ]
 
 
@@ -463,9 +470,7 @@ viewCompletedSession session =
                     a.name
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Details" ]
-        , modelLink session
+        [ modelLink session
         , p []
             [ strong []
                 [ text "Source: " ]
@@ -494,11 +499,12 @@ viewMetricsList results =
                 ]
     in
     div []
-        [ p [ class "small" ]
+        [ p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "false", attribute "aria-controls" "metrics" ]
             [ strong []
                 [ text "Metrics" ]
+            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics" ]
+        , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
 

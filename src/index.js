@@ -147,6 +147,7 @@ fetch('./config.json').then(function (response) {
                     sessions : getQuotaHeader(xhr, "SessionCount"),
                 }
 
+                console.log(quotas);
 
                 let xhrInfo = {
                     status: xhr.status,
