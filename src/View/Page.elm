@@ -1,4 +1,4 @@
-module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses)
+module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses, emptyLayout)
 
 import AppRoutes
 import Data.Context as AppContext exposing (ContextModel)
@@ -33,6 +33,16 @@ type alias PageValues a =
         , enabledFeatures : List Feature
     }
 
+
+
+emptyLayout : ActivePage -> Html msg -> Html msg
+emptyLayout page content =
+    div [ id "docs-container", class "layout" ]
+        [ viewHeader headerLinks
+        , div [ class "layout-row layout-row-content" ]
+            [ content
+            ]
+        ]
 
 {-| Take a page's Html and layout it with a header and footer.
 

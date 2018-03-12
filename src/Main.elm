@@ -38,9 +38,16 @@ import View.Page as Page
 
 
 type Model
-    = ConfigurationLoaded App
+    = ConfigurationLoaded InitState
     | Initialized App
     | InitializationError String
+
+
+type alias InitState =
+    { config : Config
+    , route : Maybe Route
+    , enabledFeatures : List Feature
+    }
 
 
 type alias App =
@@ -52,7 +59,6 @@ type alias App =
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     , context : ContextModel
-    , route : Maybe Route
     }
 
 
@@ -194,8 +200,23 @@ setRoute route app =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
-        ConfigurationLoaded app ->
-            Initialized app => loadAppState
+        ConfigurationLoaded initState ->
+            case msg of
+                OnAppStateLoaded ctx ->
+                    case ctx of
+                        StateStorage.OnAppStateLoaded mbctx ->
+                            let
+                                app =
+                                    App initialPage initState.config Nothing "" Nothing [] initState.enabledFeatures mbctx
+
+                                ( routedApp, cmd ) =
+                                    setRoute initState.route
+                                        app
+                            in
+                            Initialized routedApp => cmd
+
+                _ ->
+                    ConfigurationLoaded initState => Cmd.none
 
         Initialized app ->
             Tuple.mapFirst Initialized <| updatePage app.page msg app
@@ -312,23 +333,6 @@ updatePage page msg app =
                 => Cmd.batch
                     [ Navigation.load app.context.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
 
-        ( OnAppStateLoaded ctx, _ ) ->
-            let
-                x =
-                    Debug.log "onAppStateLoaded" "in updatePage"
-            in
-            case ctx of
-                StateStorage.OnAppStateLoaded mbctx ->
-                    let
-                        newApp =
-                            updateContext app mbctx
-
-                        ( routedApp, cmd ) =
-                            setRoute app.route
-                                newApp
-                    in
-                    routedApp => cmd
-
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -361,7 +365,7 @@ view model =
 
         ConfigurationLoaded app ->
             Html.text ""
-                |> Page.layoutShowingResponses app Page.Other
+                |> Page.emptyLayout Page.Other
 
         Initialized app ->
             let
@@ -441,14 +445,15 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
         ConfigurationLoaded app ->
+            Sub.none
+
+        Initialized app ->
             Sub.batch
                 [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , Sub.map OnAppStateLoaded appStateLoaded
+                , pageSubscriptions app.page
                 ]
-
-        Initialized app ->
-            pageSubscriptions app.page
 
         InitializationError _ ->
             Sub.none
@@ -485,39 +490,24 @@ init flags location =
             decodeValue flagsDecoder flags
     in
     case flagDecodeResult of
-        Ok appContext ->
+        Ok initState ->
             let
-                context =
-                    appContext.context
-
-                newContext =
-                    { context | config = appContext.config }
-
                 route =
                     AppRoutes.fromLocation location
-
-                newApp =
-                    { appContext | context = newContext, route = route }
             in
-            ConfigurationLoaded newApp
+            ConfigurationLoaded { initState | route = route }
                 => Cmd.batch [ Task.perform CheckToken Time.now, loadAppState ]
 
         Err error ->
             ( InitializationError error, Cmd.none )
 
 
-flagsDecoder : Decode.Decoder App
+flagsDecoder : Decode.Decoder InitState
 flagsDecoder =
-    Pipeline.decode App
-        |> Pipeline.hardcoded initialPage
+    Pipeline.decode InitState
         |> Pipeline.custom Data.Config.configDecoder
         |> Pipeline.hardcoded Nothing
-        |> Pipeline.hardcoded ""
-        |> Pipeline.hardcoded Nothing
-        |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
-        |> Pipeline.hardcoded defaultContext
-        |> Pipeline.hardcoded Nothing
 
 
 main : Program Value Model Msg
