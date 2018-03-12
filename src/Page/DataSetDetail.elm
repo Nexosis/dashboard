@@ -30,7 +30,6 @@ type alias Model =
     { dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
     , updateResponse : Remote.WebData ()
@@ -53,7 +52,7 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName True
     in
-    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks []) Remote.NotAsked
+    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData
           , loadRelatedSessions config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -102,7 +101,7 @@ update msg model context =
                             Cmd.none
 
                         ColumnMetadataEditor.Updated modifiedMetadata ->
-                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
+                            Request.DataSet.updateMetadata context.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                                 |> Cmd.map MetadataUpdated
             in
@@ -119,7 +118,7 @@ update msg model context =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -182,8 +181,8 @@ update msg model context =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         --todo breadcrumb
         [ p [ class "breadcrumb" ]
@@ -196,7 +195,7 @@ view model =
         , viewNameRow model
         , viewIdRow model
         , hr [] []
-        , viewDetailsRow model
+        , viewDetailsRow context model
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
@@ -247,12 +246,12 @@ viewError model =
             span [] []
 
 
-viewDetailsRow : Model -> Html Msg
-viewDetailsRow model =
+viewDetailsRow : ContextModel -> Model -> Html Msg
+viewDetailsRow context model =
     div [ class "row" ]
         [ viewRolesCol model
         , viewDetailsCol model
-        , Related.view model.config (Remote.succeed model.sessionLinks)
+        , Related.view context.config (Remote.succeed model.sessionLinks)
         ]
 
 

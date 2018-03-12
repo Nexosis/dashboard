@@ -410,7 +410,7 @@ view model =
                         |> layout Page.Other
 
                 Home subModel ->
-                    Home.view subModel
+                    Home.view subModel app.context
                         |> layout Page.Home
                         |> Html.map HomeMsg
 
@@ -420,12 +420,12 @@ view model =
                         |> Html.map DataSetsMsg
 
                 DataSetDetail subModel ->
-                    DataSetDetail.view subModel
+                    DataSetDetail.view subModel app.context
                         |> layout Page.DataSetData
                         |> Html.map DataSetDetailMsg
 
                 DataSetAdd subModel ->
-                    DataSetAdd.view subModel
+                    DataSetAdd.view subModel app.context
                         |> layout Page.DataSetAdd
                         |> Html.map DataSetAddMsg
 
@@ -435,27 +435,27 @@ view model =
                         |> Html.map ImportsMsg
 
                 Sessions subModel ->
-                    Sessions.view subModel
+                    Sessions.view subModel app.context
                         |> layout Page.Sessions
                         |> Html.map SessionsMsg
 
                 SessionDetail subModel ->
-                    SessionDetail.view subModel
+                    SessionDetail.view subModel app.context
                         |> layout Page.SessionDetail
                         |> Html.map SessionDetailMsg
 
                 SessionStart subModel ->
-                    SessionStart.view subModel
+                    SessionStart.view subModel app.context
                         |> layout Page.SessionStart
                         |> Html.map SessionStartMsg
 
                 Models subModel ->
-                    Models.view subModel
+                    Models.view subModel app.context
                         |> layout Page.Models
                         |> Html.map ModelsMsg
 
                 ModelDetail subModel ->
-                    ModelDetail.view subModel
+                    ModelDetail.view subModel app.context
                         |> layout Page.ModelDetail
                         |> Html.map ModelDetailMsg
 

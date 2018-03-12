@@ -24,7 +24,6 @@ import View.DeleteDialog as DeleteDialog
 type alias Model =
     { modelId : String
     , modelResponse : Remote.WebData ModelData
-    , config : Config
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
@@ -39,7 +38,7 @@ init config modelId showPredict =
                 |> Remote.sendRequest
                 |> Cmd.map (ModelResponse showPredict)
     in
-    Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
+    Model modelId Remote.Loading Regression Nothing Nothing => loadModelDetail
 
 
 subscriptions : Model -> Sub Msg
@@ -87,7 +86,7 @@ update msg model context =
                 predictModel =
                     case model.predictModel of
                         Nothing ->
-                            Just (ModelPredict.init model.config model.modelId)
+                            Just (ModelPredict.init context.config model.modelId)
 
                         Just _ ->
                             Nothing
@@ -99,7 +98,7 @@ update msg model context =
                 ( predictModel, cmd ) =
                     case model.predictModel of
                         Just predictModel ->
-                            ModelPredict.update subMsg predictModel |> Tuple.mapFirst Just
+                            ModelPredict.update subMsg predictModel context |> Tuple.mapFirst Just
 
                         Nothing ->
                             ( Nothing, Cmd.none )
@@ -119,7 +118,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete model.config >> ignoreCascadeParams
+                    Request.Model.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -136,8 +135,8 @@ update msg model context =
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ p [ class "breadcrumb" ]
             [ span []
@@ -178,7 +177,7 @@ view model =
         , hr [] []
         , detailRow model
         , hr [] []
-        , renderPredict model
+        , renderPredict context model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
             , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
@@ -188,11 +187,11 @@ view model =
         ]
 
 
-renderPredict : Model -> Html Msg
-renderPredict model =
+renderPredict : ContextModel -> Model -> Html Msg
+renderPredict context model =
     case model.predictModel of
         Just predictModel ->
-            ModelPredict.view predictModel |> Html.map ModelPredictMsg
+            ModelPredict.view predictModel context |> Html.map ModelPredictMsg
 
         Nothing ->
             div [] []

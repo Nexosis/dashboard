@@ -39,7 +39,6 @@ type alias Model =
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
     }
@@ -56,7 +55,7 @@ init config sessionId =
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -80,7 +79,7 @@ update msg model context =
                             details =
                                 case sessionInfo.predictionDomain of
                                     PredictionDomain.Classification ->
-                                        getConfusionMatrix model.config model.sessionId 0 25
+                                        getConfusionMatrix context.config model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
 
@@ -89,7 +88,7 @@ update msg model context =
                         in
                         { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
                             => Cmd.batch
-                                [ Request.Session.results model.config model.sessionId 0 1000
+                                [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
@@ -129,7 +128,7 @@ update msg model context =
                                         dates =
                                             Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
                                     in
-                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) dates
+                                    getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
                                         |> Remote.sendRequest
                                         |> Cmd.map DataSetLoaded
 
@@ -155,7 +154,7 @@ update msg model context =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete model.config >> ignoreCascadeParams
+                    Request.Session.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -207,8 +206,8 @@ update msg model context =
             { model | windowWidth = newWidth } => Cmd.none
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ p [ class "breadcrumb" ]
             [ span []

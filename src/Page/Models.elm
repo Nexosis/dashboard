@@ -27,7 +27,6 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { modelList : Remote.WebData ModelList
     , tableState : Table.State
-    , config : Config
     , currentPage : Int
     , pageSize : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -43,7 +42,7 @@ loadModelList config page pageSize =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model Remote.Loading (Table.initialSort "createdDate") config 0 10 Nothing
+    Model Remote.Loading (Table.initialSort "createdDate") 0 10 Nothing
         => loadModelList config 0 10
 
 
@@ -84,7 +83,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete model.config >> ignoreCascadeParams
+                    Request.Model.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -95,26 +94,26 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadModelList model.config model.currentPage model.pageSize
+                            loadModelList context.config model.currentPage model.pageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList model.config pgNum model.pageSize
+                => loadModelList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
             { model | pageSize = pageSize, currentPage = 0 }
-                => loadModelList model.config 0 pageSize
+                => loadModelList context.config 0 pageSize
 
 
 
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ p [ class "breadcrumb" ]
             [ span []
@@ -122,7 +121,7 @@ view model =
                 ]
             ]
         , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon model.config.toolTips "Models") ]
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , div []
@@ -131,14 +130,14 @@ view model =
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row mb25" ]
                         [ div [ class "col-sm-6" ]
-                            [ explainer model.config "what_is_model"
+                            [ explainer context.config "what_is_model"
                             ]
                         , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                            [ PageSize.view ChangePageSize model.pageSize ]
+                            [ PageSize.view ChangePageSize context.userPageSize ]
                         ]
                     ]
                 ]
-            , Grid.view .items (config model.config.toolTips) model.tableState model.modelList
+            , Grid.view .items (config context.config.toolTips) model.tableState model.modelList
             , hr [] []
             , div [ class "center" ]
                 [ Pager.view model.modelList ChangePage ]

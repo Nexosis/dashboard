@@ -33,8 +33,7 @@ import View.Wizard exposing (WizardConfig, viewButtons)
 
 
 type alias Model =
-    { config : Config
-    , steps : Ziplist Step
+    { steps : Ziplist Step
     , canAdvance : Bool
     , name : String
     , key : String
@@ -87,7 +86,7 @@ init config =
         steps =
             Ziplist.create [] ChooseUploadType [ SetKey ]
     in
-    Model config
+    Model
         steps
         False
         ""
@@ -188,7 +187,7 @@ update msg model context =
                 FileUploadTab uploadInfo ->
                     let
                         putRequest =
-                            put model.config model.name uploadInfo.fileContent (DataFormat.dataFormatToContentType uploadInfo.fileUploadType)
+                            put context.config model.name uploadInfo.fileContent (DataFormat.dataFormatToContentType uploadInfo.fileUploadType)
                                 |> Remote.sendRequest
                                 |> Cmd.map UploadDataSetResponse
                     in
@@ -197,7 +196,7 @@ update msg model context =
                 UrlImportTab urlTab ->
                     let
                         importRequest =
-                            Request.Import.postUrl model.config model.name urlTab.importUrl
+                            Request.Import.postUrl context.config model.name urlTab.importUrl
                                 |> Remote.sendRequest
                                 |> Cmd.map ImportResponse
                     in
@@ -228,7 +227,7 @@ update msg model context =
                             else if importDetail.status == Status.Cancelled || importDetail.status == Status.Failed then
                                 Cmd.none
                             else
-                                delayAndRecheckImport model.config importDetail.importId
+                                delayAndRecheckImport context.config importDetail.importId
 
                         _ ->
                             Cmd.none
@@ -319,8 +318,8 @@ subscriptions model =
     fileContentRead <| \c -> TabMsg (FileContentRead c)
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ class "row" ]
             [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
@@ -329,7 +328,7 @@ view model =
         , div [ class "row" ]
             [ case model.steps.current of
                 ChooseUploadType ->
-                    viewChooseUploadType model
+                    viewChooseUploadType context model
 
                 SetKey ->
                     viewSetKey model
@@ -342,8 +341,8 @@ view model =
         ]
 
 
-viewChooseUploadType : Model -> Html Msg
-viewChooseUploadType model =
+viewChooseUploadType : ContextModel -> Model -> Html Msg
+viewChooseUploadType context model =
     div []
         [ div [ class "col-sm-12" ]
             [ h3 [ class "mt0" ] [ text "Choose Upload type" ]
@@ -354,7 +353,7 @@ viewChooseUploadType model =
             ]
         , div [ class "col-sm-12" ]
             [ viewTabControl model
-            , viewTabContent model
+            , viewTabContent context model
             ]
         ]
 
@@ -450,16 +449,16 @@ viewTabControl model =
         tabHeaders
 
 
-viewTabContent : Model -> Html Msg
-viewTabContent model =
+viewTabContent : ContextModel -> Model -> Html Msg
+viewTabContent context model =
     let
         content =
             case model.activeTab of
                 FileUploadTab fileUploadEntry ->
-                    viewUploadTab model.config fileUploadEntry
+                    viewUploadTab context.config fileUploadEntry
 
                 UrlImportTab urlImportEntry ->
-                    viewImportUrlTab model.config urlImportEntry
+                    viewImportUrlTab context.config urlImportEntry
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]

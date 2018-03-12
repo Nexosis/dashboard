@@ -28,7 +28,6 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { sessionList : Remote.WebData SessionList
     , tableState : Table.State
-    , config : Config
     , pageSize : Int
     , currentPage : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -62,7 +61,7 @@ loadSessionList config pageNo pageSize =
 
 init : Config -> ( Model, Cmd Msg )
 init config =
-    Model Remote.Loading (Table.initialSort "name") config 10 0 Nothing
+    Model Remote.Loading (Table.initialSort "name") 10 0 Nothing
         => loadSessionList config 0 10
 
 
@@ -91,11 +90,11 @@ update msg model context =
 
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading, currentPage = pgNum }
-                => loadSessionList model.config pgNum model.pageSize
+                => loadSessionList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
             { model | pageSize = pageSize, currentPage = 0 }
-                => loadSessionList model.config 0 pageSize
+                => loadSessionList context.config 0 pageSize
 
         ShowDeleteDialog sessionData ->
             { model | deleteDialogModel = Just (DeleteDialog.init sessionData.name sessionData.sessionId) }
@@ -107,7 +106,7 @@ update msg model context =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete model.config >> ignoreCascadeParams
+                    Request.Session.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -118,7 +117,7 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadSessionList model.config model.currentPage model.pageSize
+                            loadSessionList context.config model.currentPage model.pageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -128,8 +127,8 @@ update msg model context =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ p [ class "breadcrumb" ]
             [ span []
@@ -137,19 +136,19 @@ view model =
                 ]
             ]
         , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Sessions" ] ++ helpIcon model.config.toolTips "Sessions") ]
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Sessions" ] ++ helpIcon context.config.toolTips "Sessions") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ] [ explainer model.config "what_is_session" ]
+                    [ div [ class "col-sm-6" ] [ explainer context.config "what_is_session" ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
                         [ PageSize.view ChangePageSize model.pageSize ]
                     ]
                 , div []
-                    [ viewSessionsGrid model.config.toolTips model.tableState model.sessionList
+                    [ viewSessionsGrid context.config.toolTips model.tableState model.sessionList
                     , hr [] []
                     , div [ class "center" ]
                         [ Pager.view model.sessionList ChangePage ]
