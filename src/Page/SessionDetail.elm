@@ -309,7 +309,7 @@ viewStatusHistory session =
     let
         statusEntry status =
             tr []
-                [ td [ class "small" ]
+                [ td [ class "number small" ]
                     [ text (toShortDateTimeString status.date) ]
                 , td [ class "left" ]
                     [ statusDisplay status.status

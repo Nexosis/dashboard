@@ -139,7 +139,7 @@ view model =
                     ]
                 ]
             , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Sessions" ] ++ helpIcon model.config.toolTips "Sessions") ]
+                [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Sessions" ] ++ helpIcon model.config.toolTips "Sessions") ]
                 , div [ class "col-sm-6 right" ] []
                 ]
             ]
@@ -299,7 +299,7 @@ createdColumn =
 
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.requestedDate)
         ]
 

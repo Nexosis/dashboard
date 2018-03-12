@@ -271,14 +271,27 @@ createdColumn =
 
 createdCell : ModelData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.createdDate)
         ]
 
 
 lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
-    Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+    Grid.veryCustomColumn
+        { name = "Last used"
+        , viewData = lastUsedCell
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
+
+lastUsedCell : ModelData -> Table.HtmlDetails msg
+lastUsedCell model =
+    Table.HtmlDetails [ class "number" ]
+        [ text (toShortDateStringOrEmpty model.lastUsedDate)
+        ]
 
 
 deleteColumn : Grid.Column ModelData Msg
