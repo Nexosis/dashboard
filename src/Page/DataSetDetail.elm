@@ -13,12 +13,14 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 import View.Error as Error
 
@@ -77,6 +79,7 @@ type Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
+    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -176,6 +179,9 @@ update msg model context =
                 _ ->
                     model => Cmd.none
 
+        Copy text ->
+            ( model, Ports.copy text )
+
 
 
 -- VIEW --
@@ -259,12 +265,7 @@ viewUrlAndDeleteCol model =
         [ p []
             [ strong [] [ text "API Endpoint URL:" ]
             , br [] []
-            , span [ class "small" ]
-                [ text ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
-                , a []
-                    [ i [ class "fa fa-copy color-mediumgray ml5" ] []
-                    ]
-                ]
+            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri)) Copy
             ]
         , p []
             [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]

@@ -29,6 +29,7 @@ import Request.Session exposing (..)
 import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Charts as Charts
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 import View.Error exposing (viewHttpError)
 import View.Extra exposing (viewJust)
@@ -72,6 +73,7 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
+    | Copy String
     | ChangePage Int
     | DownloadResults
     | DownloadResponse (Remote.WebData String)
@@ -220,6 +222,9 @@ update msg model context =
             in
             { model | windowWidth = newWidth } => Cmd.none
 
+        Copy text ->
+            ( model, Ports.copy text )
+
         ChangePage page ->
             { model | currentPage = page } => Cmd.none
 
@@ -334,12 +339,12 @@ viewSessionInfo model session =
         , p []
             [ strong [] [ text "Session ID: " ]
             , br [] []
-            , span [ class "small" ] [ text session.sessionId, a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            , copyableText session.sessionId Copy
             ]
         , p []
             [ strong [] [ text "API Endpoint URL: " ]
             , br [] []
-            , span [ class "small" ] [ text ("/sessions/" ++ session.sessionId), a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            , copyableText ("/sessions/" ++ session.sessionId) Copy
             ]
         , p []
             [ deleteSessionButton model
