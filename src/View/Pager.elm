@@ -37,18 +37,20 @@ view pagedValues changePageMsg =
                         next =
                             changePageMsg (successResponse.pageNumber + 1)
                     in
-                    div [ class "btn-group", attribute "role" "group" ]
-                        (backButton prevEnabled prev
-                            :: pageButtons
-                            ++ [ nextButton nextEnabled next ]
-                        )
+                    div [ class "pagination" ]
+                        [ div [ class "btn-group", attribute "role" "group" ]
+                            (backButton prevEnabled prev
+                                :: pageButtons
+                                ++ [ nextButton nextEnabled next ]
+                            )
+                        ]
 
                 _ ->
                     let
                         changeMsg =
                             changePageMsg 0
                     in
-                    div [ class "pagination" ]
+                    div []
                         [ div [ class "btn-group", attribute "role" "group" ]
                             [ backButton False changeMsg
                             , nextButton False changeMsg
