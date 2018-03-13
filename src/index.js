@@ -13,6 +13,7 @@ import '../dashboard.css'
 import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
 import '../docs.js'
+import { initLocalStoragePort } from './js/localStoragePort';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -107,7 +108,8 @@ fetch('./config.json').then(function (response) {
                 });
             });
 
-
+            initLocalStoragePort(app);
+            
             app.ports.uploadFileSelected.subscribe(function (id) {
 
                 var node = document.getElementById(id);

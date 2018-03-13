@@ -2,6 +2,7 @@ module Page.Models exposing (Model, Msg, init, update, view, viewModelGridReadon
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
@@ -11,6 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
 import View.DeleteDialog as DeleteDialog
@@ -26,7 +28,6 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { modelList : Remote.WebData ModelList
     , tableState : Table.State
-    , config : Config
     , currentPage : Int
     , pageSize : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -40,10 +41,10 @@ loadModelList config page pageSize =
         |> Cmd.map ModelListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading (Table.initialSort "createdDate") config 0 10 Nothing
-        => loadModelList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading (Table.initialSort "createdDate") 0 context.userPageSize Nothing
+        => loadModelList context.config 0 context.userPageSize
 
 
 
@@ -59,8 +60,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         ModelListResponse resp ->
             { model | modelList = resp } => Cmd.none
@@ -83,7 +84,7 @@ update msg model =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete model.config >> ignoreCascadeParams
+                    Request.Model.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -94,26 +95,33 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadModelList model.config model.currentPage model.pageSize
+                            loadModelList context.config model.currentPage model.pageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList model.config pgNum model.pageSize
+                => loadModelList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadModelList model.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadModelList context.config 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
 
 
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ class "page-header", class "row" ]
             [ div [ class "col-sm-12" ]
@@ -125,7 +133,7 @@ view model =
                 ]
             ]
         , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon model.config.toolTips "Models") ]
+            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , div []
@@ -136,11 +144,11 @@ view model =
                         [ div [ class "col-sm-6 col-sm-offset-3" ]
                             [ Pager.view model.modelList ChangePage ]
                         , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                            [ PageSize.view ChangePageSize ]
+                            [ PageSize.view ChangePageSize context.userPageSize ]
                         ]
                     ]
                 ]
-            , Grid.view .items (config model.config.toolTips) model.tableState model.modelList
+            , Grid.view .items (config context.config.toolTips) model.tableState model.modelList
             , hr [] []
             , div [ class "center" ]
                 [ Pager.view model.modelList ChangePage ]

@@ -363,7 +363,7 @@ view model =
             [ div [ class "col-sm-3" ]
                 [ h3 [] [ text "Columns" ] ]
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
-                [ PageSize.view ChangePageSize ]
+                [ PageSize.view ChangePageSize 10 ]
             ]
         , Grid.view filterColumnsToDisplay (config model.config.toolTips stats) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
