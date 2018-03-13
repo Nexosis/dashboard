@@ -386,7 +386,7 @@ viewSetKey model =
                             ( [ onClick CreateDataSet ], i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
 
         addButton =
-            button (class "btn" :: buttonAttributes) [ createButtonContent ]
+            button (class "btn btn-danger" :: buttonAttributes) [ createButtonContent ]
     in
     div [ class "col-sm-12" ]
         [ div [ id "review" ] <| viewEntryReview model
@@ -480,7 +480,6 @@ viewUploadTab config model =
             [ div [ class "form-group col-sm-8" ]
                 [ input
                     [ id "upload-dataset"
-                    , class "upload-file"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
                     ]

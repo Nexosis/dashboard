@@ -1,0 +1,14 @@
+table.confusion-matrix td {
+    padding: 8px;
+    background-color: #EFEFEF;
+}
+
+table.confusion-matrix td.header, table.confusion-matrix tr.footer {
+    text-align: left;
+    font-weight: bold; 
+}
+
+
+textarea {
+    font-family: monospace
+}

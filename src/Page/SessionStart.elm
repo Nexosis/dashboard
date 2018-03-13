@@ -349,35 +349,63 @@ view model context =
             [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ] ]
         , hr [] []
         , div [ class "row mb20" ]
-            [ viewProgress configWizardSummary model.steps |> Html.map never ]
-        , case model.steps.current of
-            NameSession ->
-                viewNameSession context model
+            ([ viewProgress configWizardSummary model.steps |> Html.map never ]
+                ++ wizardPage context model
+                ++ [ div [ class "col-sm-12" ]
+                        [ div [ class "col-sm-12 well well-sm right" ]
+                            [ viewButtons configWizard (isValid model) model.steps
+                            ]
+                        ]
+                   ]
+            )
+        ]
 
-            SelectDataSet ->
-                viewSelectDataSet model
 
-            SessionType ->
-                viewSessionType context model
+wizardPage : ContextModel -> Model -> List (Html Msg)
+wizardPage context model =
+    case model.steps.current of
+        NameSession ->
+            [ wizardTitle model "Name your session"
+            , viewNameSession context model
+            ]
 
-            StartEndDates ->
-                if model.selectedSessionType == Just Impact then
-                    viewImpactStartEndDates context model
-                else
-                    viewStartEndDates context model
+        SelectDataSet ->
+            [ wizardTitle model "Select a dataset"
+            , viewSelectDataSet model
+            ]
 
-            ContainsAnomalies ->
-                viewContainsAnomalies context model
+        SessionType ->
+            [ wizardTitle model "Choose a session type"
+            , viewSessionType context model
+            ]
 
-            SetBalance ->
-                viewSetBalance context model
+        StartEndDates ->
+            if model.selectedSessionType == Just Impact then
+                [ wizardTitle model "Event Details"
+                , viewImpactStartEndDates context model
+                ]
+            else
+                [ wizardTitle model "Select start and end dates", viewStartEndDates context model ]
 
-            ColumnMetadata ->
-                viewColumnMetadata context model
+        ContainsAnomalies ->
+            [ wizardTitle model "Does your dataset contain anomalies?", viewContainsAnomalies context model ]
 
-            StartSession ->
-                viewStartSession model
-        , viewButtons configWizard (isValid model) model.steps
+        SetBalance ->
+            [ wizardTitle model "Set balance", viewSetBalance context model ]
+
+        ColumnMetadata ->
+            [ wizardTitle model "Edit your column metadata", viewColumnMetadata context model ]
+
+        StartSession ->
+            [ wizardTitle model "Please confirm your session setup", viewStartSession model ]
+
+
+wizardTitle : Model -> String -> Html Msg
+wizardTitle model title =
+    div [ class "col-sm-12 session-step" ]
+        [ div [ class "col-sm-6 pl0" ] [ h3 [ class "mt0" ] [ text title ] ]
+        , div [ class "col-sm-6 right" ]
+            [ viewButtons configWizard (isValid model) model.steps ]
         ]
 
 
@@ -385,7 +413,7 @@ viewNameSession : ContextModel -> Model -> Html Msg
 viewNameSession context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-4" ]
-            [ h3 [ class "mt0" ] [ text "Session name" ]
+            [ label [] [ text "Session name" ]
             , input [ class "form-control", value model.sessionName, onInput ChangeSessionName ] []
             ]
         , div [ class "help col-sm-6 pull-right" ]
@@ -400,8 +428,7 @@ viewSelectDataSet : Model -> Html Msg
 viewSelectDataSet model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-4" ]
-            [ h3 [ class "mt0" ] [ text "Select a DataSet" ]
-            , div [ class "input-group" ]
+            [ div [ class "input-group" ]
                 [ span [ class "input-group-addon" ] [ i [ class "fa fa-search" ] [] ]
                 , input [ class "form-control", value "" ] []
                 ]
@@ -418,40 +445,38 @@ viewSelectDataSet model =
 viewSessionType : ContextModel -> Model -> Html Msg
 viewSessionType context model =
     div [ class "col-sm-12" ]
-        [ div [ class "form-group col-sm-12" ]
-            (h3 [ class "mt0" ] [ text "Choose a session type" ]
-                :: [ sessionTypePanel
-                        "https://nexosis.com/assets/img/features/classification.png"
-                        "Classification"
-                        (explainer context.config "session_classification")
-                        model.selectedSessionType
-                        Classification
-                   , sessionTypePanel
-                        "https://nexosis.com/assets/img/features/regression.png"
-                        "Regression"
-                        (explainer context.config "session_regression")
-                        model.selectedSessionType
-                        Regression
-                   , sessionTypePanel
-                        "https://nexosis.com/assets/img/features/forecasting.png"
-                        "Forecasting"
-                        (explainer context.config "session_forecasting")
-                        model.selectedSessionType
-                        Forecast
-                   , sessionTypePanel
-                        "https://nexosis.com/assets/img/features/impact-analysis.png"
-                        "Impact Analysis"
-                        (explainer context.config "session_impact")
-                        model.selectedSessionType
-                        Impact
-                   , sessionTypePanel
-                        "https://nexosis.com/assets/img/features/anomaly-detection.png"
-                        "Anomaly Detection"
-                        (explainer context.config "session_anomaly")
-                        model.selectedSessionType
-                        Anomalies
-                   ]
-            )
+        [ div [ class "form-group" ]
+            [ sessionTypePanel
+                "https://nexosis.com/assets/img/features/classification.png"
+                "Classification"
+                (explainer context.config "session_classification")
+                model.selectedSessionType
+                Classification
+            , sessionTypePanel
+                "https://nexosis.com/assets/img/features/regression.png"
+                "Regression"
+                (explainer context.config "session_regression")
+                model.selectedSessionType
+                Regression
+            , sessionTypePanel
+                "https://nexosis.com/assets/img/features/forecasting.png"
+                "Forecasting"
+                (explainer context.config "session_forecasting")
+                model.selectedSessionType
+                Forecast
+            , sessionTypePanel
+                "https://nexosis.com/assets/img/features/impact-analysis.png"
+                "Impact Analysis"
+                (explainer context.config "session_impact")
+                model.selectedSessionType
+                Impact
+            , sessionTypePanel
+                "https://nexosis.com/assets/img/features/anomaly-detection.png"
+                "Anomaly Detection"
+                (explainer context.config "session_anomaly")
+                model.selectedSessionType
+                Anomalies
+            ]
         ]
 
 
@@ -481,7 +506,7 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
                                 [ classList
                                     [ ( "btn", True )
                                     , ( "other", not isSelected )
-                                    , ( "secondary", isSelected )
+                                    , ( "btn-primary", isSelected )
                                     ]
                                 , onClick (SelectSessionType selectCmd)
                                 ]
@@ -496,8 +521,7 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
 viewStartEndDates : ContextModel -> Model -> Html Msg
 viewStartEndDates context model =
     div [ class "col-sm-12" ]
-        [ h3 [ class "mt0" ] [ text "Select start and end dates" ]
-        , div [ class "help col-sm-6 pull-right" ]
+        [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
                 [ explainer context.config "session_forecast_start_end"
                 ]
@@ -528,8 +552,7 @@ viewStartEndDates context model =
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
 viewImpactStartEndDates context model =
     div [ class "col-sm-12" ]
-        [ h3 [ class "mt0" ] [ text "Event Details" ]
-        , div [ class "help col-sm-6 pull-right" ]
+        [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
                 [ explainer context.config "session_impact_start_end"
                 ]
@@ -588,8 +611,7 @@ datePickerConfig msg =
 viewContainsAnomalies : ContextModel -> Model -> Html Msg
 viewContainsAnomalies context model =
     div [ class "col-sm-12" ]
-        [ h3 [ class "mt0" ] [ text "Does your DataSet contain anomalies?" ]
-        , div [ class "form-group col-sm-6" ]
+        [ div [ class "form-group col-sm-6" ]
             [ label [ class "radio", for "anomalies-yes" ]
                 [ input [ id "anomalies-yes", name "anomalies", checked <| model.containsAnomalies, type_ "radio", onClick (SelectContainsAnomalies True) ] []
                 , text "Yes, my DataSet contains anomalies."
@@ -610,8 +632,7 @@ viewContainsAnomalies context model =
 viewSetBalance : ContextModel -> Model -> Html Msg
 viewSetBalance context model =
     div [ class "col-sm-12" ]
-        [ h3 [ class "mt0" ] [ text "Set Balance" ]
-        , div [ class "form-group col-sm-6" ]
+        [ div [ class "form-group col-sm-6" ]
             [ label [ class "radio", for "balance-yes" ]
                 [ input [ id "balance-yes", name "balance", checked <| model.balance, type_ "radio", onClick (SelectBalance True) ] []
                 , text "Yes, balance my test set."
@@ -632,8 +653,7 @@ viewSetBalance context model =
 viewColumnMetadata : ContextModel -> Model -> Html Msg
 viewColumnMetadata context model =
     div [ class "col-sm-12" ]
-        [ h3 [ class "mt0" ] [ text "Edit your column metadata" ]
-        , div [ class "help col-sm-6 pull-right" ]
+        [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
                 [ explainer context.config "session_column_metadata"
                 ]
@@ -668,8 +688,7 @@ viewStartSession model =
                         ]
     in
     div [ id "review", class "col-sm-12" ]
-        ([ h3 [ class "mt0" ] [ text "Please confirm your session setup" ] ]
-            ++ List.map reviewItem properties
+        (List.map reviewItem properties
             ++ [ hr [] []
                , div [ class "row" ] [ div [ class "form-group col-sm-12" ] [ startButton ] ]
                , div [ class "row" ] [ viewRemoteError model.sessionStartRequest ]

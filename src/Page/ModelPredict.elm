@@ -253,7 +253,7 @@ view model context =
     div [ class "row" ]
         [ div [ class "col-sm-12" ] (predictInput context model)
         , div [ class "col-sm-12" ]
-            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick action ]
+            [ button [ class "btn btn-danger", disabled (not model.canProceedWithPrediction), onClick action ]
                 [ buttonText ]
             , showTable model
             ]
@@ -514,7 +514,7 @@ downloadButton model =
                     "btn-group"
     in
     div [ class dropDownClass ]
-        [ button [ class "btn", onClick FileDownload ]
+        [ button [ class "btn btn-danger", onClick FileDownload ]
             [ i [ class "fa fa-download mr5" ]
                 []
             , text "Download predictions"

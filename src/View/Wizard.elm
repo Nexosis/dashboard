@@ -26,18 +26,21 @@ viewButtons wizardConfig canAdvance ziplist =
         nextVisible =
             List.length ziplist.next > 0
     in
-    div [ class "form-group" ]
-        [ button
-            [ class "btn secondary"
-            , onClick wizardConfig.prevMessage
-            , tabindex -1
-            , disabled <| not allowPrev
-            ]
-            [ i [ class "fa fa-chevron-left mr5" ] [], text "Previous" ]
+    div [ ]
+        [ viewIf
+            (\() ->
+                button
+                    [ class "btn btn-primary"
+                    , onClick wizardConfig.prevMessage
+                    , tabindex -1
+                    ]
+                    [ i [ class "fa fa-chevron-left mr5" ] [], text "Previous" ]
+            )
+            allowPrev
         , viewIf
             (\() ->
                 button
-                    [ class "btn"
+                    [ class "btn btn-danger"
                     , onClick wizardConfig.nextMessage
                     , disabled <| not allowNext
                     ]
