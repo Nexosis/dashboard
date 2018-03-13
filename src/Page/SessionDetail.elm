@@ -224,6 +224,7 @@ update msg model context =
 
         Copy text ->
             ( model, Ports.copy text )
+
         ChangePage page ->
             { model | currentPage = page } => Cmd.none
 
