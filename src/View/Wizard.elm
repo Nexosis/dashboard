@@ -1,4 +1,4 @@
-module View.Wizard exposing (HtmlDetails, State, StepValidator, WizardConfig, WizardProgressConfig, initialState, viewButtons, viewProgress)
+module View.Wizard exposing (HtmlDetails, StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 import Data.Ziplist exposing (Ziplist)
 import Html exposing (..)
@@ -9,23 +9,10 @@ import Util exposing (spinner)
 import View.Extra exposing (viewIf)
 
 
-type alias InternalState =
-    { showErrors : Bool }
-
-
 type alias HtmlDetails msg =
     { attributes : List (Attribute msg)
     , children : List (Html msg)
     }
-
-
-initialState : State
-initialState =
-    State { showErrors = False }
-
-
-type State
-    = State InternalState
 
 
 type alias WizardConfig a error msg model result =
