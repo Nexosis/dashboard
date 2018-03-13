@@ -293,6 +293,11 @@ viewSessionInfo model session =
             , span [ class "small" ] [ text session.sessionId, a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
             ]
         , p []
+            [ strong [] [ text "API Endpoint URL: " ]
+            , br [] []
+            , span [ class "small" ] [ text ("/sessions/" ++ session.sessionId), a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            ]
+        , p []
             [ deleteSessionButton model
             ]
         ]
