@@ -455,6 +455,20 @@ viewSessionDetail session =
         viewPendingSession session
 
 
+viewPendingSessionHeader : SessionData -> Html Msg
+viewPendingSessionHeader session =
+    -- todo - fill this in and hook it up.
+    div [ class "row" ]
+        [ div [ class "col-sm-4" ]
+            [ h5 [ class "mb15" ] [ text "Session Status" ]
+            , h4 [] [ span [ class "label label-warning" ] [ text "In Process" ] ]
+            ]
+        , div [ class "col-sm-4" ]
+            [ h5 [ class "mb15" ] [ text "Status Log" ]
+            ]
+        ]
+
+
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
     div []
@@ -605,7 +619,7 @@ viewResultsTable model =
                 (sessionResponse.predictionDomain == PredictionDomain.Forecast)
                     || (sessionResponse.predictionDomain == PredictionDomain.Impact)
             then
-                div [] []
+                viewTimeSeriesResults model sessionResponse
             else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
                 viewAnomalyResults model sessionResponse
             else
@@ -704,6 +718,59 @@ viewAnomalyResults model sessionData =
             , div [ class "center" ] [ Pager.view pagedData ChangePage ]
             ]
         ]
+
+
+viewTimeSeriesResults : Model -> SessionData -> Html Msg
+viewTimeSeriesResults model sessionData =
+    let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+
+        targetColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Target)
+
+        timestampColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Timestamp)
+    in
+    case Maybe.map2 (,) targetColumn timestampColumn of
+        Just ( target, timestamp ) ->
+            let
+                renderRow datum =
+                    let
+                        time =
+                            Dict.get timestamp.name datum
+
+                        predicted =
+                            Dict.get target.name datum
+                    in
+                    tr []
+                        [ td [ class "left number" ] [ viewJust (\a -> text a) time ]
+                        , td [ class "left number" ] [ viewJust (\p -> text p) predicted ]
+                        ]
+            in
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row" ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                        ]
+                    , table [ class "table table-striped" ]
+                        [ thead []
+                            [ tr []
+                                [ th [ class "left" ] [ text "Timestamp" ]
+                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                ]
+                            ]
+                        , tbody [] (List.map renderRow (filterToPage pagedData))
+                        ]
+                    , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                    ]
+                ]
+
+        Nothing ->
+            div [] []
 
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
