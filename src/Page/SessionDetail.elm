@@ -2,10 +2,11 @@ module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Algorithm exposing (..)
-import Data.Columns as Role exposing (ColumnMetadata, Role)
+import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.ConfusionMatrix exposing (ConfusionMatrix)
 import Data.Context exposing (ContextModel)
+import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
@@ -18,7 +19,7 @@ import Html.Events exposing (onClick)
 import Html.Keyed
 import Json.Encode
 import List exposing (filter, foldr, head)
-import List.Extra as ListX
+import List.Extra as List
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
@@ -29,7 +30,10 @@ import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Charts as Charts
 import View.DeleteDialog as DeleteDialog
+import View.Error exposing (viewHttpError)
+import View.Extra exposing (viewJust)
 import View.Messages as Messages
+import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 import Window
 
 
@@ -41,6 +45,8 @@ type alias Model =
     , dataSetResponse : Remote.WebData DataSetData
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
+    , currentPage : Int
+    , csvDownload : Remote.WebData String
     }
 
 
@@ -55,7 +61,7 @@ init config sessionId =
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -66,6 +72,9 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
+    | ChangePage Int
+    | DownloadResults
+    | DownloadResponse (Remote.WebData String)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -211,6 +220,40 @@ update msg model context =
             in
             { model | windowWidth = newWidth } => Cmd.none
 
+        ChangePage page ->
+            { model | currentPage = page } => Cmd.none
+
+        DownloadResults ->
+            let
+                resultsRequest =
+                    Request.Session.resultsCsv context.config model.sessionId
+                        |> Remote.sendRequest
+                        |> Cmd.map DownloadResponse
+            in
+            { model | csvDownload = Remote.Loading } => resultsRequest
+
+        DownloadResponse result ->
+            case result of
+                Remote.Success csv ->
+                    { model | csvDownload = result }
+                        => Ports.requestSaveFile
+                            { contents = csv
+                            , contentType = Format.dataFormatToString Format.Csv
+                            , name = formatFilename model
+                            }
+
+                Remote.Failure err ->
+                    { model | csvDownload = result }
+                        => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+
+formatFilename : Model -> String
+formatFilename model =
+    model.sessionId ++ "-results." ++ Format.dataFormatToString Format.Csv
+
 
 view : Model -> ContextModel -> Html Msg
 view model context =
@@ -235,6 +278,8 @@ view model context =
         , viewSessionDetails model
         , viewConfusionMatrix model
         , viewResultsGraph model
+        , hr [] []
+        , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
             , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
@@ -441,7 +486,7 @@ viewCompletedSession session =
         targetColumnFromColumns : SessionData -> Maybe String
         targetColumnFromColumns session =
             session.columns
-                |> ListX.find (\m -> m.role == Role.Target)
+                |> List.find (\m -> m.role == Columns.Target)
                 |> columnName
 
         targetColumn : SessionData -> Maybe String
@@ -552,6 +597,73 @@ viewResultsGraph model =
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
 
 
+viewResultsTable : Model -> Html Msg
+viewResultsTable model =
+    case model.sessionResponse of
+        Remote.Success sessionResponse ->
+            if
+                (sessionResponse.predictionDomain == PredictionDomain.Forecast)
+                    || (sessionResponse.predictionDomain == PredictionDomain.Impact)
+            then
+                div [] []
+            else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
+                div [] []
+            else
+                viewModelTrainingResults model sessionResponse
+
+        _ ->
+            div [] []
+
+
+viewModelTrainingResults : Model -> SessionData -> Html Msg
+viewModelTrainingResults model sessionData =
+    let
+        targetColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Target)
+
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+    in
+    case targetColumn of
+        Just target ->
+            let
+                renderRow datum =
+                    let
+                        actual =
+                            Dict.get (target.name ++ ":actual") datum
+
+                        predicted =
+                            Dict.get target.name datum
+                    in
+                    tr []
+                        [ td [ class "left number" ] [ viewJust (\a -> text a) actual ]
+                        , td [ class "left number" ] [ viewJust (\p -> text p) predicted ]
+                        ]
+            in
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row" ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                        ]
+                    , table [ class "table table-striped" ]
+                        [ thead []
+                            [ tr []
+                                [ th [ class "left" ] [ text <| target.name ++ " - Actual" ]
+                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                ]
+                            ]
+                        , tbody [] (List.map renderRow (filterToPage pagedData))
+                        ]
+                    , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                    ]
+                ]
+
+        Nothing ->
+            div [] []
+
+
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =
     case request of
@@ -577,5 +689,5 @@ viewConfusionMatrix model =
         Remote.Success response ->
             Charts.renderConfusionMatrix response
 
-        Remote.Failure _ ->
-            div [] [ text "Error" ]
+        Remote.Failure error ->
+            viewHttpError error

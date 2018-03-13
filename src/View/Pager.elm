@@ -1,9 +1,9 @@
-module View.Pager exposing (view)
+module View.Pager exposing (PagedListing, filterToPage, mapToPagedListing, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import RemoteData exposing (WebData)
+import RemoteData as Remote exposing (WebData)
 
 
 type alias PagedValues a =
@@ -20,7 +20,7 @@ view pagedValues changePageMsg =
     let
         pager =
             case pagedValues of
-                RemoteData.Success successResponse ->
+                Remote.Success successResponse ->
                     let
                         pageButtons =
                             generatePageButtons successResponse.pageNumber successResponse.totalPages changePageMsg
@@ -107,3 +107,45 @@ nextButton : Bool -> msg -> Html msg
 nextButton isEnabled msg =
     button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
         [ i [ class "fa fa-angle-right" ] [] ]
+
+
+type alias PagedListing a =
+    { pageNumber : Int
+    , totalPages : Int
+    , pageSize : Int
+    , totalCount : Int
+    , items : List a
+    }
+
+
+mapToPagedListing : Int -> List a -> PagedListing a
+mapToPagedListing currentPage rows =
+    let
+        count =
+            List.length rows
+
+        pageSize =
+            10
+    in
+    { pageNumber = currentPage
+    , totalPages = count // pageSize
+    , pageSize = pageSize
+    , totalCount = count
+    , items = rows
+    }
+
+
+filterToPage : Remote.WebData (PagedListing a) -> List a
+filterToPage model =
+    case model of
+        Remote.Success result ->
+            let
+                drop =
+                    result.pageSize * result.pageNumber
+            in
+            result.items
+                |> List.drop drop
+                |> List.take result.pageSize
+
+        _ ->
+            []

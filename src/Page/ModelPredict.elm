@@ -19,7 +19,7 @@ import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
 import View.Messages as Messages
-import View.Pager as Pager
+import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 
 
 type alias Model =
@@ -423,39 +423,6 @@ createErrorMessage httpError =
 
         Http.BadPayload message response ->
             message
-
-
-mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing
-mapToPagedListing currentPage rows =
-    let
-        count =
-            List.length rows
-
-        pageSize =
-            10
-    in
-    { pageNumber = currentPage
-    , totalPages = count // pageSize
-    , pageSize = pageSize
-    , totalCount = count
-    , predictions = rows
-    }
-
-
-filterToPage : Remote.WebData PredictionResultListing -> List (Dict String String)
-filterToPage model =
-    case model of
-        Remote.Success result ->
-            let
-                drop =
-                    result.pageSize * result.pageNumber
-            in
-            result.predictions
-                |> List.drop drop
-                |> List.take result.pageSize
-
-        _ ->
-            [ Dict.empty ]
 
 
 showTable : Model -> Html Msg
