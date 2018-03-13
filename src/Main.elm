@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import AppRoutes exposing (Route)
+import Clipboard
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext, modelDecoder)
 import Data.Response as Response
@@ -78,6 +79,7 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
+    | CopyToClipboard Clipboard.Msg
 
 
 type Page
@@ -227,7 +229,16 @@ update msg model =
                         => Cmd.none
 
         Initialized app ->
-            Tuple.mapFirst Initialized <| updatePage app.page msg app
+            case msg of
+                CopyToClipboard text ->
+                    --really would like to handle this message only in main, but can't
+                    --figure out how to do that from inside a page because the Msg types differ.
+                    --leaving this here for now as a marker to myself to see if that's possible
+                    --if not, we should delete this case
+                    ( model, Clipboard.handle text )
+
+                _ ->
+                    Tuple.mapFirst Initialized <| updatePage app.page msg app
 
         InitializationError err ->
             model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ err) Log.Error)

@@ -1,6 +1,7 @@
 module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
+import Clipboard
 import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
@@ -17,6 +18,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Util exposing ((=>), formatFloatToString, styledNumber)
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 
 
@@ -56,6 +58,7 @@ type Msg
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
+    | Copy Clipboard.Msg
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -112,6 +115,9 @@ update msg model context =
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
+
+        Copy text ->
+            ( model, Clipboard.handle text )
 
 
 view : Model -> ContextModel -> Html Msg
@@ -192,14 +198,12 @@ detailRow model =
                     , p []
                         [ strong [] [ text "Model ID:" ]
                         , br [] []
-                        , text (padSpace model.modelId)
-                        , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
+                        , copyableText model.modelId Copy
                         ]
                     , p []
                         [ strong [] [ text "API Endpoint Url" ]
                         , br [] []
-                        , text ("/models/" ++ model.modelId)
-                        , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
+                        , copyableText ("/models/" ++ model.modelId) Copy
                         ]
                     , button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
                         [ i [ class "fa fa-trash-o mr5" ] []

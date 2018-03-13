@@ -1,6 +1,7 @@
 module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
+import Clipboard
 import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
@@ -28,6 +29,7 @@ import Request.Session exposing (..)
 import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Charts as Charts
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 import View.Messages as Messages
 import Window
@@ -66,6 +68,7 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
+    | Copy Clipboard.Msg
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -211,6 +214,9 @@ update msg model context =
             in
             { model | windowWidth = newWidth } => Cmd.none
 
+        Copy text ->
+            ( model, Clipboard.handle text )
+
 
 view : Model -> ContextModel -> Html Msg
 view model context =
@@ -289,12 +295,12 @@ viewSessionInfo model session =
         , p []
             [ strong [] [ text "Session ID: " ]
             , br [] []
-            , span [ class "small" ] [ text session.sessionId, a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            , copyableText session.sessionId Copy
             ]
         , p []
             [ strong [] [ text "API Endpoint URL: " ]
             , br [] []
-            , span [ class "small" ] [ text ("/sessions/" ++ session.sessionId), a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            , copyableText ("/sessions/" ++ session.sessionId) Copy
             ]
         , p []
             [ deleteSessionButton model
