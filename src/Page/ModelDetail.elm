@@ -131,7 +131,6 @@ view model context =
             , div [ class "col-sm-3" ]
                 []
             ]
-        , hr [] []
         , detailRow model
         , hr [] []
         , renderPredict context model
