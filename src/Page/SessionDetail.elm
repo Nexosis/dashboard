@@ -607,7 +607,7 @@ viewResultsTable model =
             then
                 div [] []
             else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
-                div [] []
+                viewAnomalyResults model sessionResponse
             else
                 viewModelTrainingResults model sessionResponse
 
@@ -662,6 +662,48 @@ viewModelTrainingResults model sessionData =
 
         Nothing ->
             div [] []
+
+
+viewAnomalyResults : Model -> SessionData -> Html Msg
+viewAnomalyResults model sessionData =
+    let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+
+        otherValueColumns =
+            List.filter (\c -> c.name /= "anomaly") sessionData.columns
+
+        renderRow datum =
+            let
+                anomalyScore =
+                    Dict.get "anomaly" datum
+            in
+            tr []
+                (td [ class "left number" ] [ viewJust (\a -> text a) anomalyScore ]
+                    :: (otherValueColumns
+                            |> List.map (\c -> Dict.get c.name datum)
+                            |> List.map (\v -> td [ class "left number" ] [ viewJust (\a -> text a) v ])
+                       )
+                )
+    in
+    div [ class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ div [ class "row" ]
+                [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                ]
+            , table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        (th [ class "left" ] [ text "Anomaly" ]
+                            :: (otherValueColumns |> List.map (\c -> th [ class "left" ] [ text c.name ]))
+                        )
+                    ]
+                , tbody [] (List.map renderRow (filterToPage pagedData))
+                ]
+            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+            ]
+        ]
 
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
