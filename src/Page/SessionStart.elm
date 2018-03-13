@@ -3,6 +3,7 @@ module Page.SessionStart exposing (Model, Msg, init, update, view)
 import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval, SessionData)
@@ -27,8 +28,7 @@ import View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, vi
 
 
 type alias Model =
-    { config : Config
-    , steps : Ziplist Step
+    { steps : Ziplist Step
     , dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
@@ -93,7 +93,7 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName True
     in
-    Model config
+    Model
         steps
         dataSetName
         Remote.Loading
@@ -150,8 +150,8 @@ defaultRemainingSteps =
     [ ColumnMetadata, StartSession ]
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case ( model.steps.current, msg ) of
         ( NameSession, ChangeSessionName sessionName ) ->
             { model | sessionName = sessionName } => Cmd.none
@@ -196,7 +196,7 @@ update msg model =
                                     , containsAnomalies = Nothing
                                     }
                             in
-                            postModel model.config modelRequestRec
+                            postModel context.config modelRequestRec
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -212,7 +212,7 @@ update msg model =
                                     , containsAnomalies = Just model.containsAnomalies
                                     }
                             in
-                            postModel model.config modelRequest
+                            postModel context.config modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -228,7 +228,7 @@ update msg model =
                                     , containsAnomalies = Nothing
                                     }
                             in
-                            postModel model.config modelRequest
+                            postModel context.config modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -244,7 +244,7 @@ update msg model =
                                     , resultInterval = model.resultInterval
                                     }
                             in
-                            postForecast model.config forecastReq
+                            postForecast context.config forecastReq
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -261,7 +261,7 @@ update msg model =
                                     , resultInterval = model.resultInterval
                                     }
                             in
-                            postImpact model.config impactReq
+                            postImpact context.config impactReq
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
@@ -342,15 +342,15 @@ update msg model =
             model => Cmd.none
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ class "row" ]
             [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ] ]
         , hr [] []
         , div [ class "row mb20" ]
             ([ viewProgress configWizardSummary model.steps |> Html.map never ]
-                ++ wizardPage model
+                ++ wizardPage context model
                 ++ [ div [ class "col-sm-12" ]
                         [ div [ class "col-sm-12 well well-sm right" ]
                             [ viewButtons configWizard (isValid model) model.steps
@@ -361,12 +361,12 @@ view model =
         ]
 
 
-wizardPage : Model -> List (Html Msg)
-wizardPage model =
+wizardPage : ContextModel -> Model -> List (Html Msg)
+wizardPage context model =
     case model.steps.current of
         NameSession ->
             [ wizardTitle model "Name your session"
-            , viewNameSession model
+            , viewNameSession context model
             ]
 
         SelectDataSet ->
@@ -376,25 +376,25 @@ wizardPage model =
 
         SessionType ->
             [ wizardTitle model "Choose a session type"
-            , viewSessionType model
+            , viewSessionType context model
             ]
 
         StartEndDates ->
             if model.selectedSessionType == Just Impact then
                 [ wizardTitle model "Event Details"
-                , viewImpactStartEndDates model
+                , viewImpactStartEndDates context model
                 ]
             else
-                [ wizardTitle model "Select start and end dates", viewStartEndDates model ]
+                [ wizardTitle model "Select start and end dates", viewStartEndDates context model ]
 
         ContainsAnomalies ->
-            [ wizardTitle model "Does your dataset contain anomalies?", viewContainsAnomalies model ]
+            [ wizardTitle model "Does your dataset contain anomalies?", viewContainsAnomalies context model ]
 
         SetBalance ->
-            [ wizardTitle model "Set balance", viewSetBalance model ]
+            [ wizardTitle model "Set balance", viewSetBalance context model ]
 
         ColumnMetadata ->
-            [ wizardTitle model "Edit your column metadata", viewColumnMetadata model ]
+            [ wizardTitle model "Edit your column metadata", viewColumnMetadata context model ]
 
         StartSession ->
             [ wizardTitle model "Please confirm your session setup", viewStartSession model ]
@@ -409,8 +409,8 @@ wizardTitle model title =
         ]
 
 
-viewNameSession : Model -> Html Msg
-viewNameSession model =
+viewNameSession : ContextModel -> Model -> Html Msg
+viewNameSession context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-4" ]
             [ label [] [ text "Session name" ]
@@ -418,7 +418,7 @@ viewNameSession model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "how_name_session"
+                [ explainer context.config "how_name_session"
                 ]
             ]
         ]
@@ -442,38 +442,38 @@ viewSelectDataSet model =
         ]
 
 
-viewSessionType : Model -> Html Msg
-viewSessionType model =
+viewSessionType : ContextModel -> Model -> Html Msg
+viewSessionType context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group" ]
             [ sessionTypePanel
                 "https://nexosis.com/assets/img/features/classification.png"
                 "Classification"
-                        (explainer model.config "session_classification")
+                (explainer context.config "session_classification")
                 model.selectedSessionType
                 Classification
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/regression.png"
                 "Regression"
-                        (explainer model.config "session_regression")
+                (explainer context.config "session_regression")
                 model.selectedSessionType
                 Regression
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/forecasting.png"
                 "Forecasting"
-                        (explainer model.config "session_forecasting")
+                (explainer context.config "session_forecasting")
                 model.selectedSessionType
                 Forecast
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/impact-analysis.png"
                 "Impact Analysis"
-                        (explainer model.config "session_impact")
+                (explainer context.config "session_impact")
                 model.selectedSessionType
                 Impact
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/anomaly-detection.png"
                 "Anomaly Detection"
-                        (explainer model.config "session_anomaly")
+                (explainer context.config "session_anomaly")
                 model.selectedSessionType
                 Anomalies
             ]
@@ -518,12 +518,12 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
         ]
 
 
-viewStartEndDates : Model -> Html Msg
-viewStartEndDates model =
+viewStartEndDates : ContextModel -> Model -> Html Msg
+viewStartEndDates context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "session_forecast_start_end"
+                [ explainer context.config "session_forecast_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
@@ -549,12 +549,12 @@ viewStartEndDates model =
         ]
 
 
-viewImpactStartEndDates : Model -> Html Msg
-viewImpactStartEndDates model =
+viewImpactStartEndDates : ContextModel -> Model -> Html Msg
+viewImpactStartEndDates context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "session_impact_start_end"
+                [ explainer context.config "session_impact_start_end"
                 ]
             ]
         , div [ class "form-group col-sm-3" ]
@@ -608,8 +608,8 @@ datePickerConfig msg =
     }
 
 
-viewContainsAnomalies : Model -> Html Msg
-viewContainsAnomalies model =
+viewContainsAnomalies : ContextModel -> Model -> Html Msg
+viewContainsAnomalies context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-6" ]
             [ label [ class "radio", for "anomalies-yes" ]
@@ -623,14 +623,14 @@ viewContainsAnomalies model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "session_anomaly_details"
+                [ explainer context.config "session_anomaly_details"
                 ]
             ]
         ]
 
 
-viewSetBalance : Model -> Html Msg
-viewSetBalance model =
+viewSetBalance : ContextModel -> Model -> Html Msg
+viewSetBalance context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-6" ]
             [ label [ class "radio", for "balance-yes" ]
@@ -644,18 +644,18 @@ viewSetBalance model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "session_classification_balance"
+                [ explainer context.config "session_classification_balance"
                 ]
             ]
         ]
 
 
-viewColumnMetadata : Model -> Html Msg
-viewColumnMetadata model =
+viewColumnMetadata : ContextModel -> Model -> Html Msg
+viewColumnMetadata context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "session_column_metadata"
+                [ explainer context.config "session_column_metadata"
                 ]
             ]
         , div [ class "form-group col-sm-6" ]

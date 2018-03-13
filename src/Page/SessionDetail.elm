@@ -5,6 +5,7 @@ import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.ConfusionMatrix exposing (ConfusionMatrix)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
@@ -38,7 +39,6 @@ type alias Model =
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
     }
@@ -55,7 +55,7 @@ init config sessionId =
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
 
 
 type Msg
@@ -68,8 +68,8 @@ type Msg
     | GetWindowWidth (Result String Int)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         SessionResponse response ->
             case response of
@@ -79,7 +79,7 @@ update msg model =
                             details =
                                 case sessionInfo.predictionDomain of
                                     PredictionDomain.Classification ->
-                                        getConfusionMatrix model.config model.sessionId 0 25
+                                        getConfusionMatrix context.config model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
 
@@ -88,7 +88,7 @@ update msg model =
                         in
                         { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
                             => Cmd.batch
-                                [ Request.Session.results model.config model.sessionId 0 1000
+                                [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
@@ -128,7 +128,7 @@ update msg model =
                                         dates =
                                             Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
                                     in
-                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) dates
+                                    getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
                                         |> Remote.sendRequest
                                         |> Cmd.map DataSetLoaded
 
@@ -154,7 +154,7 @@ update msg model =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete model.config >> ignoreCascadeParams
+                    Request.Session.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -206,8 +206,8 @@ update msg model =
             { model | windowWidth = newWidth } => Cmd.none
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ div [ class "col-sm-12" ]

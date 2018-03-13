@@ -3,6 +3,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
@@ -30,7 +31,6 @@ type alias Model =
     { dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
     , updateResponse : Remote.WebData ()
@@ -53,7 +53,7 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init config dataSetName True
     in
-    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks []) Remote.NotAsked
+    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData
           , loadRelatedSessions config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -80,8 +80,8 @@ type Msg
     | MetadataUpdated (Remote.WebData ())
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         DataSetDataResponse resp ->
             let
@@ -102,7 +102,7 @@ update msg model =
                             Cmd.none
 
                         ColumnMetadataEditor.Updated modifiedMetadata ->
-                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
+                            Request.DataSet.updateMetadata context.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                                 |> Cmd.map MetadataUpdated
             in
@@ -119,7 +119,7 @@ update msg model =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -182,8 +182,8 @@ update msg model =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ div [ class "col-sm-12" ]

@@ -2,7 +2,7 @@ module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), 
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
-import Data.Config exposing (Config)
+import Data.Context exposing (..)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
@@ -12,6 +12,7 @@ import Html.Events exposing (onCheck, onClick, onInput)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
+import StateStorage
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
 import View.DeleteDialog as DeleteDialog
@@ -49,22 +50,21 @@ type alias Model =
     , currentPage : Int
     , pageSize : Int
     , tableState : Table.State
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
-loadDataSetList : Config -> Int -> Int -> Cmd Msg
-loadDataSetList config pageNum pageSize =
-    Request.DataSet.get config pageNum pageSize
+loadDataSetList : ContextModel -> Int -> Int -> Cmd Msg
+loadDataSetList context pageNum pageSize =
+    Request.DataSet.get context.config pageNum pageSize
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing
-        => loadDataSetList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading 0 context.userPageSize (Table.initialSort "dataSetName") Nothing
+        => loadDataSetList context 0 context.userPageSize
 
 
 
@@ -80,8 +80,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
@@ -92,11 +92,18 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList model.config pgNum model.pageSize
+                => loadDataSetList context pgNum context.userPageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadDataSetList model.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadDataSetList context 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
         ShowDeleteDialog dataSet ->
             let
@@ -108,7 +115,7 @@ update msg model =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -119,7 +126,7 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList model.config model.currentPage model.pageSize
+                            loadDataSetList context model.currentPage context.userPageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -129,8 +136,8 @@ update msg model =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ div [ class "col-sm-12" ]
@@ -139,7 +146,7 @@ view model =
                     [ div [ class "col-sm-6" ]
                 [ h2 [ class "mt10" ]
                     ([ text "DataSets" ]
-                        ++ helpIcon model.config.toolTips "Datasets"
+                        ++ helpIcon context.config.toolTips "Datasets"
                     )
                         ]
                     , div [ class "col-sm-6 right" ]
@@ -152,12 +159,12 @@ view model =
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6" ]
-                        [ explainer model.config "what_is_dataset"
+                        [ explainer context.config "what_is_dataset"
                         ]
                     , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
-                , viewDataSetGrid model.config.toolTips model.tableState model.dataSetList
+                , viewDataSetGrid context.config.toolTips model.tableState model.dataSetList
                 , hr [] []
                 , div [ class "center" ]
                     [ Pager.view model.dataSetList ChangePage ]
