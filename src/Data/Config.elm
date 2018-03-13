@@ -1,7 +1,7 @@
 module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, tokenDecoder, withAuthorization)
 
 import Dict exposing (Dict)
-import HttpBuilder exposing (RequestBuilder, withHeader)
+import HttpBuilder exposing (RequestBuilder, withBearerToken)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
@@ -74,7 +74,7 @@ withAuthorization token builder =
     case token of
         Just nexosisToken ->
             builder
-                |> withHeader "Authorization" ("Bearer " ++ nexosisToken.rawToken)
+                |> withBearerToken nexosisToken.rawToken
 
         _ ->
             builder

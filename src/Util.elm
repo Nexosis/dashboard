@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
 
 import Html
 import Html.Attributes
@@ -131,3 +131,13 @@ isActuallyInteger input =
 styledNumber : String -> Html.Html msg
 styledNumber input =
     Html.span [ Html.Attributes.class "number" ] [ Html.text input ]
+
+
+unwrapErrors : Result (List err) a -> List err
+unwrapErrors result =
+    case result of
+        Ok _ ->
+            []
+
+        Err errors ->
+            errors

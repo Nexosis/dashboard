@@ -14,17 +14,21 @@ import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onCheck, onClick, onInput)
+import Html.Events exposing (onBlur, onCheck, onClick, onInput)
+import List.Extra as List
+import Maybe.Verify
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (postForecast, postImpact, postModel)
+import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
+import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), isJust, spinner)
+import Util exposing ((=>), isJust, spinner, unwrapErrors)
+import Verify exposing (Validator)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
-import View.Error exposing (viewRemoteError)
-import View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
+import View.Error exposing (viewFieldError, viewRemoteError)
+import View.Wizard as Wizard exposing (StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
 type alias Model =
@@ -44,17 +48,19 @@ type alias Model =
     , eventName : Maybe String
     , containsAnomalies : Bool
     , balance : Bool
+    , errors : List FieldError
     }
 
 
 type Msg
     = NextStep
     | PrevStep
+    | InputBlur
     | ChangeSessionName String
     | SelectSessionType PredictionDomain
     | DataSetDataResponse (Remote.WebData DataSetData)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
-    | StartTheSession
+    | StartTheSession SessionRequest
     | StartSessionResponse (Remote.WebData SessionData)
     | StartDateChanged DateTimePicker.State (Maybe Date)
     | EndDateChanged DateTimePicker.State (Maybe Date)
@@ -73,6 +79,12 @@ type Step
     | SetBalance
     | ColumnMetadata
     | StartSession
+
+
+type SessionRequest
+    = ForecastRequest ForecastSessionRequest
+    | ImpactRequest ImpactSessionRequest
+    | ModelRequest ModelSessionRequest
 
 
 
@@ -110,6 +122,7 @@ init config dataSetName =
         Nothing
         True
         True
+        []
         ! [ loadDataSetRequest
           , Cmd.map ColumnMetadataEditorMsg initCmd
           , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
@@ -117,32 +130,156 @@ init config dataSetName =
           ]
 
 
-isValid : Model -> Bool
-isValid model =
-    case model.steps.current of
-        SessionType ->
-            isJust model.selectedSessionType
+type alias FieldError =
+    ( Field, String )
 
-        StartEndDates ->
-            let
-                datesValid =
-                    Maybe.map2 (\start end -> DateTime.compare start end == LT) model.startDate model.endDate
-                        |> (==) (Just True)
-            in
-            if model.selectedSessionType == Just Impact then
-                datesValid
-                    && (case model.eventName of
-                            Just e ->
-                                not (String.isEmpty e)
 
-                            Nothing ->
-                                False
-                       )
-            else
-                datesValid
+type Field
+    = EventNameField
+    | StartDateField
+    | SessionTypeField
+
+
+validateModel : Model -> Result (List FieldError) SessionRequest
+validateModel model =
+    case model.selectedSessionType of
+        Just Forecast ->
+            validateForecast model
+                |> Result.map ForecastRequest
+
+        Just Impact ->
+            validateImpact model
+                |> Result.map ImpactRequest
+
+        Just _ ->
+            validateModelRequest model
+                |> Result.map ModelRequest
 
         _ ->
-            True
+            Err [ SessionTypeField => "Session Type Selection is required" ]
+
+
+verifyStartEndDates : Model -> Result (List FieldError) { endDate : DateTime, startDate : DateTime }
+verifyStartEndDates { startDate, endDate } =
+    case ( startDate, endDate ) of
+        ( Just startDate, Just endDate ) ->
+            if DateTime.compare startDate endDate == LT then
+                Ok { startDate = startDate, endDate = endDate }
+            else
+                Err [ StartDateField => "Start date must be before the end date." ]
+
+        _ ->
+            Err [ StartDateField => "A start date and an end date are required." ]
+
+
+verifyEventName : Model -> Result (List FieldError) String
+verifyEventName { eventName, selectedSessionType } =
+    case selectedSessionType of
+        Just Impact ->
+            eventName
+                |> Maybe.Verify.isJust (EventNameField => "An event name is required")
+                |> Result.andThen (String.Verify.notBlank (EventNameField => "An event name is required"))
+
+        _ ->
+            Ok ""
+
+
+keepBalance : Model -> Result (List FieldError) (Maybe Bool)
+keepBalance { balance, selectedSessionType } =
+    case selectedSessionType of
+        Just Classification ->
+            Ok (Just balance)
+
+        _ ->
+            Ok Nothing
+
+
+keepContainsAnomalies : Model -> Result (List FieldError) (Maybe Bool)
+keepContainsAnomalies { containsAnomalies, selectedSessionType } =
+    case selectedSessionType of
+        Just Anomalies ->
+            Ok (Just containsAnomalies)
+
+        _ ->
+            Ok Nothing
+
+
+verifySessionType : Model -> Result (List FieldError) PredictionDomain
+verifySessionType model =
+    Maybe.Verify.isJust (SessionTypeField => "A Session type must be selected.") model.selectedSessionType
+
+
+validateForecast : Validator FieldError Model ForecastSessionRequest
+validateForecast =
+    Verify.ok ForecastSessionRequest
+        |> Verify.keep .sessionName
+        |> Verify.keep .dataSetName
+        |> Verify.keep .sessionColumnMetadata
+        |> Verify.custom verifyStartEndDates
+        |> Verify.keep .resultInterval
+
+
+validateImpact : Validator FieldError Model ImpactSessionRequest
+validateImpact =
+    Verify.ok ImpactSessionRequest
+        |> Verify.keep .sessionName
+        |> Verify.keep .dataSetName
+        |> Verify.keep .sessionColumnMetadata
+        |> Verify.custom verifyStartEndDates
+        |> Verify.custom verifyEventName
+        |> Verify.keep .resultInterval
+
+
+validateModelRequest : Validator FieldError Model ModelSessionRequest
+validateModelRequest =
+    Verify.ok ModelSessionRequest
+        |> Verify.keep .sessionName
+        |> Verify.keep .dataSetName
+        |> Verify.keep .sessionColumnMetadata
+        |> Verify.custom verifySessionType
+        |> Verify.custom keepBalance
+        |> Verify.custom keepContainsAnomalies
+
+
+perStepValidations : List ( Step, Model -> List FieldError )
+perStepValidations =
+    [ ( StartEndDates, verifyStartEndStep )
+    , ( SessionType, verifySessionType >> unwrapErrors )
+    ]
+
+
+verifyStartEndStep : Model -> List FieldError
+verifyStartEndStep model =
+    List.concatMap (\f -> f model)
+        [ verifyStartEndDates >> unwrapErrors
+        , verifyEventName >> unwrapErrors
+        ]
+
+
+configWizard : WizardConfig Step FieldError Msg Model SessionRequest
+configWizard =
+    { nextMessage = NextStep
+    , prevMessage = PrevStep
+    , stepValidation = perStepValidations
+    , finishedButton = \_ -> Wizard.HtmlDetails [] [ text "Start Session" ]
+    , finishedValidation = validateModel
+    , finishedMsg = StartTheSession
+    }
+
+
+configWizardSummary : WizardProgressConfig Step
+configWizardSummary =
+    { stepDescriptions =
+        [ ( NameSession, "Session Name" )
+        , ( SelectDataSet, "DataSet Name" )
+        , ( SessionType, "Session Type" )
+        , ( StartEndDates, "Start/End Dates" )
+        , ( ContainsAnomalies, "Contains Anomalies" )
+        , ( SetBalance, "Set Balance" )
+        , ( ColumnMetadata, "Column Metadata" )
+        , ( StartSession, "Start Session" )
+        ]
+    }
 
 
 defaultRemainingSteps : List Step
@@ -178,104 +315,45 @@ update msg model context =
                 columnEditorModel =
                     { columnModel | showTarget = showTarget }
             in
-            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel } => Cmd.none
+            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel, errors = [] } => Cmd.none
 
-        ( StartSession, StartTheSession ) ->
+        ( StartSession, StartTheSession request ) ->
             let
                 sessionRequest =
-                    case model.selectedSessionType of
-                        Just Regression ->
-                            let
-                                modelRequestRec =
-                                    { name = model.sessionName
-                                    , dataSourceName = model.dataSetName
-                                    , targetColumn = Just ""
-                                    , predictionDomain = PredictionDomain.Regression
-                                    , columns = model.sessionColumnMetadata
-                                    , balance = Nothing
-                                    , containsAnomalies = Nothing
-                                    }
-                            in
-                            postModel context.config modelRequestRec
+                    case request of
+                        ForecastRequest forecastRequest ->
+                            postForecast context.config forecastRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
-                        Just Anomalies ->
-                            let
-                                modelRequest =
-                                    { name = model.sessionName
-                                    , dataSourceName = model.dataSetName
-                                    , targetColumn = Nothing
-                                    , predictionDomain = PredictionDomain.Anomalies
-                                    , columns = model.sessionColumnMetadata
-                                    , balance = Nothing
-                                    , containsAnomalies = Just model.containsAnomalies
-                                    }
-                            in
+                        ImpactRequest impactRequest ->
+                            postImpact context.config impactRequest
+                                |> Remote.sendRequest
+                                |> Cmd.map StartSessionResponse
+
+                        ModelRequest modelRequest ->
                             postModel context.config modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
-
-                        Just Classification ->
-                            let
-                                modelRequest =
-                                    { name = model.sessionName
-                                    , dataSourceName = model.dataSetName
-                                    , targetColumn = Just ""
-                                    , predictionDomain = PredictionDomain.Classification
-                                    , columns = model.sessionColumnMetadata
-                                    , balance = Just model.balance
-                                    , containsAnomalies = Nothing
-                                    }
-                            in
-                            postModel context.config modelRequest
-                                |> Remote.sendRequest
-                                |> Cmd.map StartSessionResponse
-
-                        Just Forecast ->
-                            let
-                                forecastReq =
-                                    { name = model.sessionName
-                                    , dataSourceName = model.dataSetName
-                                    , targetColumn = ""
-                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , columns = model.sessionColumnMetadata
-                                    , resultInterval = model.resultInterval
-                                    }
-                            in
-                            postForecast context.config forecastReq
-                                |> Remote.sendRequest
-                                |> Cmd.map StartSessionResponse
-
-                        Just Impact ->
-                            let
-                                impactReq =
-                                    { name = model.sessionName
-                                    , dataSourceName = model.dataSetName
-                                    , targetColumn = ""
-                                    , startDate = model.startDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , endDate = model.endDate |> Maybe.withDefault (DateTime.dateTime DateTime.zero)
-                                    , columns = model.sessionColumnMetadata
-                                    , eventName = model.eventName |> Maybe.withDefault ""
-                                    , resultInterval = model.resultInterval
-                                    }
-                            in
-                            postImpact context.config impactReq
-                                |> Remote.sendRequest
-                                |> Cmd.map StartSessionResponse
-
-                        Nothing ->
-                            Cmd.none
             in
             { model | sessionStartRequest = Remote.Loading }
                 => sessionRequest
 
         ( _, StartDateChanged state value ) ->
-            { model | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), startDatePickerState = state } => Cmd.none
+            { model
+                | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                , startDatePickerState = state
+            }
+                |> recheckErrors
+                => Cmd.none
 
         ( _, EndDateChanged state value ) ->
-            { model | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp), endDatePickerState = state } => Cmd.none
+            { model
+                | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                , endDatePickerState = state
+            }
+                |> recheckErrors
+                => Cmd.none
 
         ( StartEndDates, IntervalChanged interval ) ->
             { model | resultInterval = interval }
@@ -306,10 +384,20 @@ update msg model context =
             newModel => cmd
 
         ( _, NextStep ) ->
-            { model | steps = Ziplist.advance model.steps } => Cmd.none
+            let
+                errors =
+                    validateStep model
+            in
+            if errors == [] then
+                { model | steps = Ziplist.advance model.steps } => Cmd.none
+            else
+                { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
             { model | steps = Ziplist.rewind model.steps } => Cmd.none
+
+        ( _, InputBlur ) ->
+            recheckErrors model => Cmd.none
 
         ( _, DataSetDataResponse resp ) ->
             let
@@ -342,6 +430,26 @@ update msg model context =
             model => Cmd.none
 
 
+recheckErrors : Model -> Model
+recheckErrors model =
+    if model.errors /= [] then
+        { model | errors = validateStep model }
+    else
+        model
+
+
+validateStep : Model -> List FieldError
+validateStep model =
+    let
+        stepValidation =
+            perStepValidations
+                |> List.find (\s -> Tuple.first s |> (==) model.steps.current)
+                |> Maybe.map Tuple.second
+                |> Maybe.withDefault (\_ -> [])
+    in
+    stepValidation model
+
+
 view : Model -> ContextModel -> Html Msg
 view model context =
     div []
@@ -353,8 +461,7 @@ view model context =
                 ++ wizardPage context model
                 ++ [ div [ class "col-sm-12" ]
                         [ div [ class "col-sm-12 well well-sm right" ]
-                            [ viewButtons configWizard (isValid model) model.steps
-                            ]
+                            [ viewButtons configWizard model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
                         ]
                    ]
             )
@@ -405,7 +512,7 @@ wizardTitle model title =
     div [ class "col-sm-12 session-step" ]
         [ div [ class "col-sm-6 pl0" ] [ h3 [ class "mt0" ] [ text title ] ]
         , div [ class "col-sm-6 right" ]
-            [ viewButtons configWizard (isValid model) model.steps ]
+            [ viewButtons configWizard model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
         ]
 
 
@@ -477,6 +584,7 @@ viewSessionType context model =
                 model.selectedSessionType
                 Anomalies
             ]
+        , div [ class "row" ] [ div [ class "col-sm-6" ] [ viewFieldError model.errors SessionTypeField ] ]
         ]
 
 
@@ -523,8 +631,7 @@ viewStartEndDates context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_forecast_start_end"
-                ]
+                [ explainer context.config "session_forecast_start_end" ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Start date" ]
@@ -533,6 +640,7 @@ viewStartEndDates context model =
                     [ i [ class "fa fa-calendar" ] [] ]
                 , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
                 ]
+            , viewFieldError model.errors StartDateField
             ]
         , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "End date" ]
@@ -554,12 +662,12 @@ viewImpactStartEndDates context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_impact_start_end"
-                ]
+                [ explainer context.config "session_impact_start_end" ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Event name" ]
-            , input [ class "form-control", onInput ChangeEventName, value <| (model.eventName |> Maybe.withDefault "") ] []
+            , input [ class "form-control", onInput ChangeEventName, onBlur InputBlur, value <| (model.eventName |> Maybe.withDefault "") ] []
+            , viewFieldError model.errors EventNameField
             ]
         , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
@@ -568,6 +676,7 @@ viewImpactStartEndDates context model =
                     [ i [ class "fa fa-calendar" ] [] ]
                 , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
                 ]
+            , viewFieldError model.errors StartDateField
             ]
         , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "End date" ]
@@ -675,22 +784,10 @@ viewStartSession model =
             [ ( "Session Name", model.sessionName )
             , ( "DataSet Name", dataSetNameToString model.dataSetName )
             ]
-
-        startButton =
-            case model.sessionStartRequest of
-                Remote.Loading ->
-                    button [ class "btn" ] [ spinner ]
-
-                _ ->
-                    button [ class "btn", onClick StartTheSession ]
-                        [ text "Start Session"
-                        , i [ class "fa fa-chevron-right ml5" ] []
-                        ]
     in
     div [ id "review", class "col-sm-12" ]
         (List.map reviewItem properties
             ++ [ hr [] []
-               , div [ class "row" ] [ div [ class "form-group col-sm-12" ] [ startButton ] ]
                , div [ class "row" ] [ viewRemoteError model.sessionStartRequest ]
                ]
         )
@@ -702,25 +799,3 @@ reviewItem ( name, value ) =
         [ p [] [ text name ]
         , h6 [] [ text value, i [ class "fa fa-edit" ] [] ]
         ]
-
-
-configWizard : WizardConfig Msg
-configWizard =
-    { nextMessage = NextStep
-    , prevMessage = PrevStep
-    }
-
-
-configWizardSummary : WizardProgressConfig Step
-configWizardSummary =
-    { stepDescriptions =
-        [ ( NameSession, "Session Name" )
-        , ( SelectDataSet, "DataSet Name" )
-        , ( SessionType, "Session Type" )
-        , ( StartEndDates, "Start/End Dates" )
-        , ( ContainsAnomalies, "Contains Anomalies" )
-        , ( SetBalance, "Set Balance" )
-        , ( ColumnMetadata, "Column Metadata" )
-        , ( StartSession, "Start Session" )
-        ]
-    }
