@@ -34,7 +34,7 @@ forecastResults sessionResults session dataSet windowWidth =
                     "Result Type"
 
                 sessionData =
-                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResult.data
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
 
                 dataSetData =
                     List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
@@ -45,7 +45,7 @@ forecastResults sessionResults session dataSet windowWidth =
                         << position Y [ PName targetCol.name, PmType Quantitative ]
                         << color
                             [ MName pointTypeName
-                            , MnType Nominal
+                            , MmType Nominal
                             , MScale <|
                                 categoricalDomainMap
                                     [ ( "Predictions", "#1F77B4" )
@@ -205,6 +205,7 @@ regressionResults sessionResults session windowWidth =
                     asSpec
                         [ enc []
                         , mark Circle []
+                        , transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
                         ]
 
                 resultData =
@@ -254,8 +255,8 @@ regressionResults sessionResults session windowWidth =
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows joinedData
                 , layer
-                    [ lineSpec
-                    , pointSpec
+                    [ pointSpec
+                    , lineSpec
                     ]
                 ]
 

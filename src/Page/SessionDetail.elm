@@ -107,15 +107,17 @@ update msg model context =
             case Remote.map2 (,) response model.sessionResponse of
                 Remote.Success ( results, session ) ->
                     let
+                        timeSeriesDataRequest =
+                            let
+                                dates =
+                                    Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                            in
+                            getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
+                                |> Remote.sendRequest
+                                |> Cmd.map DataSetLoaded
+
                         cmd =
                             case session.predictionDomain of
-                                PredictionDomain.Forecast ->
-                                    "result-vis"
-                                        => Charts.forecastResults results session model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
-
                                 PredictionDomain.Regression ->
                                     "result-vis"
                                         => Charts.regressionResults results session model.windowWidth
@@ -123,14 +125,11 @@ update msg model context =
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
 
+                                PredictionDomain.Forecast ->
+                                    timeSeriesDataRequest
+
                                 PredictionDomain.Impact ->
-                                    let
-                                        dates =
-                                            Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
-                                    in
-                                    getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
-                                        |> Remote.sendRequest
-                                        |> Cmd.map DataSetLoaded
+                                    timeSeriesDataRequest
 
                                 _ ->
                                     Cmd.none
@@ -182,6 +181,13 @@ update msg model context =
                                 PredictionDomain.Impact ->
                                     "result-vis"
                                         => Charts.impactResults session results data model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
+                                PredictionDomain.Forecast ->
+                                    "result-vis"
+                                        => Charts.forecastResults results session data model.windowWidth
                                         |> List.singleton
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
