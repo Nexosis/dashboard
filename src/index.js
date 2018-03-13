@@ -76,11 +76,7 @@ fetch('./config.json').then(function (response) {
                 if(!c.err)
                 {
                     config.explainerContent[c.name] = c.content
-                }
-                else {
-                    console.log(c.err);
-                }
-                    
+                }                   
             }
 
             const mountNode = document.getElementById('main');
