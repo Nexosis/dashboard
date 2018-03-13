@@ -91,7 +91,7 @@ init config dataSetName =
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
-            ColumnMetadataEditor.init config dataSetName True
+            ColumnMetadataEditor.init dataSetName True
     in
     Model
         steps
@@ -314,7 +314,7 @@ update msg model context =
         ( _, DataSetDataResponse resp ) ->
             let
                 ( subModel, cmd ) =
-                    ColumnMetadataEditor.updateDataSetResponse model.columnEditorModel resp
+                    ColumnMetadataEditor.updateDataSetResponse context model.columnEditorModel resp
             in
             { model | dataSetResponse = resp, columnEditorModel = subModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
@@ -322,7 +322,7 @@ update msg model context =
         ( _, ColumnMetadataEditorMsg subMsg ) ->
             let
                 ( ( newModel, cmd ), updateCmd ) =
-                    ColumnMetadataEditor.update subMsg model.columnEditorModel
+                    ColumnMetadataEditor.update subMsg model.columnEditorModel context
 
                 modifiedMetadata =
                     case updateCmd of
@@ -663,7 +663,7 @@ viewColumnMetadata context model =
                 |> Html.map ColumnMetadataEditorMsg
             ]
         , hr [] []
-        , ColumnMetadataEditor.view model.columnEditorModel |> Html.map ColumnMetadataEditorMsg
+        , ColumnMetadataEditor.view context model.columnEditorModel |> Html.map ColumnMetadataEditorMsg
         ]
 
 

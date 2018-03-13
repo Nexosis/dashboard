@@ -21,7 +21,6 @@ import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.DeleteDialog as DeleteDialog
 import View.Error as Error
-import View.RelatedLinks as Related exposing (view)
 
 
 ---- MODEL ----
@@ -51,7 +50,7 @@ init config dataSetName =
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
-            ColumnMetadataEditor.init config dataSetName True
+            ColumnMetadataEditor.init dataSetName True
     in
     Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData
@@ -86,7 +85,7 @@ update msg model context =
         DataSetDataResponse resp ->
             let
                 ( subModel, cmd ) =
-                    ColumnMetadataEditor.updateDataSetResponse model.columnMetadataEditorModel resp
+                    ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
             in
             { model | dataSetResponse = resp, columnMetadataEditorModel = subModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
@@ -94,7 +93,7 @@ update msg model context =
         ColumnMetadataEditorMsg subMsg ->
             let
                 ( ( newModel, cmd ), updateMsg ) =
-                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel
+                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel context
 
                 requestMsg =
                     case updateMsg of
@@ -202,7 +201,7 @@ view model context =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
-                , ColumnMetadataEditor.view model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+                , ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
                 ]
             ]
         , DeleteDialog.view model.deleteDialogModel
