@@ -22,7 +22,7 @@ type Route
     | SessionDetail String
     | SessionStart DataSet.DataSetName
     | Models
-    | ModelDetail String Bool
+    | ModelDetail String
 
 
 
@@ -47,23 +47,12 @@ routeMatcher =
         , route SessionDetail (static "sessions" </> string)
         , route SessionStart (static "startSession" </> custom DataSet.dataSetNameParser)
         , route Models (static "models")
-        , route ModelDetail (static "models" </> string </> custom queryStringParser)
+        , route ModelDetail (static "models" </> string)
         ]
 
 
 
 -- PUBLIC HELPERS --
-
-
-queryStringParser : Combine.Parser s Bool
-queryStringParser =
-    let
-        isPredict s =
-            String.toLower s == String.toLower "?predict=true"
-    in
-    --FFS.  There has GOT to be a better way to do this, but I wasn't able
-    --to make it work
-    isPredict <$> Combine.regex ".*"
 
 
 routeToString : Route -> String
@@ -98,8 +87,8 @@ routeToString page =
                 Models ->
                     [ "models" ]
 
-                ModelDetail id predict ->
-                    [ "models", id, "?predict=" ++ toString predict ]
+                ModelDetail id ->
+                    [ "models", id ]
 
         --    When needing parameters on the form base/item/3
         --                    Item id ->

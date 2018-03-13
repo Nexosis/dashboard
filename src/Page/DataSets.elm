@@ -158,10 +158,9 @@ view model context =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ]
-                        [ explainer context.config "what_is_dataset"
-                        ]
-                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.dataSetList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
                         [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 , viewDataSetGrid context.config.toolTips model.tableState model.dataSetList

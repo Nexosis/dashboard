@@ -281,8 +281,10 @@ viewPredictInput context model =
     [ div [ id "predict" ]
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ h3 [ class "mt0" ]
-                    [ text "Choose prediction file" ]
+                [ h3 []
+                    [ text "Run a prediction" ]
+                , h4 []
+                    [ text "Choose your prediction file" ]
                 ]
             , div [ class "col-sm-12" ]
                 [ viewTabControl model
@@ -332,16 +334,16 @@ viewUploadTab context model =
                 model.fileName
     in
     div [ class "row" ]
-        [ div [ class "col-sm-6" ]
-            [ div [ class "form-group col-sm-8" ]
+        [ div [ class "col-sm-6 pl0" ]
+            [ div [ class "form-group" ]
                 [ input
-                    [ id "upload-predict"
-                    , class "upload-file"
+                    [ id "upload-dataset"
+                    , class "upload-dataset"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
                     ]
                     []
-                , label [ for "upload-predict" ] [ text uploadButtonText ]
+                , label [ for "upload-dataset" ] [ text uploadButtonText ]
                 , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) model.fileUploadErrorOccurred
                 ]
             ]

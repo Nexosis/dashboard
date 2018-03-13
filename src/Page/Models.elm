@@ -141,10 +141,9 @@ view model context =
             , div [ class "row" ]
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row mb25" ]
-                        [ div [ class "col-sm-6" ]
-                            [ explainer context.config "what_is_model"
-                            ]
-                        , div [ class "col-sm-2 col-sm-offset-4 right" ]
+                        [ div [ class "col-sm-6 col-sm-offset-3" ]
+                            [ Pager.view model.modelList ChangePage ]
+                        , div [ class "col-sm-2 col-sm-offset-1 right" ]
                             [ PageSize.view ChangePageSize context.userPageSize ]
                         ]
                     ]
@@ -213,7 +212,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId False) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
         ]
 
 
@@ -243,7 +242,7 @@ predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ a
-            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId True) ]
+            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId) ]
             [ text "Predict" ]
         ]
 
@@ -279,14 +278,27 @@ createdColumn =
 
 createdCell : ModelData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.createdDate)
         ]
 
 
 lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
-    Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+    Grid.veryCustomColumn
+        { name = "Last used"
+        , viewData = lastUsedCell
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
+
+lastUsedCell : ModelData -> Table.HtmlDetails msg
+lastUsedCell model =
+    Table.HtmlDetails [ class "number" ]
+        [ text (toShortDateStringOrEmpty model.lastUsedDate)
+        ]
 
 
 deleteColumn : Grid.Column ModelData Msg

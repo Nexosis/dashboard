@@ -309,7 +309,7 @@ viewStatusHistory session =
     let
         statusEntry status =
             tr []
-                [ td [ class "small" ]
+                [ td [ class "number small" ]
                     [ text (toShortDateTimeString status.date) ]
                 , td [ class "left" ]
                     [ statusDisplay status.status
@@ -388,7 +388,7 @@ deleteSessionButton model =
 viewPredictButton : SessionData -> Html Msg
 viewPredictButton session =
     if canPredictSession session then
-        a [ class "btn btn-danger", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId) True) ]
+        a [ class "btn btn-danger", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId)) ]
             [ text "Predict" ]
     else
         div [] []
@@ -422,7 +422,7 @@ modelLink session =
             p []
                 [ strong []
                     [ text "Model: " ]
-                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId False) ]
+                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
                     [ text session.name ]
                 ]
 

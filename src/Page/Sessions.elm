@@ -154,9 +154,10 @@ view model context =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ] [ explainer context.config "what_is_session" ]
-                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize model.pageSize ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.sessionList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 , div []
                     [ viewSessionsGrid context.config.toolTips model.tableState model.sessionList
@@ -307,7 +308,7 @@ createdColumn =
 
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.requestedDate)
         ]
 
