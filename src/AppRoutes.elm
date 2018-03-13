@@ -1,6 +1,5 @@
 module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, newUrl, routeToString)
 
-import Combine exposing ((<$>))
 import Data.DataSet as DataSet
 import Html exposing (Attribute)
 import Html.Attributes as Attr

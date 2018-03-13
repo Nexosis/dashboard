@@ -9,7 +9,6 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
-import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import StateStorage exposing (saveAppState)
