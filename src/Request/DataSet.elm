@@ -7,6 +7,7 @@ import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
 import Set
+import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
 
 get : Config -> Int -> Int -> Http.Request DataSetList
@@ -45,7 +46,7 @@ getRetrieveDetail { baseUrl, token } name =
         |> HttpBuilder.toRequest
 
 
-getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> Http.Request DataSetData
+getDataByDateRange : Config -> DataSetName -> Maybe ( ZonedDateTime, ZonedDateTime ) -> Http.Request DataSetData
 getDataByDateRange { baseUrl, token } name dateRange =
     let
         expect =
@@ -108,11 +109,11 @@ pageParams page pageSize =
     ]
 
 
-dateParams : Maybe ( String, String ) -> List ( String, String )
+dateParams : Maybe ( ZonedDateTime, ZonedDateTime ) -> List ( String, String )
 dateParams dateRange =
     case dateRange of
         Just dates ->
-            [ ( "startDate", Tuple.first dates ), ( "endDate", Tuple.second dates ) ]
+            [ ( "startDate", ZonedDateTime.toISO8601 (Tuple.first dates) ), ( "endDate", ZonedDateTime.toISO8601 (Tuple.second dates) ) ]
 
         Nothing ->
             []

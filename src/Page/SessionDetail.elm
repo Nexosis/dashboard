@@ -25,6 +25,9 @@ import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
+import Time.DateTime as DateTime
+import Time.TimeZones exposing (est, utc)
+import Time.ZonedDateTime as ZonedDateTime
 import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Charts as Charts
 import View.DeleteDialog as DeleteDialog
@@ -126,9 +129,33 @@ update msg model =
                                 PredictionDomain.Impact ->
                                     let
                                         dates =
-                                            Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                                            case Maybe.map2 (,) session.startDate session.endDate of
+                                                Just ( start, end ) ->
+                                                    let
+                                                        startDate =
+                                                            ZonedDateTime.fromISO8601 (utc ()) start
+                                                                |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
+
+                                                        endDate =
+                                                            ZonedDateTime.fromISO8601 (utc ()) end
+                                                                |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
+
+                                                        count =
+                                                            predictionCount session.resultInterval endDate startDate
+
+                                                    in
+                                                    ( startDate |> asdf session.resultInterval (count // 2)
+                                                    , endDate |> asdf session.resultInterval (count * -1 // 2)
+                                                    )
+
+                                                Nothing ->
+                                                    let
+                                                        utcZero =
+                                                            ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero
+                                                    in
+                                                    ( utcZero, utcZero )
                                     in
-                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) dates
+                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) (Just dates)
                                         |> Remote.sendRequest
                                         |> Cmd.map DataSetLoaded
 
@@ -204,6 +231,55 @@ update msg model =
                     Result.withDefault 1140 result
             in
             { model | windowWidth = newWidth } => Cmd.none
+
+
+predictionCount : Maybe ResultInterval -> ZonedDateTime.ZonedDateTime -> ZonedDateTime.ZonedDateTime -> Int
+predictionCount interval start end =
+    case interval of
+        Just Hour ->
+            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start))
+
+        Just Day ->
+            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // 24
+
+        Just Week ->
+            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7)
+
+        Just Month ->
+            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7 * 30)
+
+        Just Year ->
+            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7 * 30 * 24)
+
+        Nothing ->
+            0
+
+
+totalHours : DateTime.DateTimeDelta -> Int
+totalHours delta =
+    (delta.years * 365 * 24) + (delta.days * 24) + delta.hours + (delta.minutes // 60)
+
+
+asdf : Maybe ResultInterval -> (Int -> ZonedDateTime.ZonedDateTime -> ZonedDateTime.ZonedDateTime)
+asdf interval =
+    case interval of
+        Just Hour ->
+            ZonedDateTime.addHours
+
+        Just Day ->
+            ZonedDateTime.addDays
+
+        Just Week ->
+            ZonedDateTime.addDays
+
+        Just Month ->
+            ZonedDateTime.addMonths
+
+        Just Year ->
+            ZonedDateTime.addYears
+
+        Nothing ->
+            ZonedDateTime.addDays
 
 
 view : Model -> Html Msg
@@ -525,6 +601,7 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =
