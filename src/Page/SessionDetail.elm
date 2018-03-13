@@ -299,8 +299,7 @@ viewMessages session =
             [ strong [] [ text "Messages" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , Messages.viewMessagesCollapsed
-            session.messages
+        , makeCollapsible "messages" <| Messages.viewMessages session.messages
         ]
 
 
@@ -321,18 +320,19 @@ viewStatusHistory session =
             [ strong [] [ text "Status log" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , table [ class "table table-striped collapse", id "status-log" ]
-            [ thead []
-                [ tr []
-                    [ th [ class "per10" ]
-                        [ text "Date" ]
-                    , th [ class "per15" ]
-                        [ text "Status" ]
+        , makeCollapsible "status-log" <|
+            table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [ class "per10" ]
+                            [ text "Date" ]
+                        , th [ class "per15" ]
+                            [ text "Status" ]
+                        ]
                     ]
+                , tbody []
+                    (List.map statusEntry session.statusHistory)
                 ]
-            , tbody []
-                (List.map statusEntry session.statusHistory)
-            ]
         ]
 
 

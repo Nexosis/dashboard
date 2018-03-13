@@ -3,8 +3,8 @@ module Page.Helpers exposing (..)
 import Data.Config exposing (Config)
 import Data.Status exposing (..)
 import Dict
-import Html exposing (Html, div, span, text)
-import Html.Attributes exposing (class)
+import Html exposing (Html, div, li, span, text, ul)
+import Html.Attributes exposing (class, id, style)
 import Markdown
 import RemoteData as Remote
 
@@ -17,6 +17,14 @@ coloredStatusButton input labelType =
 explainer : Config -> String -> Html msg
 explainer config name =
     Markdown.toHtml [] (Maybe.withDefault "" (Dict.get name config.explainerContent))
+
+
+makeCollapsible : String -> Html msg -> Html msg
+makeCollapsible elementId view =
+    ul [ id elementId, class "collapse", style [ ( "list-style-type", "none" ) ] ]
+        [ li []
+            [ view ]
+        ]
 
 
 statusDisplay : Status -> Html a
