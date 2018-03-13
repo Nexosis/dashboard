@@ -8,7 +8,7 @@ import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
 import VegaLite exposing (..)
 
@@ -342,31 +342,31 @@ toConfusionMatrixRow classes ( rowNumber, data ) =
         (td [ class "header" ] [ Html.text (Maybe.withDefault "" (Array.get rowNumber classes)) ]
             :: List.map
                 (\( index, value ) ->
-                    td [ style [ ( "backgroundColor", colorFromValue rowMax value (index == rowNumber) ) ] ] [ Html.text (toString value) ]
+                    td [ class (classFromValue rowMax value (index == rowNumber)) ] [ Html.text (toString value) ]
                 )
                 (Array.toIndexedList data)
         )
 
 
-colorFromValue : Int -> Int -> Bool -> String
-colorFromValue maxValue value isTarget =
+classFromValue : Int -> Int -> Bool -> String
+classFromValue maxValue value isTarget =
     let
         scaled =
             round ((toFloat value / toFloat maxValue) * 100)
     in
     if scaled == 0 then
         if isTarget then
-            "#F23131"
+            "really-bad"
         else
-            "#CABDBD"
+            "neutral"
     else if scaled < 33 then
-        "#EFE975"
+        "medium"
     else if scaled < 66 then
-        "#FFB01D"
+        "bad"
     else if scaled <= 100 then
         if isTarget then
-            "#2DB27D"
+            "good"
         else
-            "#F23131"
+            "really-bad"
     else
-        "#4CFFFC"
+        "neutral"
