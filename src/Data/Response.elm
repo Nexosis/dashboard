@@ -80,8 +80,8 @@ decodeResponse baseUrl =
 decodeQuotas : Decoder Quotas
 decodeQuotas =
     decode Quotas
-        |> required "sessions" decodeQuota
         |> required "dataSets" decodeQuota
+        |> required "sessions" decodeQuota
         |> required "predictions" decodeQuota
 
 

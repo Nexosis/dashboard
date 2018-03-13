@@ -1,4 +1,4 @@
-module View.Messages exposing (viewMessages)
+module View.Messages exposing (viewMessages, viewMessagesCollapsed)
 
 import Data.Message exposing (..)
 import Html exposing (..)
@@ -6,7 +6,17 @@ import Html.Attributes exposing (..)
 
 
 viewMessages : List Message -> Html msg
-viewMessages messages =
+viewMessages =
+    viewMessagesInternal False
+
+
+viewMessagesCollapsed : List Message -> Html msg
+viewMessagesCollapsed =
+    viewMessagesInternal True
+
+
+viewMessagesInternal : Bool -> List Message -> Html msg
+viewMessagesInternal collapsed messages =
     let
         labelType : Message -> String
         labelType message =
@@ -33,11 +43,15 @@ viewMessages messages =
                 , td [ class "left" ]
                     [ text message.message ]
                 ]
+
+        collapsedAttribute collapsed =
+            if collapsed == True then
+                " collapse"
+            else
+                ""
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Messages" ]
-        , table [ class "table table-striped" ]
+        [ table [ class ("table table-striped" ++ collapsedAttribute collapsed), id "messages" ]
             [ thead []
                 [ tr []
                     [ th [ class "per10" ]

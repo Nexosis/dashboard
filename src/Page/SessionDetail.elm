@@ -209,22 +209,25 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ AppRoutes.href AppRoutes.Home ]
-                    [ text "API Dashboard" ]
-                ]
-            , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
-                []
-            , span []
-                [ a [ AppRoutes.href AppRoutes.Sessions ]
-                    [ text "Sessions" ]
+        [ div [ id "page-header", class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ p [ class "breadcrumb" ]
+                    [ span []
+                        [ a [ AppRoutes.href AppRoutes.Home ]
+                            [ text "API Dashboard" ]
+                        ]
+                    , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
+                        []
+                    , span []
+                        [ a [ AppRoutes.href AppRoutes.Sessions ]
+                            [ text "Sessions" ]
+                        ]
+                    ]
                 ]
             ]
         , viewSessionHeader model
         , hr [] []
         , viewSessionDetails model
-        , hr [] []
         , viewConfusionMatrix model
         , viewResultsGraph model
         , DeleteDialog.view model.deleteDialogModel
@@ -251,34 +254,54 @@ viewSessionDetails model =
             else
                 div []
                     [ viewPendingSession session ]
-
-        statusHistoryOrMessages session =
-            if sessionIsCompleted session then
-                viewMessages session
-            else
-                viewStatusHistory session
     in
-    div [ class "row" ]
-        [ div [ class "col-sm-4" ]
+    div [ class "row", id "details" ]
+        [ div [ class "col-sm-3" ]
             [ loadingOr (pendingOrCompleted model) ]
 
         --, p []
-        --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+        --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
+        , div [ class "col-sm-4" ]
+            [ loadingOr (viewSessionInfo model)
+            ]
         , div [ class "col-sm-5" ]
-            [ --loadingOr statusHistoryOrMessages
-              loadingOr viewMessages
+            [ loadingOr viewMessages
             , loadingOr viewStatusHistory
             ]
-        , div [ class "col-sm-3" ]
-            []
+        ]
+
+
+viewSessionInfo : Model -> SessionData -> Html Msg
+viewSessionInfo model session =
+    div []
+        [ p []
+            [ strong []
+                [ text "Session Type: " ]
+            , text <| toString session.predictionDomain
+            ]
+        , p []
+            [ strong [] [ text "Session ID: " ]
+            , br [] []
+            , span [ class "small" ] [ text session.sessionId, a [] [ i [ class "fa fa-copy color-mediumgray ml5" ] [] ] ]
+            ]
+        , p []
+            [ deleteSessionButton model
+            ]
         ]
 
 
 viewMessages : SessionData -> Html Msg
 viewMessages session =
-    Messages.viewMessages session.messages
+    div []
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
+            [ strong [] [ text "Messages" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , Messages.viewMessagesCollapsed
+            session.messages
+        ]
 
 
 viewStatusHistory : SessionData -> Html Msg
@@ -294,9 +317,11 @@ viewStatusHistory session =
                 ]
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Status Log" ]
-        , table [ class "table table-striped" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" "false", attribute "aria-controls" "status-log" ]
+            [ strong [] [ text "Status log" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , table [ class "table table-striped collapse", id "status-log" ]
             [ thead []
                 [ tr []
                     [ th [ class "per10" ]
@@ -330,47 +355,40 @@ viewSessionHeader model =
         [ div [ class "row" ]
             [ loadingOr viewSessionName
             , div [ class "col-sm-3" ]
-                [ div [ class "mt10 right" ]
-                    [ loadingOr viewPredictButton
+                [ div [ class "mt5 right" ]
+                    [ div
+                        [ class "btn-group", attribute "role" "group" ]
+                        [ loadingOr iterateSessionButton
+                        , loadingOr viewPredictButton
+                        ]
                     ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ loadingOr viewSessionId
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong []
-                        [ text "Session Type: " ]
-                    , loadingOr (\s -> text <| toString s.predictionDomain)
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ viewSessionButtons model
                 ]
             ]
         ]
 
 
-viewSessionButtons : Model -> Html Msg
-viewSessionButtons model =
-    div []
-        [ button [ class "btn btn-xs other" ]
-            [ i [ class "fa fa-repeat mr5" ]
-                []
-            , text "(TODO) Iterate session"
-            ]
-        , button [ class "btn btn-xs secondary", onClick (ShowDeleteDialog model) ]
-            [ i [ class "fa fa-trash-o mr5" ]
-                []
-            , text "Delete"
-            ]
+iterateSessionButton : SessionData -> Html Msg
+iterateSessionButton session =
+    button [ class "btn btn-primary" ]
+        [ i [ class "fa fa-repeat mr5" ]
+            []
+        , text "Iterate session"
+        ]
+
+
+deleteSessionButton : Model -> Html Msg
+deleteSessionButton model =
+    button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
+        [ i [ class "fa fa-trash-o mr5" ]
+            []
+        , text "Delete session"
         ]
 
 
 viewPredictButton : SessionData -> Html Msg
 viewPredictButton session =
     if canPredictSession session then
-        a [ class "btn", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId) True) ]
+        a [ class "btn btn-danger", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId) True) ]
             [ text "Predict" ]
     else
         div [] []
@@ -459,9 +477,7 @@ viewCompletedSession session =
                     a.name
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Details" ]
-        , modelLink session
+        [ modelLink session
         , p []
             [ strong []
                 [ text "Source: " ]
@@ -490,11 +506,12 @@ viewMetricsList results =
                 ]
     in
     div []
-        [ p [ class "small" ]
+        [ p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "false", attribute "aria-controls" "metrics" ]
             [ strong []
                 [ text "Metrics" ]
+            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics" ]
+        , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
 
@@ -525,6 +542,7 @@ viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
     div [ class "col-sm-12" ]
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+
 
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =

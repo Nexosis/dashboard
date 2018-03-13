@@ -11,6 +11,7 @@ import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http exposing (encodeUri)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -184,19 +185,20 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        --todo breadcrumb
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "API Dashboard" ]
-                , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-                , a [ href "#" ] [ text "Datasets" ]
+        [ div [ id "page-header", class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ p [ class "breadcrumb" ]
+                    [ span []
+                        [ a [ href "#" ] [ text "API Dashboard" ]
+                        , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
+                        , a [ href "#" ] [ text "Datasets" ]
+                        ]
+                    ]
                 ]
             ]
         , viewNameRow model
-        , viewIdRow model
         , hr [] []
         , viewDetailsRow model
-        , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
@@ -223,16 +225,6 @@ viewNameRow model =
         ]
 
 
-viewIdRow : Model -> Html Msg
-viewIdRow model =
-    div [ class "row" ]
-        [ div [ class "col-sm-8" ] []
-        , div [ class "col-sm-4 right" ]
-            [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
-            ]
-        ]
-
-
 viewError : Model -> Html Msg
 viewError model =
     case model.updateResponse of
@@ -248,19 +240,37 @@ viewError model =
 
 viewDetailsRow : Model -> Html Msg
 viewDetailsRow model =
-    div [ class "row" ]
+    div [ id "details", class "row" ]
         [ viewRolesCol model
         , viewDetailsCol model
-        , Related.view model.config (Remote.succeed model.sessionLinks)
+        , viewUrlAndDeleteCol model
         ]
 
 
 viewRolesCol : Model -> Html Msg
 viewRolesCol model =
     div [ class "col-sm-4" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Roles" ]
-        , ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
+        [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
+        ]
+
+
+viewUrlAndDeleteCol : Model -> Html Msg
+viewUrlAndDeleteCol model =
+    div [ class "col-sm-4" ]
+        [ p []
+            [ strong [] [ text "API Endpoint URL:" ]
+            , br [] []
+            , span [ class "small" ]
+                [ text ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
+                , a []
+                    [ i [ class "fa fa-copy color-mediumgray ml5" ] []
+                    ]
+                ]
+            ]
+        , p []
+            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
+            ]
         ]
 
 
@@ -300,9 +310,8 @@ viewDetailsCol model =
                     in
                     ( empty, empty, empty, empty )
     in
-    div [ class "col-sm-5" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Details" ]
-        , p []
+    div [ class "col-sm-4" ]
+        [ p []
             [ strong [] [ text "Size: " ]
             , size
             ]

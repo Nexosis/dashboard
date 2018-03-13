@@ -115,9 +115,13 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "Api Dashboard" ]
+        [ div [ class "page-header", class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ p [ class "breadcrumb" ]
+                    [ span []
+                        [ a [ href "#" ] [ text "API Dashboard" ]
+                        ]
+                    ]
                 ]
             ]
         , div [ class "row" ]
@@ -291,5 +295,5 @@ deleteColumn =
 deleteButton : ModelData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn btn-link btn-danger" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
