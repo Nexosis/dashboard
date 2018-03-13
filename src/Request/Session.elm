@@ -1,4 +1,4 @@
-module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results, resultsCsv)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -36,6 +36,16 @@ results { baseUrl, token } sessionId page pageSize =
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeSessionResults
         |> HttpBuilder.withQueryParams params
+        |> withAuthorization token
+        |> HttpBuilder.toRequest
+
+
+resultsCsv : Config -> String -> Http.Request String
+resultsCsv { baseUrl, token } sessionId =
+    (baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpectString
+        |> HttpBuilder.withHeader "Accept" "text/csv"
         |> withAuthorization token
         |> HttpBuilder.toRequest
 
