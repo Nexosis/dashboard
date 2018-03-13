@@ -157,7 +157,7 @@ view model context =
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.sessionList ChangePage ]
                     , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                    	[ PageSize.view ChangePageSize ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 , div []
                     [ viewSessionsGrid context.config.toolTips model.tableState model.sessionList

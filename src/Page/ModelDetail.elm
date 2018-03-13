@@ -27,6 +27,7 @@ type alias Model =
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
+    , config : Config
     }
 
 
@@ -38,7 +39,7 @@ init config modelId =
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading Regression Nothing Nothing => loadModelDetail
+    Model modelId Remote.Loading Regression Nothing Nothing config => loadModelDetail
 
 
 subscriptions : Model -> Sub Msg
