@@ -106,7 +106,7 @@ update msg model context =
                                 |> Cmd.map MetadataUpdated
             in
             { model | columnMetadataEditorModel = newModel }
-                => requestMsg
+                => Cmd.batch [ requestMsg, Cmd.map ColumnMetadataEditorMsg cmd ]
 
         ShowDeleteDialog ->
             let
