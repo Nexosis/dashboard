@@ -9,16 +9,12 @@ import HttpBuilder exposing (RequestBuilder, withExpect)
 get : Config -> Int -> Int -> Http.Request ModelList
 get { baseUrl, token } page pageSize =
     let
-        expect =
-            decodeModelList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/models")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeModelList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -41,22 +37,11 @@ delete { baseUrl, token } modelId =
 
 getOne : Config -> String -> Http.Request ModelData
 getOne { baseUrl, token } modelId =
-    let
-        expect =
-            decodeModel
-                |> Http.expectJson
-    in
     (baseUrl ++ "/models/" ++ modelId)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeModel
         |> withAuthorization token
         |> HttpBuilder.toRequest
-
-
-expectPredictions : Http.Expect PredictionResult
-expectPredictions =
-    decodePredictions
-        |> Http.expectJson
 
 
 predict : Config -> String -> String -> String -> Http.Request PredictionResult
@@ -65,7 +50,7 @@ predict { baseUrl, token } modelId content contentType =
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization token
-        |> HttpBuilder.withExpect expectPredictions
+        |> HttpBuilder.withExpectJson decodePredictions
         |> HttpBuilder.toRequest
 
 
@@ -76,5 +61,5 @@ predictRaw { baseUrl, token } modelId content contentType =
         |> HttpBuilder.withBody (Http.stringBody "application/json" content)
         |> HttpBuilder.withHeader "Accept" contentType
         |> withAuthorization token
-        |> HttpBuilder.withExpect Http.expectString
+        |> HttpBuilder.withExpectString
         |> HttpBuilder.toRequest

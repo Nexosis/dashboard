@@ -11,36 +11,37 @@ import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (on, onClick, onInput)
+import Html.Events exposing (on, onBlur, onClick, onInput)
 import Http
 import Json.Decode exposing (succeed)
+import List.Extra as List
 import Navigation
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Process
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (put)
-import Request.Import
+import Request.DataSet exposing (PutUploadRequest, put)
+import Request.Import exposing (PostUrlRequest)
 import Request.Log as Log
+import String.Verify exposing (notBlank)
 import Task exposing (Task)
 import Time
-import Util exposing ((=>), spinner)
-import Validate exposing (Validator, ifBlank, validate)
-import View.Error exposing (viewMessagesAsError, viewRemoteError)
-import View.Extra exposing (viewIf)
-import View.Wizard exposing (WizardConfig, viewButtons)
+import Util exposing ((=>), spinner, unwrapErrors)
+import Verify exposing (Validator)
+import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
+import View.Extra exposing (viewIf, viewIfElements)
+import View.Wizard as Wizard exposing (WizardConfig, viewButtons)
 
 
 type alias Model =
     { steps : Ziplist Step
-    , canAdvance : Bool
     , name : String
     , key : String
-    , activeTab : Tab
-    , activeTabName : String
+    , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData Data.Import.ImportDetail
+    , errors : List FieldError
     }
 
 
@@ -66,6 +67,11 @@ type Tab
     | UrlImportTab UrlImportEntry
 
 
+type AddDataSetRequest
+    = PutUpload PutUploadRequest
+    | ImportUrl PostUrlRequest
+
+
 initFileUploadTab : FileUploadEntry
 initFileUploadTab =
     { fileContent = ""
@@ -80,6 +86,14 @@ initImportTab =
     { importUrl = "" }
 
 
+initTabs : Ziplist ( Tab, String )
+initTabs =
+    Ziplist.create []
+        ( FileUploadTab <| initFileUploadTab, "Upload" )
+        [ ( UrlImportTab <| initImportTab, "Import from URL" )
+        ]
+
+
 init : Config -> ( Model, Cmd Msg )
 init config =
     let
@@ -88,13 +102,12 @@ init config =
     in
     Model
         steps
-        False
         ""
         ""
-        (FileUploadTab initFileUploadTab)
-        "Upload"
+        initTabs
         Remote.NotAsked
         Remote.NotAsked
+        []
         => Cmd.none
 
 
@@ -102,22 +115,59 @@ init config =
 -- Validation
 
 
-rootModelValid : Validator String Model
-rootModelValid =
-    Validate.all
-        [ ifBlank .name "DataSet name required." ]
+type Field
+    = DataSetNameField
+    | UrlField
+    | FileSelectionField
 
 
-fileUploadModelValid : Validator String FileUploadEntry
-fileUploadModelValid =
-    Validate.all
-        [ ifBlank .fileContent "Choose a file to upload." ]
+type alias FieldError =
+    ( Field, String )
 
 
-urlImportModelValid : Validator String UrlImportEntry
-urlImportModelValid =
-    Validate.all
-        [ Validate.ifFalse (\model -> model.importUrl |> Regex.contains urlRegex) "Enter a valid url." ]
+validateModel : Model -> Result (List FieldError) AddDataSetRequest
+validateModel model =
+    case model.tabs.current of
+        ( FileUploadTab fileUploadEntry, _ ) ->
+            validateFileUploadModel model fileUploadEntry
+                |> Result.map PutUpload
+
+        ( UrlImportTab urlImportEntry, _ ) ->
+            validateUrlImportModel model urlImportEntry
+                |> Result.map ImportUrl
+
+
+validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
+validateFileUploadModel model =
+    Verify.ok PutUploadRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .fileContent (notBlank (FileSelectionField => "Choose a file to upload."))
+        |> Verify.verify .fileUploadType (verifyFileType (FileSelectionField => "Upload a CSV or JSON file."))
+
+
+validateUrlImportModel : Model -> Validator FieldError UrlImportEntry PostUrlRequest
+validateUrlImportModel model =
+    Verify.ok PostUrlRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .importUrl (verifyRegex urlRegex (UrlField => "Enter a valid url."))
+
+
+verifyFileType : error -> Validator error DataFormat.DataFormat String
+verifyFileType error input =
+    case input of
+        DataFormat.Other ->
+            Err [ error ]
+
+        _ ->
+            Ok <| DataFormat.dataFormatToContentType input
+
+
+verifyRegex : Regex.Regex -> error -> Validator error String String
+verifyRegex regex error input =
+    if Regex.contains regex input then
+        Ok input
+    else
+        Err [ error ]
 
 
 urlRegex : Regex.Regex
@@ -126,18 +176,20 @@ urlRegex =
     Regex.regex "^(http|https):\\/\\/[^ \"]+$"
 
 
-setModelValid : Model -> Model
-setModelValid model =
-    let
-        tabValidation =
-            case model.activeTab of
-                FileUploadTab fileUploadEntry ->
-                    validate fileUploadModelValid fileUploadEntry
+perStepValidations : List ( Step, Model -> List FieldError )
+perStepValidations =
+    [ ( ChooseUploadType, validateModel >> unwrapErrors ) ]
 
-                UrlImportTab urlImportEntry ->
-                    validate urlImportModelValid urlImportEntry
-    in
-    { model | canAdvance = tabValidation ++ validate rootModelValid model |> List.isEmpty }
+
+configWizard : WizardConfig Step FieldError Msg Model AddDataSetRequest
+configWizard =
+    { nextMessage = NextStep
+    , prevMessage = PrevStep
+    , stepValidation = perStepValidations
+    , finishedButton = finalStepButton
+    , finishedValidation = validateModel
+    , finishedMsg = CreateDataSet
+    }
 
 
 
@@ -148,11 +200,12 @@ type Msg
     = ChangeName String
     | ChangeKey String
     | NextStep
+    | InputBlur
     | PrevStep
-    | ChangeTab ( Tab, String )
+    | ChangeTab String
     | FileSelected
     | TabMsg TabMsg
-    | CreateDataSet
+    | CreateDataSet AddDataSetRequest
     | UploadDataSetResponse (Remote.WebData ())
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
 
@@ -166,12 +219,16 @@ update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
     case ( model.steps.current, msg ) of
         ( ChooseUploadType, ChangeName name ) ->
-            { model | name = name }
-                |> setModelValid
-                => Cmd.none
+            { model | name = name } => Cmd.none
 
-        ( ChooseUploadType, ChangeTab ( tab, tabName ) ) ->
-            { model | activeTab = tab, activeTabName = tabName, canAdvance = False } => Cmd.none
+        ( ChooseUploadType, ChangeTab tabName ) ->
+            let
+                newTabs =
+                    model.tabs
+                        |> Ziplist.find (\( _, name ) -> name == tabName)
+                        |> Maybe.withDefault model.tabs
+            in
+            { model | tabs = newTabs } => Cmd.none
 
         ( ChooseUploadType, FileSelected ) ->
             model => Ports.uploadFileSelected "upload-dataset"
@@ -182,21 +239,21 @@ update msg model context =
         ( SetKey, ChangeKey key ) ->
             { model | key = key } => Cmd.none
 
-        ( SetKey, CreateDataSet ) ->
-            case model.activeTab of
-                FileUploadTab uploadInfo ->
+        ( SetKey, CreateDataSet createRequest ) ->
+            case createRequest of
+                PutUpload request ->
                     let
                         putRequest =
-                            put context.config model.name uploadInfo.fileContent (DataFormat.dataFormatToContentType uploadInfo.fileUploadType)
+                            put context.config request
                                 |> Remote.sendRequest
                                 |> Cmd.map UploadDataSetResponse
                     in
                     { model | uploadResponse = Remote.Loading } => putRequest
 
-                UrlImportTab urlTab ->
+                ImportUrl request ->
                     let
                         importRequest =
-                            Request.Import.postUrl context.config model.name urlTab.importUrl
+                            Request.Import.postUrl context.config request
                                 |> Remote.sendRequest
                                 |> Cmd.map ImportResponse
                     in
@@ -235,13 +292,38 @@ update msg model context =
             { model | importResponse = result } => cmd
 
         ( _, NextStep ) ->
-            { model | steps = Ziplist.advance model.steps } => Cmd.none
+            let
+                errors =
+                    validateStep model
+            in
+            if errors == [] then
+                { model | steps = Ziplist.advance model.steps } => Cmd.none
+            else
+                { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
             { model | steps = Ziplist.rewind model.steps } => Cmd.none
 
+        ( _, InputBlur ) ->
+            if model.errors /= [] then
+                { model | errors = validateStep model } => Cmd.none
+            else
+                model => Cmd.none
+
         _ ->
             model => Cmd.none
+
+
+validateStep : Model -> List FieldError
+validateStep model =
+    let
+        stepValidation =
+            perStepValidations
+                |> List.find (\s -> Tuple.first s |> (==) model.steps.current)
+                |> Maybe.map Tuple.second
+                |> Maybe.withDefault (\_ -> [])
+    in
+    stepValidation model
 
 
 delayAndRecheckImport : Config -> String -> Cmd Msg
@@ -261,8 +343,8 @@ updateTabContents : Model -> TabMsg -> Model
 updateTabContents model msg =
     let
         tabModel =
-            case ( model.activeTab, msg ) of
-                ( FileUploadTab fileUploadEntry, FileContentRead readResult ) ->
+            case ( model.tabs.current, msg ) of
+                ( ( FileUploadTab fileUploadEntry, id ), FileContentRead readResult ) ->
                     let
                         readStatus =
                             Json.Decode.decodeValue File.fileReadStatusDecoder readResult
@@ -291,26 +373,26 @@ updateTabContents model msg =
 
                                 File.ReadError ->
                                     { fileUploadEntry | fileUploadErrorOccurred = True }
-
-                        valid =
-                            validate fileUploadModelValid m |> List.isEmpty
                     in
-                    FileUploadTab m
+                    ( FileUploadTab m, id )
 
-                ( UrlImportTab urlTab, ImportUrlInputChange urlEntry ) ->
+                ( ( UrlImportTab urlTab, id ), ImportUrlInputChange urlEntry ) ->
                     let
                         urlImportModel =
                             { urlTab | importUrl = urlEntry }
-
-                        valid =
-                            validate urlImportModelValid urlImportModel |> List.isEmpty
                     in
-                    UrlImportTab urlImportModel
+                    ( UrlImportTab urlImportModel, id )
 
                 ( _, _ ) ->
-                    model.activeTab
+                    model.tabs.current
+
+        tabs =
+            model.tabs
+
+        updatedTabs =
+            { tabs | current = tabModel }
     in
-    setModelValid { model | activeTab = tabModel }
+    { model | tabs = updatedTabs }
 
 
 subscriptions : Model -> Sub Msg
@@ -335,8 +417,13 @@ view model context =
             ]
         , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ viewButtons configWizard model.canAdvance model.steps ]
+            [ div [ class "col-sm-4" ]
+                [ viewButtons configWizard
+                    model
+                    model.steps
+                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (model.errors == [])
+                ]
             ]
         ]
 
@@ -348,7 +435,8 @@ viewChooseUploadType context model =
             [ h3 [ class "mt0" ] [ text "Choose Upload type" ]
             , div [ class "form-group col-sm-4" ]
                 [ label [] [ text "DataSet Name" ]
-                , input [ class "form-control", onInput ChangeName, value model.name ] []
+                , input [ class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
+                , viewFieldError model.errors DataSetNameField
                 ]
             ]
         , div [ class "col-sm-12" ]
@@ -358,35 +446,51 @@ viewChooseUploadType context model =
         ]
 
 
-viewSetKey : Model -> Html Msg
-viewSetKey model =
+finalStepButton : Model -> Wizard.HtmlDetails Msg
+finalStepButton model =
     let
-        ( buttonAttributes, createButtonContent, errorDisplay ) =
-            case model.activeTab of
-                FileUploadTab _ ->
+        buttonContent =
+            case model.tabs.current of
+                ( FileUploadTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            ( [], spinner, viewRemoteError model.uploadResponse )
+                            [ spinner ]
 
                         _ ->
-                            ( [ onClick CreateDataSet ], text "Create DataSet", viewRemoteError model.uploadResponse )
+                            [ text "Create DataSet" ]
 
                 _ ->
                     case model.importResponse of
                         Remote.Loading ->
-                            ( [], spinner, viewRemoteError model.importResponse )
+                            [ spinner ]
 
                         Remote.Success importDetail ->
                             if importDetail.status == Status.Failed || importDetail.status == Status.Cancelled then
-                                ( [ onClick CreateDataSet ], i [ class "fa fa-upload mr5" ] [ text "Import" ], viewMessagesAsError importDetail.messages )
+                                [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
                             else
-                                ( [], spinner, viewMessagesAsError importDetail.messages )
+                                [ spinner ]
 
                         _ ->
-                            ( [ onClick CreateDataSet ], i [ class "fa fa-upload mr5" ] [ text "Import" ], viewRemoteError model.importResponse )
+                            [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
+    in
+    Wizard.HtmlDetails [] buttonContent
 
-        addButton =
-            button (class "btn btn-danger" :: buttonAttributes) [ createButtonContent ]
+
+viewSetKey : Model -> Html Msg
+viewSetKey model =
+    let
+        errorDisplay =
+            case model.tabs.current of
+                ( FileUploadTab _, _ ) ->
+                    viewRemoteError model.uploadResponse
+
+                _ ->
+                    case model.importResponse of
+                        Remote.Success importDetail ->
+                            viewMessagesAsError importDetail.messages
+
+                        _ ->
+                            viewRemoteError model.importResponse
     in
     div [ class "col-sm-12" ]
         [ div [ id "review" ] <| viewEntryReview model
@@ -397,8 +501,6 @@ viewSetKey model =
                 [ label [] [ text "Key" ]
                 , input [ class "form-control", placeholder "(Optional)", value model.key ] []
                 ]
-            , div [ class "form-group" ]
-                [ addButton ]
             , errorDisplay
             ]
         , div [ class "col-sm-6" ]
@@ -417,11 +519,11 @@ viewEntryReview model =
             ( "DataSet Name", model.name )
 
         properties =
-            case model.activeTab of
-                FileUploadTab fileUpload ->
+            case model.tabs.current of
+                ( FileUploadTab fileUpload, _ ) ->
                     [ ( "Filename", fileUpload.fileName ) ]
 
-                UrlImportTab urlImport ->
+                ( UrlImportTab urlImport, _ ) ->
                     [ ( "Url", urlImport.importUrl ) ]
     in
     dataSetName
@@ -441,24 +543,34 @@ viewTabControl : Model -> Html Msg
 viewTabControl model =
     let
         tabHeaders =
-            [ li [ classList [ ( "active", model.activeTabName == "Upload" ) ] ] [ a [ onClick (ChangeTab (FileUploadTab initFileUploadTab => "Upload")) ] [ text "Upload" ] ]
-            , li [ classList [ ( "active", model.activeTabName == "URL" ) ] ] [ a [ onClick (ChangeTab (UrlImportTab initImportTab => "URL")) ] [ text "Import from URL" ] ]
-            ]
+            (model.tabs.previous |> List.map viewInactiveTab)
+                ++ [ viewActiveTab model.tabs.current ]
+                ++ (model.tabs.next |> List.map viewInactiveTab)
     in
     ul [ class "nav nav-tabs", attribute "role" "tablist" ]
         tabHeaders
+
+
+viewInactiveTab : ( Tab, String ) -> Html Msg
+viewInactiveTab ( _, tabText ) =
+    li [] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+
+
+viewActiveTab : ( Tab, String ) -> Html Msg
+viewActiveTab ( _, tabText ) =
+    li [ class "active" ] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewTabContent : ContextModel -> Model -> Html Msg
 viewTabContent context model =
     let
         content =
-            case model.activeTab of
-                FileUploadTab fileUploadEntry ->
-                    viewUploadTab context.config fileUploadEntry
+            case model.tabs.current of
+                ( FileUploadTab fileUploadEntry, _ ) ->
+                    viewUploadTab context.config fileUploadEntry model
 
-                UrlImportTab urlImportEntry ->
-                    viewImportUrlTab context.config urlImportEntry
+                ( UrlImportTab urlImportEntry, _ ) ->
+                    viewImportUrlTab context.config urlImportEntry model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -466,14 +578,14 @@ viewTabContent context model =
         ]
 
 
-viewUploadTab : Config -> FileUploadEntry -> Html Msg
-viewUploadTab config model =
+viewUploadTab : Config -> FileUploadEntry -> Model -> Html Msg
+viewUploadTab config tabModel model =
     let
         uploadButtonText =
-            if String.isEmpty model.fileName then
+            if String.isEmpty tabModel.fileName then
                 "Select your file"
             else
-                model.fileName
+                tabModel.fileName
     in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
@@ -482,10 +594,12 @@ viewUploadTab config model =
                     [ id "upload-dataset"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
+                    , onBlur InputBlur
                     ]
                     []
                 , label [ for "upload-dataset" ] [ text uploadButtonText ]
-                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) model.fileUploadErrorOccurred
+                , viewFieldError model.errors FileSelectionField
+                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) tabModel.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]
@@ -496,13 +610,14 @@ viewUploadTab config model =
         ]
 
 
-viewImportUrlTab : Config -> UrlImportEntry -> Html Msg
-viewImportUrlTab config model =
+viewImportUrlTab : Config -> UrlImportEntry -> Model -> Html Msg
+viewImportUrlTab config tabModel model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
                 [ label [] [ text "File URL" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value model.importUrl ] []
+                , input [ class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value tabModel.importUrl, onBlur InputBlur ] []
+                , viewFieldError model.errors UrlField
                 ]
             ]
         , div [ class "col-sm-6" ]
@@ -521,10 +636,3 @@ viewPasteInTab model =
         , div [ class "col-sm-6" ]
             []
         ]
-
-
-configWizard : WizardConfig Msg
-configWizard =
-    { nextMessage = NextStep
-    , prevMessage = PrevStep
-    }

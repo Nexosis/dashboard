@@ -1,4 +1,4 @@
-module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -15,16 +15,12 @@ import Time.DateTime exposing (DateTime, toISO8601)
 get : Config -> Int -> Int -> Http.Request SessionList
 get { baseUrl, token } page pageSize =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -33,16 +29,12 @@ get { baseUrl, token } page pageSize =
 results : Config -> String -> Int -> Int -> Http.Request SessionResults
 results { baseUrl, token } sessionId page pageSize =
     let
-        expect =
-            decodeSessionResults
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionResults
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -58,16 +50,12 @@ pageParams page pageSize =
 getConfusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
 getConfusionMatrix { baseUrl, token } sessionId page pageSize =
     let
-        expect =
-            decodeConfusionMatrix
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
     (baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeConfusionMatrix
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -76,16 +64,12 @@ getConfusionMatrix { baseUrl, token } sessionId page pageSize =
 getForDataset : Config -> DataSetName -> Http.Request SessionList
 getForDataset { baseUrl, token } dataSetName =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             [ ( "dataSetName", dataSetNameToString dataSetName ) ]
     in
     (baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization token
         |> HttpBuilder.toRequest
@@ -99,17 +83,11 @@ delete { baseUrl, token } sessionId =
         |> HttpBuilder.toRequest
 
 
-expectSessionData : Http.Expect SessionData
-expectSessionData =
-    decodeSession
-        |> Http.expectJson
-
-
 getOne : Config -> String -> Http.Request SessionData
 getOne { baseUrl, token } sessionId =
     (baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.toRequest
 
@@ -118,7 +96,6 @@ type alias ModelSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : Maybe String
     , predictionDomain : PredictionDomain
     , balance : Maybe Bool
     , containsAnomalies : Maybe Bool
@@ -133,7 +110,7 @@ postModel { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/model")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
@@ -145,14 +122,6 @@ encodeModelSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn"
-          , case sessionRequest.targetColumn of
-                Just target ->
-                    Encode.string <| target
-
-                Nothing ->
-                    Encode.null
-          )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
         , ( "extraParameters", encodeExtraParameters <| sessionRequest )
         ]
@@ -162,9 +131,10 @@ type alias ForecastSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : DateTime
+        , endDate : DateTime
+        }
     , resultInterval : ResultInterval
     }
 
@@ -177,7 +147,7 @@ postForecast { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/forecast")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
@@ -189,9 +159,8 @@ encodeForecastSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
 
@@ -200,9 +169,10 @@ type alias ImpactSessionRequest =
     { name : String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : DateTime
+        , endDate : DateTime
+        }
     , eventName : String
     , resultInterval : ResultInterval
     }
@@ -216,7 +186,7 @@ postImpact { baseUrl, token } sessionRequest =
     in
     (baseUrl ++ "/sessions/impact")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
+        |> HttpBuilder.withExpectJson decodeSession
         |> withAuthorization token
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
@@ -228,9 +198,8 @@ encodeImpactSessionRequest sessionRequest =
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
         , ( "name", Encode.string <| sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
