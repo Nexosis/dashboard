@@ -13,8 +13,8 @@ import List.Extra exposing (find)
 import VegaLite exposing (..)
 
 
-forecastResults : SessionResults -> SessionData -> Int -> Spec
-forecastResults sessionResults session windowWidth =
+forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+forecastResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
             session.columns
@@ -30,17 +30,35 @@ forecastResults sessionResults session windowWidth =
     case Maybe.map2 (,) targetColumn timestampColumn of
         Just ( targetCol, timestampCol ) ->
             let
+                pointTypeName =
+                    "Result Type"
+
+                sessionData =
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+
                 enc =
                     encoding
                         << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
                         << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "Observations", "#04850d" )
+                                    ]
+                            ]
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
                 , VegaLite.mark Line []
                 , enc []
                 ]
@@ -187,6 +205,7 @@ regressionResults sessionResults session windowWidth =
                     asSpec
                         [ enc []
                         , mark Circle []
+                        , transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
                         ]
 
                 resultData =
@@ -236,8 +255,8 @@ regressionResults sessionResults session windowWidth =
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows joinedData
                 , layer
-                    [ lineSpec
-                    , pointSpec
+                    [ pointSpec
+                    , lineSpec
                     ]
                 ]
 
