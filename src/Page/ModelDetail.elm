@@ -16,7 +16,6 @@ import Page.ModelPredict as ModelPredict
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
-import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.DeleteDialog as DeleteDialog
 
