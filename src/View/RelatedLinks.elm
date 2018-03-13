@@ -94,10 +94,6 @@ listItem config link input =
 
 linkTransform : Config -> Link -> String
 linkTransform config link =
-    let
-        a =
-            Debug.log "href" (Extras.replace "v1" "v2" config.baseUrl)
-    in
     case fromApiUrl config.baseUrl link.href of
         Just route ->
             routeToString route

@@ -194,9 +194,8 @@ view model context =
                         ]
                     ]
                 ]
+            , viewNameRow model
             ]
-        , viewNameRow model
-        , hr [] []
         , viewDetailsRow model
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]

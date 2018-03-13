@@ -1,4 +1,4 @@
-module View.Messages exposing (viewMessages, viewMessagesCollapsed)
+module View.Messages exposing (viewMessages)
 
 import Data.Message exposing (..)
 import Html exposing (..)
@@ -8,11 +8,6 @@ import Html.Attributes exposing (..)
 viewMessages : List Message -> Html msg
 viewMessages =
     viewMessagesInternal False
-
-
-viewMessagesCollapsed : List Message -> Html msg
-viewMessagesCollapsed =
-    viewMessagesInternal True
 
 
 viewMessagesInternal : Bool -> List Message -> Html msg
@@ -50,17 +45,15 @@ viewMessagesInternal collapsed messages =
             else
                 ""
     in
-    div []
-        [ table [ class ("table table-striped" ++ collapsedAttribute collapsed), id "messages" ]
-            [ thead []
-                [ tr []
-                    [ th [ class "per10" ]
-                        [ text "Date" ]
-                    , th [ class "per15" ]
-                        [ text "Status" ]
-                    ]
+    table [ class ("table table-striped" ++ collapsedAttribute collapsed) ]
+        [ thead []
+            [ tr []
+                [ th [ class "per10" ]
+                    [ text "Date" ]
+                , th [ class "per15" ]
+                    [ text "Status" ]
                 ]
-            , tbody []
-                (List.map messageEntry messages)
             ]
+        , tbody []
+            (List.map messageEntry messages)
         ]

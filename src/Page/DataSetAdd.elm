@@ -413,7 +413,7 @@ view model context =
                     viewChooseUploadType context model
 
                 SetKey ->
-                    viewSetKey model
+                    viewSetKey context.config model
             ]
         , hr [] []
         , div [ class "row" ]
@@ -476,8 +476,8 @@ finalStepButton model =
     Wizard.HtmlDetails [] buttonContent
 
 
-viewSetKey : Model -> Html Msg
-viewSetKey model =
+viewSetKey : Config -> Model -> Html Msg
+viewSetKey config model =
     let
         errorDisplay =
             case model.tabs.current of
@@ -505,8 +505,7 @@ viewSetKey model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ h5 [] [ text "Why choosing a key is important" ]
-                , p [] [ text "Tell them why it matters." ]
+                [ explainer config "why_choose_key"
                 ]
             ]
         ]

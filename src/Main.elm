@@ -230,10 +230,6 @@ update msg model =
             Tuple.mapFirst Initialized <| updatePage app.page msg app
 
         InitializationError err ->
-            let
-                e =
-                    Debug.log "Init error" err
-            in
             model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ err) Log.Error)
 
 
@@ -374,10 +370,6 @@ view : Model -> Html Msg
 view model =
     case model of
         InitializationError err ->
-            let
-                e =
-                    Debug.log "err " err
-            in
             Error.pageLoadError Page.Home
                 """
             Sorry, it seems we are having an issues starting the application.

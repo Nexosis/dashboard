@@ -127,13 +127,10 @@ view model context =
                     , span [] [ a [ href "/#/models" ] [ text "Models" ] ]
                     ]
                 ]
-            ]
-        , div [ class "row" ]
-            [ modelName model
+            , modelName model
             , div [ class "col-sm-3" ]
                 []
             ]
-        , hr [] []
         , detailRow model
         , hr [] []
         , renderPredict context model
