@@ -1,7 +1,6 @@
 module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
-import Clipboard
 import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
@@ -14,6 +13,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
+import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
@@ -58,7 +58,7 @@ type Msg
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
-    | Copy Clipboard.Msg
+    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -117,7 +117,7 @@ update msg model context =
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         Copy text ->
-            ( model, Clipboard.handle text )
+            ( model, Ports.copy text )
 
 
 view : Model -> ContextModel -> Html Msg

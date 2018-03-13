@@ -1,7 +1,6 @@
 module Page.DataSetDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Clipboard
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
@@ -14,6 +13,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -79,7 +79,7 @@ type Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
-    | Copy Clipboard.Msg
+    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -180,7 +180,7 @@ update msg model context =
                     model => Cmd.none
 
         Copy text ->
-            ( model, Clipboard.handle text )
+            ( model, Ports.copy text )
 
 
 

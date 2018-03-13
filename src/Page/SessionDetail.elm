@@ -1,7 +1,6 @@
 module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Clipboard
 import Data.Algorithm exposing (..)
 import Data.Columns as Role exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
@@ -68,7 +67,7 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
-    | Copy Clipboard.Msg
+    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -215,7 +214,7 @@ update msg model context =
             { model | windowWidth = newWidth } => Cmd.none
 
         Copy text ->
-            ( model, Clipboard.handle text )
+            ( model, Ports.copy text )
 
 
 view : Model -> ContextModel -> Html Msg
