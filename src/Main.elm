@@ -517,9 +517,6 @@ init flags location =
             let
                 route =
                     AppRoutes.fromLocation location
-
-                x =
-                    Debug.log "route" route
             in
             ConfigurationLoaded { initState | route = route }
                 => loadAppState
