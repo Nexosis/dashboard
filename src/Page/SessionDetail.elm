@@ -230,9 +230,8 @@ view model context =
                         ]
                     ]
                 ]
+            , viewSessionHeader model
             ]
-        , viewSessionHeader model
-        , hr [] []
         , viewSessionDetails model
         , viewConfusionMatrix model
         , viewResultsGraph model
@@ -363,15 +362,13 @@ viewSessionHeader model =
                     view Nothing True
     in
     div []
-        [ div [ class "row" ]
-            [ loadingOr viewSessionName
-            , div [ class "col-sm-3" ]
-                [ div [ class "mt5 right" ]
-                    [ div
-                        [ class "btn-group", attribute "role" "group" ]
-                        [ --loadingOr iterateSessionButton TODO: V2 Feature?
-                          loadingOr viewPredictButton
-                        ]
+        [ loadingOr viewSessionName
+        , div [ class "col-sm-3" ]
+            [ div [ class "mt5 right" ]
+                [ div
+                    [ class "btn-group", attribute "role" "group" ]
+                    [ --loadingOr iterateSessionButton TODO: V2 Feature?
+                      loadingOr viewPredictButton
                     ]
                 ]
             ]
