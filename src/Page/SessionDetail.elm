@@ -358,8 +358,8 @@ viewSessionHeader model =
                 [ div [ class "mt5 right" ]
                     [ div
                         [ class "btn-group", attribute "role" "group" ]
-                        [ loadingOr iterateSessionButton
-                        , loadingOr viewPredictButton
+                        [ --loadingOr iterateSessionButton TODO: V2 Feature?
+                          loadingOr viewPredictButton
                         ]
                     ]
                 ]
