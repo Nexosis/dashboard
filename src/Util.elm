@@ -1,10 +1,13 @@
 module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
 
+import Data.DisplayDate exposing (toShortDateTimeString)
 import Html
 import Html.Attributes
 import Process
 import Task
 import Time
+import Time.TimeZones
+import Time.ZonedDateTime exposing (ZonedDateTime)
 
 
 (=>) : a -> b -> ( a, b )
@@ -133,7 +136,7 @@ isActuallyInteger input =
 
 styledNumber : String -> Html.Html msg
 styledNumber input =
-    Html.span [ Html.Attributes.class "number" ] [ Html.text input ]
+    Html.span [ Html.Attributes.class "number" ] [ Html.text (tryParseAndFormat input) ]
 
 
 unwrapErrors : Result (List err) a -> List err
@@ -144,6 +147,20 @@ unwrapErrors result =
 
         Err errors ->
             errors
+
+
+tryParseAndFormat : String -> String
+tryParseAndFormat input =
+    let
+        dateCandidate =
+            Time.ZonedDateTime.fromISO8601 (Time.TimeZones.etc_utc ()) input
+    in
+    case dateCandidate of
+        Result.Ok date ->
+            toShortDateTimeString date
+
+        _ ->
+            input
 
 
 delayTask : Int -> Task.Task x ()

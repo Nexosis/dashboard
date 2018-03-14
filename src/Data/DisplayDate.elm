@@ -49,7 +49,7 @@ toShortDateTimeString time =
         ++ " "
         ++ padded (hour time)
         ++ ":"
-        ++ toString (minute time)
+        ++ padded (minute time)
 
 
 padded : Int -> String
