@@ -7,16 +7,16 @@ import HttpBuilder exposing (RequestBuilder, withExpect)
 
 
 get : Config -> Int -> Int -> Http.Request ModelList
-get { baseUrl, token } page pageSize =
+get config page pageSize =
     let
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/models")
+    (config.baseUrl ++ "/models")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeModelList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
@@ -28,38 +28,38 @@ pageParams page pageSize =
 
 
 delete : Config -> String -> Http.Request ()
-delete { baseUrl, token } modelId =
-    (baseUrl ++ "/models/" ++ modelId)
+delete config modelId =
+    (config.baseUrl ++ "/models/" ++ modelId)
         |> HttpBuilder.delete
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 getOne : Config -> String -> Http.Request ModelData
-getOne { baseUrl, token } modelId =
-    (baseUrl ++ "/models/" ++ modelId)
+getOne config modelId =
+    (config.baseUrl ++ "/models/" ++ modelId)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeModel
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 predict : Config -> String -> String -> String -> Http.Request PredictionResult
-predict { baseUrl, token } modelId content contentType =
-    (baseUrl ++ "/models/" ++ modelId ++ "/predict")
+predict config modelId content contentType =
+    (config.baseUrl ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody contentType content)
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.withExpectJson decodePredictions
         |> HttpBuilder.toRequest
 
 
 predictRaw : Config -> String -> String -> String -> Http.Request String
-predictRaw { baseUrl, token } modelId content contentType =
-    (baseUrl ++ "/models/" ++ modelId ++ "/predict")
+predictRaw config modelId content contentType =
+    (config.baseUrl ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" content)
         |> HttpBuilder.withHeader "Accept" contentType
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.withExpectString
         |> HttpBuilder.toRequest

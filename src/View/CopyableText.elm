@@ -1,15 +1,14 @@
 module View.CopyableText exposing (copyableText)
 
 import Html exposing (Html, a, i, span, text)
-import Html.Attributes exposing (class)
-import Html.Events exposing (onClick)
+import Html.Attributes exposing (attribute, class)
 
 
-copyableText : String -> (String -> msg) -> Html msg
-copyableText content copyMsg =
+copyableText : String -> Html msg
+copyableText content =
     span [ class "small" ]
         [ text content
         , a []
-            [ i [ class "fa fa-copy color-mediumgray ml5", onClick (copyMsg content) ] []
+            [ i [ class "fa fa-copy color-mediumgray ml5 copyToClipboard", attribute "data-clipboard-text" content ] []
             ]
         ]

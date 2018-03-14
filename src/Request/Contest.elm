@@ -7,9 +7,9 @@ import HttpBuilder exposing (RequestBuilder, withExpectJson)
 
 
 get : Config -> String -> Http.Request Contest
-get { baseUrl, token } sessionId =
-    (baseUrl ++ "/sessions/" ++ sessionId ++ "/contest")
+get config sessionId =
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/contest")
         |> HttpBuilder.get
         |> withExpectJson decodeContest
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest

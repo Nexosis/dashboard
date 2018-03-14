@@ -13,7 +13,6 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
-import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -80,7 +79,6 @@ type Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
-    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -180,9 +178,6 @@ update msg model context =
                 _ ->
                     model => Cmd.none
 
-        Copy text ->
-            ( model, Ports.copy text )
-
 
 
 -- VIEW --
@@ -258,7 +253,7 @@ viewUrlAndDeleteCol model =
         [ p []
             [ strong [] [ text "API Endpoint URL:" ]
             , br [] []
-            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri)) Copy
+            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
             ]
         , p []
             [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]

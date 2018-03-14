@@ -1,7 +1,7 @@
 module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, tokenDecoder, withAuthorization)
 
 import Dict exposing (Dict)
-import HttpBuilder exposing (RequestBuilder, withBearerToken)
+import HttpBuilder exposing (RequestBuilder, withBearerToken, withHeader)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
@@ -15,6 +15,7 @@ type alias Config =
     , subscriptionUrl : String
     , toolTips : Dict String String
     , explainerContent : Dict String String
+    , userAgent : String
     }
 
 
@@ -40,6 +41,7 @@ configDecoder =
         |> required "subscriptionUrl" string
         |> required "toolTips" toolTipDictDecoder
         |> required "explainerContent" (Decode.dict string)
+        |> required "userAgent" string
 
 
 tokenDecoder : Decoder NexosisToken
@@ -69,12 +71,13 @@ toolTipDictDecoder =
     dict string
 
 
-withAuthorization : Maybe NexosisToken -> RequestBuilder a -> RequestBuilder a
-withAuthorization token builder =
-    case token of
+withAuthorization : Config -> RequestBuilder a -> RequestBuilder a
+withAuthorization config builder =
+    case config.token of
         Just nexosisToken ->
             builder
                 |> withBearerToken nexosisToken.rawToken
+                |> withHeader "User-Agent" config.userAgent
 
         _ ->
             builder

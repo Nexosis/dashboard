@@ -1,7 +1,6 @@
 module Data.Context exposing (..)
 
 import Data.Config exposing (Config)
-import Dict
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (object)
@@ -25,13 +24,13 @@ encode ctx =
         ]
 
 
-modelDecoder : Decoder ContextModel
-modelDecoder =
+modelDecoder : Config -> Decoder ContextModel
+modelDecoder config =
     decode ContextModel
         |> required "userPageSize" Decode.int
-        |> hardcoded (Config "" Nothing "" "" "" Dict.empty Dict.empty)
+        |> hardcoded config
 
 
-defaultContext : ContextModel
-defaultContext =
-    ContextModel 10 (Config "" Nothing "" "" "" Dict.empty Dict.empty)
+defaultContext : Config -> ContextModel
+defaultContext config =
+    ContextModel 10 config
