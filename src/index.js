@@ -19,7 +19,7 @@ if (!Intercept.isWired()) {
     Intercept.wire();
 }
 
-fetch('./config.json').then(function (response) {
+fetch('./config.json', { cache: 'no-store' }).then(function (response) {
     response.json().then(function (config) {
 
         _LTracker.push({
@@ -51,32 +51,31 @@ fetch('./config.json').then(function (response) {
                 'Level': level
             });
         };
-        
+
         const docsRequests = []
-        for(let doc of config.explainers) {
+        for (let doc of config.explainers) {
             const tmp = doc;
             docsRequests.push(
                 fetch(`./docs/${doc}.md`)
-                    .then (resp => {
-                        if(resp.ok) {
-                            return resp.text().then(text=>{return {name: tmp, content: text}});
+                    .then(resp => {
+                        if (resp.ok) {
+                            return resp.text().then(text => { return { name: tmp, content: text } });
                         }
-                        return Promise.resolve({err : resp.status});
+                        return Promise.resolve({ err: resp.status });
                     }
-                ));
+                    ));
         }
 
         Promise.all(docsRequests).then(docsContent => {
 
             config.token = getCookie('accessToken');
             config.toolTips = toolTips;
-            
+
             config.explainerContent = {};
-            for(let c of docsContent) {
-                if(!c.err)
-                {
+            for (let c of docsContent) {
+                if (!c.err) {
                     config.explainerContent[c.name] = c.content
-                }                   
+                }
             }
 
             const mountNode = document.getElementById('main');
@@ -105,7 +104,7 @@ fetch('./config.json').then(function (response) {
             });
 
             initLocalStoragePort(app);
-            
+
             app.ports.uploadFileSelected.subscribe(function (id) {
 
                 var node = document.getElementById(id);
@@ -149,10 +148,10 @@ fetch('./config.json').then(function (response) {
                 a.download = filespec.name;
                 document.body.appendChild(a);
                 a.click();
-                setTimeout(function(){
+                setTimeout(function () {
                     document.body.removeChild(a);
-                    window.URL.revokeObjectURL(fileUrl);  
-                }, 100);  
+                    window.URL.revokeObjectURL(fileUrl);
+                }, 100);
                 app.ports.fileSaved.send(true);
             });
 
@@ -169,21 +168,21 @@ fetch('./config.json').then(function (response) {
             });
 
             Intercept.addResponseCallback(function (xhr) {
-                
+
                 if (xhr.url.startsWith(config.apiUrl)) {
 
-                const getQuotaHeader = (xhr, name) => {
-                    return {
-                        allotted : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
-                        current : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                    const getQuotaHeader = (xhr, name) => {
+                        return {
+                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
+                            current: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                        }
                     }
-                }
 
-                let quotas = {  
-                    dataSets : getQuotaHeader(xhr, "DataSetCount"),
-                    predictions : getQuotaHeader(xhr, "PredictionCount"),
-                    sessions : getQuotaHeader(xhr, "SessionCount"),
-                }
+                    let quotas = {
+                        dataSets: getQuotaHeader(xhr, "DataSetCount"),
+                        predictions: getQuotaHeader(xhr, "PredictionCount"),
+                        sessions: getQuotaHeader(xhr, "SessionCount"),
+                    }
 
                     let xhrInfo = {
                         status: xhr.status,
@@ -191,7 +190,7 @@ fetch('./config.json').then(function (response) {
                         response: JSON.stringify(JSON.parse(xhr.response), null, 2),
                         method: xhr.method,
                         url: xhr.url,
-                    quotas : quotas,
+                        quotas: quotas,
                         timestamp: new Date().toISOString()
                     };
 
@@ -204,6 +203,6 @@ fetch('./config.json').then(function (response) {
             });
         });
 
-        
+
     });
 });
