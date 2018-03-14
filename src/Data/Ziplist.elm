@@ -54,7 +54,7 @@ create prev current rest =
 
 first : Ziplist a -> Ziplist a
 first ({ previous, current, next } as zipper) =
-    case List.reverse previous of
+    case previous of
         [] ->
             zipper
 

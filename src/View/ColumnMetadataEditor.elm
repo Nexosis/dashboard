@@ -142,17 +142,17 @@ update msg model context =
             { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
-            let
-                updatedModel =
-                    { model
-                        | modifiedMetadata =
-                            updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                                |> maybeAppendColumn model.modifiedMetadata
-                    }
-            in
             if selection == Target then
-                update (SetTarget metadata.name) updatedModel context
+                update (SetTarget metadata.name) model context
             else
+                let
+                    updatedModel =
+                        { model
+                            | modifiedMetadata =
+                                updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                                    |> maybeAppendColumn model.modifiedMetadata
+                        }
+                in
                 updatedModel
                     => Cmd.none
                     => Updated (Dict.values updatedModel.modifiedMetadata)
