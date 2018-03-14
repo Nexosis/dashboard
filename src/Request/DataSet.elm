@@ -29,7 +29,7 @@ getRetrieveDetail { baseUrl, token } name =
         params =
             pageParams 0 Config.pageSize
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
@@ -44,7 +44,7 @@ getDataByDateRange { baseUrl, token } name dateRange =
             pageParams 0 1000
                 ++ dateParams dateRange
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
@@ -54,7 +54,7 @@ getDataByDateRange { baseUrl, token } name dateRange =
 
 getStats : Config -> DataSetName -> Http.Request DataSetStats
 getStats { baseUrl, token } name =
-    (baseUrl ++ "/data/" ++ dataSetNameToString name ++ "/stats")
+    (baseUrl ++ "/data/" ++ uriEncodeDataSetName name ++ "/stats")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
         |> withAuthorization token
@@ -68,7 +68,7 @@ delete { baseUrl, token } name cascadeOptions =
             Set.toList cascadeOptions
                 |> List.map (\c -> ( "cascade", c ))
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.delete
         |> HttpBuilder.withQueryParams cascadeList
         |> withAuthorization token
@@ -84,7 +84,7 @@ type alias PutUploadRequest =
 
 put : Config -> PutUploadRequest -> Http.Request ()
 put { baseUrl, token } { name, content, contentType } =
-    (baseUrl ++ "/data/" ++ name)
+    (baseUrl ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization token
@@ -110,7 +110,7 @@ dateParams dateRange =
 
 updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()
 updateMetadata { baseUrl, token } request =
-    (baseUrl ++ "/data/" ++ dataSetNameToString request.dataSetName)
+    (baseUrl ++ "/data/" ++ uriEncodeDataSetName request.dataSetName)
         |> HttpBuilder.put
         |> withAuthorization token
         |> HttpBuilder.withJsonBody (encodeMetadataPutDataRequest request)
@@ -129,3 +129,8 @@ encodeMetadataPutDataRequest request =
         [ ( "dataSetName", Encode.string <| dataSetNameToString request.dataSetName )
         , ( "columns", encodeColumnMetadataList <| request.columns )
         ]
+
+
+uriEncodeDataSetName : DataSetName -> String
+uriEncodeDataSetName name =
+    Http.encodeUri <| dataSetNameToString name
