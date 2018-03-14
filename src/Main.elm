@@ -2,7 +2,7 @@ module Main exposing (..)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
-import Data.Context exposing (ContextModel, defaultContext, modelDecoder)
+import Data.Context exposing (ContextModel, defaultContext)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -459,15 +459,15 @@ view model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
-        ConfigurationLoaded app ->
-            Sub.map OnAppStateLoaded appStateLoaded
+        ConfigurationLoaded initState ->
+            Sub.map OnAppStateLoaded (appStateLoaded initState.config)
 
         Initialized app ->
             Sub.batch
                 [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
-                , Sub.map OnAppStateUpdated appStateLoaded
+                , Sub.map OnAppStateUpdated (appStateLoaded app.context.config)
                 ]
 
         InitializationError _ ->

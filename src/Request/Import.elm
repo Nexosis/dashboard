@@ -14,20 +14,20 @@ type alias PostUrlRequest =
 
 
 postUrl : Config -> PostUrlRequest -> Http.Request ImportDetail
-postUrl { token, baseUrl } { dataSetName, url } =
-    (baseUrl ++ "/imports/url")
+postUrl config { dataSetName, url } =
+    (config.baseUrl ++ "/imports/url")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportUrl dataSetName url))
-        |> withAuthorization token
+        |> withAuthorization config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 
 get : Config -> String -> Http.Request ImportDetail
-get { token, baseUrl } importId =
-    (baseUrl ++ "/imports/" ++ importId)
+get config importId =
+    (config.baseUrl ++ "/imports/" ++ importId)
         |> HttpBuilder.get
-        |> withAuthorization token
+        |> withAuthorization config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 

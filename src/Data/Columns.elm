@@ -1,4 +1,4 @@
-module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
+module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, defaultColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
 
 import Data.AggregationStrategy as Aggregate exposing (AggregationStrategy)
 import Data.ImputationStrategy as Impute exposing (ImputationStrategy)
@@ -194,3 +194,8 @@ encodeColumnValues column =
         , ( "imputation", Encode.string <| toString <| column.imputation )
         , ( "aggregation", Encode.string <| toString <| column.aggregation )
         ]
+
+
+defaultColumnMetadata : ColumnMetadata
+defaultColumnMetadata =
+    ColumnMetadata NumericMeasure None Impute.Mean Aggregate.Mean ""

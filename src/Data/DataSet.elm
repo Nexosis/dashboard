@@ -211,6 +211,6 @@ variableDecoder =
         --Note that order matters.
         [ Decode.float |> Decode.andThen (\f -> succeed (formatFloatToString f))
         , Decode.bool |> Decode.andThen (\b -> succeed (toString b))
-        , dateDecoder |> Decode.andThen (\d -> succeed (toShortDateTimeString d))
+        , dateDecoder |> Decode.andThen (\d -> succeed (Time.ZonedDateTime.toISO8601 d))
         , Decode.string
         ]
