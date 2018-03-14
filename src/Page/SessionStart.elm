@@ -29,6 +29,7 @@ import Time.TimeZones exposing (etc_universal)
 import Time.ZonedDateTime exposing (fromDateTime)
 import Util exposing ((=>), isJust, spinner, unwrapErrors)
 import Verify exposing (Validator)
+import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewFieldError, viewRemoteError)
 import View.Extra exposing (viewJust)
