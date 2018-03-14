@@ -156,18 +156,6 @@ fetch('./config.json').then(function (response) {
                 app.ports.fileSaved.send(true);
             });
 
-            app.ports.copy.subscribe(function (text) {
-                let textarea = document.createElement('textarea')
-                textarea.id = 'copytarget'
-                textarea.style.height = 0
-                document.body.appendChild(textarea)
-                textarea.value = text;
-                let selector = document.querySelector('#copytarget')
-                selector.select()
-                document.execCommand('copy')
-                document.body.removeChild(textarea)
-            });
-
             Intercept.addResponseCallback(function (xhr) {
                 
                 if (xhr.url.startsWith(config.apiUrl)) {
@@ -202,8 +190,11 @@ fetch('./config.json').then(function (response) {
                     }
                 }
             });
+
+            const clipboard = new ClipboardJS('.copyToClipboard');
         });
 
+        
         
     });
 });

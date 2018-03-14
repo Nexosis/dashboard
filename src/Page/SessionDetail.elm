@@ -75,7 +75,6 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
-    | Copy String
     | ChangePage Int
     | DownloadResults
     | DownloadResponse (Remote.WebData String)
@@ -226,9 +225,6 @@ update msg model context =
             in
             { model | windowWidth = newWidth } => Cmd.none
 
-        Copy text ->
-            ( model, Ports.copy text )
-
         ChangePage page ->
             { model | currentPage = page } => Cmd.none
 
@@ -338,12 +334,12 @@ viewSessionInfo model session =
         , p []
             [ strong [] [ text "Session ID: " ]
             , br [] []
-            , copyableText session.sessionId Copy
+            , copyableText session.sessionId
             ]
         , p []
             [ strong [] [ text "API Endpoint URL: " ]
             , br [] []
-            , copyableText ("/sessions/" ++ session.sessionId) Copy
+            , copyableText ("/sessions/" ++ session.sessionId)
             ]
         , p []
             [ deleteSessionButton model
