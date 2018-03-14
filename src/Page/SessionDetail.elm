@@ -17,6 +17,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed
+import Http
 import Json.Encode
 import List exposing (filter, foldr, head)
 import List.Extra as List
@@ -27,12 +28,12 @@ import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
-import Util exposing ((=>), formatFloatToString, styledNumber)
+import Util exposing ((=>), delayTask, formatFloatToString, spinner, styledNumber)
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 import View.Error exposing (viewHttpError)
-import View.Extra exposing (viewJust)
+import View.Extra exposing (viewIf, viewJust)
 import View.Messages as Messages
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 import Window
@@ -54,15 +55,15 @@ type alias Model =
 init : Config -> String -> ( Model, Cmd Msg )
 init config sessionId =
     let
-        loadModelDetail =
+        getWindowWidth =
+            Task.attempt GetWindowWidth Window.width
+
+        loadSessionDetail =
             Request.Session.getOne config sessionId
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
-
-        getWindowWidth =
-            Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -97,16 +98,18 @@ update msg model context =
                                     _ ->
                                         Cmd.none
                         in
-                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
+                        { model | sessionResponse = response }
                             => Cmd.batch
                                 [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
                                 ]
+                    else if not <| Data.Session.sessionIsCompleted sessionInfo then
+                        { model | sessionResponse = response }
+                            => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                            => Cmd.none
+                        { model | sessionResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -253,6 +256,14 @@ update msg model context =
 
                 _ ->
                     model => Cmd.none
+
+
+delayAndRecheckSession : Config -> String -> Cmd Msg
+delayAndRecheckSession config sessionId =
+    delayTask 15
+        |> Task.andThen (\_ -> Request.Session.getOne config sessionId |> Http.toTask)
+        |> Remote.asCmd
+        |> Cmd.map SessionResponse
 
 
 formatFilename : Model -> String
@@ -460,27 +471,14 @@ viewSessionDetail session =
         viewPendingSession session
 
 
-viewPendingSessionHeader : SessionData -> Html Msg
-viewPendingSessionHeader session =
-    -- todo - fill this in and hook it up.
-    div [ class "row" ]
-        [ div [ class "col-sm-4" ]
-            [ h5 [ class "mb15" ] [ text "Session Status" ]
-            , h4 [] [ span [ class "label label-warning" ] [ text "In Process" ] ]
-            ]
-        , div [ class "col-sm-4" ]
-            [ h5 [ class "mb15" ] [ text "Status Log" ]
-            ]
-        ]
-
-
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
     div []
-        [ h5 [ class "mb15" ]
-            [ text "Session Status" ]
+        [ h5 [ class "mb15" ] [ text "Session Status" ]
         , h4 []
-            [ statusDisplay session.status ]
+            [ statusDisplay session.status
+            , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
+            ]
         ]
 
 
@@ -620,15 +618,18 @@ viewResultsTable : Model -> Html Msg
 viewResultsTable model =
     case model.sessionResponse of
         Remote.Success sessionResponse ->
-            if
-                (sessionResponse.predictionDomain == PredictionDomain.Forecast)
-                    || (sessionResponse.predictionDomain == PredictionDomain.Impact)
-            then
-                viewTimeSeriesResults model sessionResponse
-            else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
-                viewAnomalyResults model sessionResponse
+            if Data.Session.sessionIsCompleted sessionResponse then
+                if
+                    (sessionResponse.predictionDomain == PredictionDomain.Forecast)
+                        || (sessionResponse.predictionDomain == PredictionDomain.Impact)
+                then
+                    viewTimeSeriesResults model sessionResponse
+                else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
+                    viewAnomalyResults model sessionResponse
+                else
+                    viewModelTrainingResults model sessionResponse
             else
-                viewModelTrainingResults model sessionResponse
+                div [] []
 
         _ ->
             div [] []
@@ -708,7 +709,7 @@ viewAnomalyResults model sessionData =
     div [ class "row" ]
         [ div [ class "col-sm-12" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                [ div [ class "col-sm-9" ] [ h3 [] [ text "Anomaly Results" ] ]
                 , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
                 ]
             , table [ class "table table-striped" ]
@@ -758,7 +759,7 @@ viewTimeSeriesResults model sessionData =
             div [ class "row" ]
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row" ]
-                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Results" ] ]
                         , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
                         ]
                     , table [ class "table table-striped" ]

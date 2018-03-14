@@ -18,7 +18,6 @@ import List.Extra as List
 import Navigation
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
-import Process
 import Regex
 import RemoteData as Remote
 import Request.DataSet exposing (PutUploadRequest, put)
@@ -26,8 +25,7 @@ import Request.Import exposing (PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Time
-import Util exposing ((=>), spinner, unwrapErrors)
+import Util exposing ((=>), delayTask, spinner, unwrapErrors)
 import Verify exposing (Validator)
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
 import View.Extra exposing (viewIf, viewIfElements)
@@ -328,15 +326,10 @@ validateStep model =
 
 delayAndRecheckImport : Config -> String -> Cmd Msg
 delayAndRecheckImport config importId =
-    delayTask
+    delayTask 2
         |> Task.andThen (\_ -> Request.Import.get config importId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map ImportResponse
-
-
-delayTask : Task.Task x ()
-delayTask =
-    Process.sleep (Time.second * 2)
 
 
 updateTabContents : Model -> TabMsg -> Model
