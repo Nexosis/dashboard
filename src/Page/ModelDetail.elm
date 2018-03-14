@@ -13,7 +13,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
-import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
@@ -59,7 +58,6 @@ type Msg
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
-    | Copy String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -116,9 +114,6 @@ update msg model context =
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
-
-        Copy text ->
-            ( model, Ports.copy text )
 
 
 view : Model -> ContextModel -> Html Msg
@@ -191,12 +186,12 @@ detailRow model =
                     , p []
                         [ strong [] [ text "Model ID:" ]
                         , br [] []
-                        , copyableText model.modelId Copy
+                        , copyableText model.modelId
                         ]
                     , p []
                         [ strong [] [ text "API Endpoint Url" ]
                         , br [] []
-                        , copyableText ("/models/" ++ model.modelId) Copy
+                        , copyableText ("/models/" ++ model.modelId)
                         ]
                     , button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
                         [ i [ class "fa fa-trash-o mr5" ] []
