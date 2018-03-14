@@ -41,16 +41,16 @@ updateContext model context =
     }
 
 
-appStateLoaded : Sub Msg
-appStateLoaded =
+appStateLoaded : Config -> Sub Msg
+appStateLoaded config =
     let
         getModel json =
-            case Decode.decodeValue modelDecoder json of
+            case Decode.decodeValue (modelDecoder config) json of
                 Ok m ->
                     m
 
                 Err _ ->
-                    defaultContext
+                    defaultContext config
 
         retrieval ( key, json ) =
             OnAppStateLoaded (getModel json)
