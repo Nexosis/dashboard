@@ -5,8 +5,9 @@ import Data.Columns as Columns
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSetData, DataSetName, dataSetNameToString)
+import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
-import Data.Session as Session exposing (ResultInterval, SessionData)
+import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Date exposing (Date)
 import DateTimePicker
@@ -24,6 +25,8 @@ import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, M
 import Select exposing (fromSelected)
 import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime)
+import Time.TimeZones exposing (etc_universal)
+import Time.ZonedDateTime exposing (fromDateTime)
 import Util exposing ((=>), isJust, spinner, unwrapErrors)
 import Verify exposing (Validator)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -862,11 +865,30 @@ viewStartSession model =
             else
                 Nothing
 
-        -- todo - format this
-        -- startEndDates =
-        --     Maybe.map2 (\start end ->
-        --     )
-        --         model.startDate model.endDate
+        maybeStartEndDates =
+            Maybe.map2
+                (\start end ->
+                    let
+                        utc =
+                            etc_universal ()
+
+                        convertedStart =
+                            fromDateTime utc start
+
+                        convertedEnd =
+                            fromDateTime utc end
+                    in
+                    if model.resultInterval == Hour then
+                        toShortDateTimeString convertedStart ++ " - " ++ toShortDateTimeString convertedEnd
+                    else
+                        toShortDateString convertedStart ++ " - " ++ toShortDateString convertedEnd
+                )
+                model.startDate
+                model.endDate
+
+        maybeResultInterval =
+            Maybe.map (\_ -> toString model.resultInterval) model.startDate
+
         properties =
             [ ( "Session Name", model.sessionName, EditStep NameSession )
             , ( "DataSet Name", Just <| dataSetNameToString model.dataSetName, Locked )
@@ -874,7 +896,8 @@ viewStartSession model =
             , ( "Contains Anomalies", maybeContainsAnomalies, EditStep ContainsAnomalies )
             , ( "Set Balance", maybeSetBalance, EditStep SetBalance )
             , ( "Event Name", model.eventName, EditStep StartEndDates )
-            , ( "Start/End Dates", Nothing, EditStep StartEndDates )
+            , ( "Result Interval", maybeResultInterval, EditStep StartEndDates )
+            , ( "Start/End Dates", maybeStartEndDates, EditStep StartEndDates )
             , ( "Target", model.target, EditStep ColumnMetadata )
             , ( "Column Metadata", Just "Done", EditStep ColumnMetadata )
             ]
