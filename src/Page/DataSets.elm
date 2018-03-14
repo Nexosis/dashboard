@@ -14,6 +14,7 @@ import Request.DataSet
 import StateStorage
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -40,8 +41,8 @@ defaultColumns tooltips =
         actionsColumn
         sizeColumn
         (shapeColumn tooltips)
-        (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
-        (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
+        (Grid.customNumberColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
+        (Grid.customNumberColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
 
 type alias Model =
@@ -139,9 +140,7 @@ view : Model -> ContextModel -> Html Msg
 view model context =
     div []
         [ div [ id "page-header", class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
-                ]
+            [ Breadcrumb.list
             , div [ class "col-sm-6" ]
                 [ h2 [ class "mt10" ]
                     ([ text "DataSets " ]
@@ -293,7 +292,7 @@ sizeColumn =
 
 sizeCell : DataSet -> Table.HtmlDetails msg
 sizeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (dataSizeWithSuffix dataset.dataSetSize) ]
+    Table.HtmlDetails [ class "number" ] [ text (dataSizeWithSuffix dataset.dataSetSize) ]
 
 
 shapeColumn : Dict String String -> Grid.Column DataSet msg
@@ -309,4 +308,4 @@ shapeColumn tooltips =
 
 shapeCell : DataSet -> Table.HtmlDetails msg
 shapeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]
+    Table.HtmlDetails [ class "number" ] [ text (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]

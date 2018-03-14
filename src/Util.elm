@@ -1,8 +1,11 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Html
 import Html.Attributes
+import Process
+import Task
+import Time
 import Time.TimeZones
 import Time.ZonedDateTime exposing (ZonedDateTime)
 
@@ -158,3 +161,8 @@ tryParseAndFormat input =
 
         _ ->
             input
+
+
+delayTask : Int -> Task.Task x ()
+delayTask seconds =
+    Process.sleep (Time.second * toFloat seconds)

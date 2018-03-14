@@ -18,6 +18,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
 import Util exposing ((=>), formatFloatToString, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 
@@ -124,15 +125,7 @@ view : Model -> ContextModel -> Html Msg
 view model context =
     div []
         [ div [ id "page-header", class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ p [ class "breadcrumb" ]
-                    [ span []
-                        [ a [ href "#" ] [ text "API Dashboard" ]
-                        ]
-                    , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-                    , span [] [ a [ href "/#/models" ] [ text "Models" ] ]
-                    ]
-                ]
+            [ Breadcrumb.detail Routes.Models "Models"
             , modelName model
             , div [ class "col-sm-3" ]
                 []

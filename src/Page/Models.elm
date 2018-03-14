@@ -14,6 +14,7 @@ import Request.Model exposing (delete, get)
 import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
+import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -123,13 +124,7 @@ view : Model -> ContextModel -> Html Msg
 view model context =
     div []
         [ div [ class "page-header", class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ p [ class "breadcrumb" ]
-                    [ span []
-                        [ a [ href "#" ] [ text "API Dashboard" ]
-                        ]
-                    ]
-                ]
+            [ Breadcrumb.list
             , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]

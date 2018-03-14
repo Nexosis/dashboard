@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view)
+module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -107,6 +107,16 @@ customStringColumn name toStr attributes html =
     }
 
 
+customNumberColumn : String -> (data -> String) -> List (Attribute msg) -> List (Html msg) -> Column data msg
+customNumberColumn name toStr attributes html =
+    { name = name
+    , viewData = numberDetails << toStr
+    , sorter = Table.increasingOrDecreasingBy toStr
+    , headAttributes = attributes
+    , headHtml = html
+    }
+
+
 customUnsortableColumn : String -> (data -> String) -> List (Attribute msg) -> List (Html msg) -> Column data msg
 customUnsortableColumn name toStr attributes html =
     { name = name
@@ -152,6 +162,11 @@ textDetails str =
     HtmlDetails [] [ Html.text str ]
 
 
+numberDetails : String -> HtmlDetails msg
+numberDetails str =
+    HtmlDetails [ class "number" ] [ Html.text str ]
+
+
 veryCustomColumn :
     { name : String
     , viewData : data -> HtmlDetails msg
@@ -178,11 +193,8 @@ makeUnsortable :
     }
     -> Column data msg
 makeUnsortable column =
-    { name = column.name
-    , viewData = column.viewData
-    , sorter = Table.unsortable
-    , headAttributes = column.headAttributes
-    , headHtml = column.headHtml
+    { column
+        | sorter = Table.unsortable
     }
 
 
