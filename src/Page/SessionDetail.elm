@@ -260,7 +260,7 @@ update msg model context =
 
 delayAndRecheckSession : Config -> String -> Cmd Msg
 delayAndRecheckSession config sessionId =
-    delayTask 10
+    delayTask 15
         |> Task.andThen (\_ -> Request.Session.getOne config sessionId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map SessionResponse
