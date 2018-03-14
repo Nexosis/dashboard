@@ -301,8 +301,8 @@ update msg model context =
                 columnModel =
                     model.columnEditorModel
 
-                startingDate =
-                    Just (extractTimestampMax model)
+                ( startingDate, endingDate ) =
+                    extractTimestampMax model
 
                 ( steps, showTarget ) =
                     if sessionType == Forecast || sessionType == Impact then
@@ -321,7 +321,7 @@ update msg model context =
                 columnEditorModel =
                     { columnModel | showTarget = showTarget }
             in
-            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel, errors = [], startDate = startingDate } => Cmd.none
+            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel, errors = [], startDate = startingDate, endDate = endingDate } => Cmd.none
 
         ( StartSession, StartTheSession request ) ->
             let
@@ -824,7 +824,7 @@ reviewItem ( name, value ) =
         ]
 
 
-extractTimestampMax : Model -> DateTime
+extractTimestampMax : Model -> ( Maybe DateTime, Maybe DateTime )
 extractTimestampMax model =
     let
         list =
@@ -844,9 +844,12 @@ extractTimestampMax model =
         x =
             Debug.log "CalculatedDate" dateString
     in
-    dateString
-        |> DateTime.fromISO8601
-        |> Result.withDefault DateTime.epoch
+    case DateTime.fromISO8601 dateString of
+        Result.Ok date ->
+            Just date => Just (DateTime.addDays 5 date)
+
+        Result.Err err ->
+            ( Nothing, Nothing )
 
 
 dateColumnCandidate : List Columns.ColumnMetadata -> Columns.ColumnMetadata
