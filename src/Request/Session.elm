@@ -103,7 +103,7 @@ getOne { baseUrl, token } sessionId =
 
 
 type alias ModelSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
     , predictionDomain : PredictionDomain
@@ -130,7 +130,7 @@ encodeModelSessionRequest : ModelSessionRequest -> Encode.Value
 encodeModelSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
         , ( "extraParameters", encodeExtraParameters <| sessionRequest )
@@ -138,7 +138,7 @@ encodeModelSessionRequest sessionRequest =
 
 
 type alias ForecastSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
     , dates :
@@ -167,7 +167,7 @@ encodeForecastSessionRequest : ForecastSessionRequest -> Encode.Value
 encodeForecastSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
@@ -176,7 +176,7 @@ encodeForecastSessionRequest sessionRequest =
 
 
 type alias ImpactSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
     , dates :
@@ -206,13 +206,20 @@ encodeImpactSessionRequest : ImpactSessionRequest -> Encode.Value
 encodeImpactSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
         , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
         , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
+
+
+encodeName : Maybe String -> Encode.Value
+encodeName name =
+    name
+        |> Maybe.map Encode.string
+        |> Maybe.withDefault Encode.null
 
 
 encodeExtraParameters : ModelSessionRequest -> Encode.Value
