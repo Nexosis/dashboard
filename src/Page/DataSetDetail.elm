@@ -19,6 +19,7 @@ import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
@@ -191,15 +192,7 @@ view : Model -> ContextModel -> Html Msg
 view model context =
     div []
         [ div [ id "page-header", class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ p [ class "breadcrumb" ]
-                    [ span []
-                        [ a [ href "#" ] [ text "API Dashboard" ]
-                        , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-                        , a [ href "#" ] [ text "Datasets" ]
-                        ]
-                    ]
-                ]
+            [ Breadcrumb.detail AppRoutes.DataSets "Datasets"
             , viewNameRow model
             ]
         , viewDetailsRow model

@@ -26,6 +26,7 @@ import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>), isJust, spinner, unwrapErrors)
 import Verify exposing (Validator)
+import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewFieldError, viewRemoteError)
 import View.Wizard as Wizard exposing (StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)

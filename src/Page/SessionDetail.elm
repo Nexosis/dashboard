@@ -28,6 +28,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
@@ -264,20 +265,7 @@ view : Model -> ContextModel -> Html Msg
 view model context =
     div []
         [ div [ id "page-header", class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ p [ class "breadcrumb" ]
-                    [ span []
-                        [ a [ AppRoutes.href AppRoutes.Home ]
-                            [ text "API Dashboard" ]
-                        ]
-                    , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
-                        []
-                    , span []
-                        [ a [ AppRoutes.href AppRoutes.Sessions ]
-                            [ text "Sessions" ]
-                        ]
-                    ]
-                ]
+            [ Breadcrumb.detail AppRoutes.Sessions "Sessions"
             , viewSessionHeader model
             ]
         , viewSessionDetails model
