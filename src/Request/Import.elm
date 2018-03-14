@@ -35,6 +35,6 @@ get { token, baseUrl } importId =
 encodeImportUrl : String -> String -> Json.Encode.Value
 encodeImportUrl dataSetName url =
     Json.Encode.object
-        [ ( "dataSetName", Json.Encode.string <| Http.encodeUri dataSetName )
+        [ ( "dataSetName", Json.Encode.string <| dataSetName )
         , ( "url", Json.Encode.string <| url )
         ]
