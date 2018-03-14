@@ -27,6 +27,7 @@ import String.Verify exposing (notBlank)
 import Task exposing (Task)
 import Util exposing ((=>), delayTask, spinner, unwrapErrors)
 import Verify exposing (Validator)
+import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
 import View.Extra exposing (viewIf, viewIfElements)
 import View.Wizard as Wizard exposing (WizardConfig, viewButtons)
@@ -396,10 +397,10 @@ subscriptions model =
 view : Model -> ContextModel -> Html Msg
 view model context =
     div []
-        [ div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.list
+            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
             ]
-        , hr [] []
         , div [ class "row" ]
             [ case model.steps.current of
                 ChooseUploadType ->
