@@ -377,18 +377,10 @@ update msg model context =
                 => Cmd.none
 
         ( StartEndDates, IntervalChanged interval ) ->
-            let
-                x =
-                    Debug.log "StartEndDatesIntervalChanged" "here"
-            in
             { model | resultInterval = interval }
                 => Cmd.none
 
         ( StartEndDates, ChangeEventName eventName ) ->
-            let
-                x =
-                    Debug.log "StartEndDatesChangeEventName" "here"
-            in
             { model | eventName = Just eventName }
                 => Cmd.none
 
@@ -963,9 +955,6 @@ extractTimestampMax model =
 
         dateString =
             maxValueFromCandidate candidate model.stats
-
-        x =
-            Debug.log "CalculatedDate" dateString
     in
     case DateTime.fromISO8601 dateString of
         Result.Ok date ->
