@@ -41,8 +41,8 @@ defaultColumns tooltips =
         actionsColumn
         sizeColumn
         (shapeColumn tooltips)
-        (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
-        (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
+        (Grid.customNumberColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
+        (Grid.customNumberColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
 
 type alias Model =
@@ -292,7 +292,7 @@ sizeColumn =
 
 sizeCell : DataSet -> Table.HtmlDetails msg
 sizeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (dataSizeWithSuffix dataset.dataSetSize) ]
+    Table.HtmlDetails [ class "number" ] [ text (dataSizeWithSuffix dataset.dataSetSize) ]
 
 
 shapeColumn : Dict String String -> Grid.Column DataSet msg
@@ -308,4 +308,4 @@ shapeColumn tooltips =
 
 shapeCell : DataSet -> Table.HtmlDetails msg
 shapeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]
+    Table.HtmlDetails [ class "number" ] [ text (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]
