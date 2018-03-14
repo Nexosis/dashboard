@@ -28,6 +28,7 @@ import Util exposing ((=>), isJust, spinner, unwrapErrors)
 import Verify exposing (Validator)
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewFieldError, viewRemoteError)
+import View.Extra exposing (viewJust)
 import View.Wizard as Wizard exposing (StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
@@ -37,7 +38,7 @@ type alias Model =
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
     , sessionColumnMetadata : List Columns.ColumnMetadata
-    , sessionName : String
+    , sessionName : Maybe String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
     , startDate : Maybe DateTime
@@ -49,6 +50,7 @@ type alias Model =
     , containsAnomalies : Bool
     , balance : Bool
     , errors : List FieldError
+    , target : Maybe String
     }
 
 
@@ -68,6 +70,7 @@ type Msg
     | IntervalChanged ResultInterval
     | SelectContainsAnomalies Bool
     | SelectBalance Bool
+    | SetWizardPage Step
 
 
 type Step
@@ -111,7 +114,7 @@ init config dataSetName =
         Remote.Loading
         editorModel
         []
-        ""
+        Nothing
         Nothing
         Remote.NotAsked
         Nothing
@@ -123,6 +126,7 @@ init config dataSetName =
         True
         True
         []
+        Nothing
         ! [ loadDataSetRequest
           , Cmd.map ColumnMetadataEditorMsg initCmd
           , DateTimePicker.initialCmd StartDateChanged DateTimePicker.initialState
@@ -291,7 +295,14 @@ update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
     case ( model.steps.current, msg ) of
         ( NameSession, ChangeSessionName sessionName ) ->
-            { model | sessionName = sessionName } => Cmd.none
+            let
+                name =
+                    if String.isEmpty <| String.trim sessionName then
+                        Nothing
+                    else
+                        Just sessionName
+            in
+            { model | sessionName = name } => Cmd.none
 
         ( SessionType, SelectSessionType sessionType ) ->
             let
@@ -403,8 +414,16 @@ update msg model context =
             let
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnEditorModel resp
+
+                target =
+                    case resp of
+                        Remote.Success dataSetData ->
+                            getTargetColumn dataSetData.columns
+
+                        _ ->
+                            model.target
             in
-            { model | dataSetResponse = resp, columnEditorModel = subModel }
+            { model | dataSetResponse = resp, columnEditorModel = subModel, target = target }
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ( _, ColumnMetadataEditorMsg subMsg ) ->
@@ -419,12 +438,30 @@ update msg model context =
 
                         _ ->
                             model.sessionColumnMetadata
+
+                newTarget =
+                    getTargetColumn modifiedMetadata
+
+                target =
+                    if newTarget /= Nothing then
+                        newTarget
+                    else
+                        model.target
             in
             { model
                 | columnEditorModel = newModel
                 , sessionColumnMetadata = modifiedMetadata
+                , target = target
             }
                 => Cmd.map ColumnMetadataEditorMsg cmd
+
+        ( _, SetWizardPage step ) ->
+            let
+                newSteps =
+                    Ziplist.find (\s -> s == step) model.steps
+                        |> Maybe.withDefault model.steps
+            in
+            { model | steps = newSteps } => Cmd.none
 
         _ ->
             model => Cmd.none
@@ -448,6 +485,13 @@ validateStep model =
                 |> Maybe.withDefault (\_ -> [])
     in
     stepValidation model
+
+
+getTargetColumn : List Columns.ColumnMetadata -> Maybe String
+getTargetColumn metadata =
+    metadata
+        |> List.find (\c -> c.role == Columns.Target)
+        |> Maybe.map .name
 
 
 view : Model -> ContextModel -> Html Msg
@@ -521,7 +565,7 @@ viewNameSession context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group col-sm-4" ]
             [ label [] [ text "Session name" ]
-            , input [ class "form-control", value model.sessionName, onInput ChangeSessionName ] []
+            , input [ class "form-control", value <| Maybe.withDefault "" model.sessionName, onInput ChangeSessionName, placeholder "(Optional)" ] []
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
@@ -549,37 +593,51 @@ viewSelectDataSet model =
         ]
 
 
+sessionTypeToString : PredictionDomain -> String
+sessionTypeToString sessionType =
+    case sessionType of
+        Classification ->
+            "Classification"
+
+        Regression ->
+            "Regression"
+
+        Forecast ->
+            "Forecast"
+
+        Impact ->
+            "Impact Analysis"
+
+        Anomalies ->
+            "Anomaly Detection"
+
+
 viewSessionType : ContextModel -> Model -> Html Msg
 viewSessionType context model =
     div [ class "col-sm-12" ]
         [ div [ class "form-group" ]
             [ sessionTypePanel
                 "https://nexosis.com/assets/img/features/classification.png"
-                "Classification"
                 (explainer context.config "session_classification")
                 model.selectedSessionType
                 Classification
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/regression.png"
-                "Regression"
                 (explainer context.config "session_regression")
                 model.selectedSessionType
                 Regression
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/forecasting.png"
-                "Forecasting"
                 (explainer context.config "session_forecasting")
                 model.selectedSessionType
                 Forecast
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/impact-analysis.png"
-                "Impact Analysis"
                 (explainer context.config "session_impact")
                 model.selectedSessionType
                 Impact
             , sessionTypePanel
                 "https://nexosis.com/assets/img/features/anomaly-detection.png"
-                "Anomaly Detection"
                 (explainer context.config "session_anomaly")
                 model.selectedSessionType
                 Anomalies
@@ -588,11 +646,11 @@ viewSessionType context model =
         ]
 
 
-sessionTypePanel : String -> String -> Html Msg -> Maybe PredictionDomain -> PredictionDomain -> Html Msg
-sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
+sessionTypePanel : String -> Html Msg -> Maybe PredictionDomain -> PredictionDomain -> Html Msg
+sessionTypePanel imageUrl bodyHtml currentSelection sessionType =
     let
         isSelected =
-            currentSelection == Just selectCmd
+            currentSelection == Just sessionType
 
         buttonContent =
             if isSelected then
@@ -600,11 +658,11 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
             else
                 [ i [ class "fa fa-circle-o mr5" ] [], text "Select" ]
     in
-    div [ class "col-sm-4", onClick (SelectSessionType selectCmd) ]
+    div [ class "col-sm-4", onClick (SelectSessionType sessionType) ]
         [ div [ classList [ ( "panel ml-select", True ), ( "selected", isSelected ) ] ]
             [ div [ class "panel-heading center" ]
                 [ img [ src imageUrl ] []
-                , h3 [ class "panel-title center" ] [ text title ]
+                , h3 [ class "panel-title center" ] [ text <| sessionTypeToString sessionType ]
                 ]
             , div [ class "panel-body" ]
                 (bodyHtml
@@ -616,7 +674,7 @@ sessionTypePanel imageUrl title bodyHtml currentSelection selectCmd =
                                     , ( "other", not isSelected )
                                     , ( "btn-primary", isSelected )
                                     ]
-                                , onClick (SelectSessionType selectCmd)
+                                , onClick (SelectSessionType sessionType)
                                 ]
                                 buttonContent
                             ]
@@ -776,16 +834,52 @@ viewColumnMetadata context model =
         ]
 
 
+type EditType
+    = Locked
+    | EditStep Step
+
+
+boolToString : Bool -> String
+boolToString bool =
+    if bool then
+        "Yes"
+    else
+        "No"
+
+
 viewStartSession : Model -> Html Msg
 viewStartSession model =
     let
-        -- todo : more work here
+        maybeContainsAnomalies =
+            if model.selectedSessionType == Just Anomalies then
+                Just <| boolToString model.containsAnomalies
+            else
+                Nothing
+
+        maybeSetBalance =
+            if model.selectedSessionType == Just Classification then
+                Just <| boolToString model.balance
+            else
+                Nothing
+
+        -- todo - format this
+        -- startEndDates =
+        --     Maybe.map2 (\start end ->
+        --     )
+        --         model.startDate model.endDate
         properties =
-            [ ( "Session Name", model.sessionName )
-            , ( "DataSet Name", dataSetNameToString model.dataSetName )
+            [ ( "Session Name", model.sessionName, EditStep NameSession )
+            , ( "DataSet Name", Just <| dataSetNameToString model.dataSetName, Locked )
+            , ( "Session Type", Maybe.map sessionTypeToString model.selectedSessionType, EditStep SessionType )
+            , ( "Contains Anomalies", maybeContainsAnomalies, EditStep ContainsAnomalies )
+            , ( "Set Balance", maybeSetBalance, EditStep SetBalance )
+            , ( "Event Name", model.eventName, EditStep StartEndDates )
+            , ( "Start/End Dates", Nothing, EditStep StartEndDates )
+            , ( "Target", model.target, EditStep ColumnMetadata )
+            , ( "Column Metadata", Just "Done", EditStep ColumnMetadata )
             ]
     in
-    div [ id "review", class "col-sm-12" ]
+    div [ id "review", class "col-sm-9" ]
         (List.map reviewItem properties
             ++ [ hr [] []
                , div [ class "row" ] [ viewRemoteError model.sessionStartRequest ]
@@ -793,9 +887,23 @@ viewStartSession model =
         )
 
 
-reviewItem : ( String, String ) -> Html Msg
-reviewItem ( name, value ) =
-    div [ class "form-group col-sm-3" ]
-        [ p [] [ text name ]
-        , h6 [] [ text value, i [ class "fa fa-edit" ] [] ]
-        ]
+editIcon : EditType -> Html Msg
+editIcon editType =
+    case editType of
+        Locked ->
+            i [ class "fa fa-lock" ] []
+
+        EditStep step ->
+            i [ class "fa fa-edit", onClick (SetWizardPage step) ] []
+
+
+reviewItem : ( String, Maybe String, EditType ) -> Html Msg
+reviewItem ( name, maybeValue, editType ) =
+    viewJust
+        (\value ->
+            div [ class "form-group col-sm-4" ]
+                [ p [] [ text name ]
+                , h6 [] [ text value, editIcon editType ]
+                ]
+        )
+        maybeValue
