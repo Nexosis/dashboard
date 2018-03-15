@@ -19,7 +19,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onBlur, onCheck, onClick, onInput)
 import List.Extra as List
 import Maybe.Verify
-import Page.Helpers exposing (explainer)
+import Page.Helpers exposing (explainer, explainerFormat)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
@@ -28,7 +28,7 @@ import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime)
 import Time.TimeZones exposing (etc_universal)
 import Time.ZonedDateTime exposing (fromDateTime)
-import Util exposing ((=>), isJust, spinner, styledNumber, unwrapErrors)
+import Util exposing ((=>), isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -713,14 +713,7 @@ viewStartEndDates context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_forecast_start_end" ]
-            , div [ class "alert alert-info" ]
-                [ text "This dataset has dates ranging from "
-                , styledNumber min
-                , text " to "
-                , styledNumber max
-                , text ".  Typically you'll want to choose a forecast length which is far shorter than your overall dataset length. The Nexosis API will require at least 14 days prior to your forecast start date and that your dataset contains at least double the number of observations in the overall forecast length. For example, if you want to forecast 30 days into the future then you will need 60 days of data in your dataset prior to the forecast start date."
-                ]
+                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Start date" ]

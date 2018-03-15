@@ -5,8 +5,11 @@ import Data.Status exposing (..)
 import Dict
 import Html exposing (Html, div, li, span, text, ul)
 import Html.Attributes exposing (class, id, style)
+import List
 import Markdown
 import RemoteData as Remote
+import String.Extra exposing (unquote)
+import String.Interpolate exposing (interpolate)
 
 
 coloredStatusButton : String -> String -> Html a
@@ -17,6 +20,19 @@ coloredStatusButton input labelType =
 explainer : Config -> String -> Html msg
 explainer config name =
     Markdown.toHtml [] (Maybe.withDefault "" (Dict.get name config.explainerContent))
+
+
+explainerFormat : Config -> String -> List a -> Html msg
+explainerFormat config name inputList =
+    let
+        configuredContent =
+            Maybe.withDefault "" (Dict.get name config.explainerContent)
+
+        stringList =
+            List.map toString inputList |> List.map unquote
+    in
+    interpolate configuredContent stringList
+        |> Markdown.toHtml []
 
 
 makeCollapsible : String -> Html msg -> Html msg
