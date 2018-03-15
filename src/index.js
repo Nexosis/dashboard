@@ -191,6 +191,16 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             });
 
             const clipboard = new ClipboardJS('.copyToClipboard');
+            clipboard.on('success', function (e) {
+                
+                e.trigger.setAttribute("data-balloon", "Copied!");
+                e.trigger.setAttribute("data-balloon-pos", "right");
+
+                setTimeout(function() {
+                    e.trigger.removeAttribute("data-balloon");
+                    e.trigger.removeAttribute("data-balloon-pos")
+                }, 500)
+            });
         });
 
         
