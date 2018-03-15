@@ -16,7 +16,8 @@ type alias Config =
     , toolTips : Dict String String
     , explainerContent : Dict String String
     , applicationName : String
-    , navbarBaseUrl : String
+    , accountSiteUrl : String
+    , apiManagerUrl : String
     , identityToken : Maybe IdentityToken
     }
 
@@ -46,6 +47,7 @@ configDecoder =
         |> required "explainerContent" (Decode.dict string)
         |> required "applicationName" string
         |> required "accountSite" string
+        |> required "apiManagerUrl" string
         |> custom (maybe identityTokenDecoder)
 
 

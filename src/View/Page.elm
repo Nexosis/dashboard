@@ -1,4 +1,4 @@
-module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses, emptyLayout)
+module View.Page exposing (ActivePage(..), basicLayout, emptyLayout, layoutShowingResponses)
 
 import AppRoutes
 import Data.Config exposing (Config)
@@ -35,7 +35,6 @@ type alias PageValues a =
     }
 
 
-
 emptyLayout : ActivePage -> Html msg -> Html msg
 emptyLayout page content =
     div [ id "docs-container", class "layout" ]
@@ -44,6 +43,7 @@ emptyLayout page content =
             [ content
             ]
         ]
+
 
 {-| Take a page's Html and layout it with a header and footer.
 
@@ -65,11 +65,11 @@ layoutShowingResponses pageValues page content =
 
 headerLinks : List (Html msg)
 headerLinks =
-    [
-        li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ]
-        ,li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ]
-        ,li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ]
+    [ li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ]
+    , li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ]
+    , li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ]
     ]
+
 
 basicLayout : ActivePage -> Html msg -> Html msg
 basicLayout page content =
@@ -131,19 +131,18 @@ viewHeader config navLinks =
                                        ]
                                 )
                             , ul [ class "nav navbar-nav navbar-right mr10", attribute "role" "navigation", attribute "aria-label" "Account menu" ]
-                                -- todo - Search
-                                [ li [ class "search" ] [ text "Search" ]
-                                , viewJust (\t -> 
-                                    li [ class "dropdown" ]
-                                    [ a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text (toString t.exp) , b [ class "caret" ] [] ]
-                                    , ul [ class "dropdown-menu" ]
-                                        [ li [] [ a [ href "" ] [ text "Overview" ] ]
-                                        , li [] [ a [ href "" ] [ text "Refer a friend" ] ]
-                                        , li [] [ a [ href "" ] [ text "API Key/Profile" ] ]
-                                        , li [] [ a [ href "" ] [ text "Sign Out" ] ]
-                                        ]
-                                    ]
-                                ) <| Maybe.andThen .token config
+                                [ viewJust
+                                    (\c ->
+                                        li [ class "dropdown" ]
+                                            [ a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text <| Maybe.withDefault "Account" <| Maybe.map .name c.identityToken, b [ class "caret" ] [] ]
+                                            , ul [ class "dropdown-menu" ]
+                                                [ li [] [ a [ href <| c.accountSiteUrl ++ "/apiaccount/accountstatus" ] [ text "Overview" ] ]
+                                                , li [] [ a [ href <| c.accountSiteUrl ++ "/apiaccount/referAFriend" ] [ text "Refer a friend" ] ]
+                                                , li [] [ a [ href <| c.accountSiteUrl ++ "/account/logout?returnUrl=" ++ c.apiManagerUrl ++ "/signout" ] [ text "Sign Out" ] ]
+                                                ]
+                                            ]
+                                    )
+                                    config
                                 ]
                             ]
                         ]
@@ -200,7 +199,6 @@ viewRequestResponse response =
                 ]
             ]
         ]
-
 
 
 viewJsonSyntaxHighlightedView : Response.Response -> Html msg
