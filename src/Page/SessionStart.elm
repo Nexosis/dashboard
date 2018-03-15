@@ -317,7 +317,10 @@ update msg model context =
                     model.columnEditorModel
 
                 startingDate =
-                    extractTimestampMax model
+                    if sessionType == Forecast then
+                        extractTimestampMax model
+                    else
+                        Nothing
 
                 ( steps, showTarget ) =
                     if sessionType == Forecast || sessionType == Impact then
@@ -741,10 +744,14 @@ viewStartEndDates context model =
 
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
 viewImpactStartEndDates context model =
+    let
+        ( min, max ) =
+            getMinMaxValueFromCandidate model
+    in
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_impact_start_end" ]
+                [ explainerFormat context.config "session_impact_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Event name" ]
