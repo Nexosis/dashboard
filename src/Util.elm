@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, replace, spinner, styledNumber, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Html
@@ -166,3 +166,9 @@ tryParseAndFormat input =
 delayTask : Int -> Task.Task x ()
 delayTask seconds =
     Process.sleep (Time.second * toFloat seconds)
+
+
+replace : String -> String -> String -> String
+replace before after string =
+    --https://github.com/elm-lang/core/blob/master/src/String.elm
+    String.join after (String.split before string)
