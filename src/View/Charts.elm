@@ -10,6 +10,7 @@ import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
+import String.Extra exposing (replace)
 import VegaLite exposing (..)
 
 
@@ -41,8 +42,8 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
-                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -96,8 +97,8 @@ impactResults session sessionResults dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
-                        << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -181,8 +182,8 @@ regressionResults sessionResults session windowWidth =
 
                 enc =
                     encoding
-                        << position Y [ PName targetCol.name, PmType Quantitative ]
-                        << position X [ PName actualName, PmType Quantitative ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAxis [ AxTitle targetCol.name ] ]
+                        << position X [ PName (normalizeFieldName actualName), PmType Quantitative, PAxis [ AxTitle actualName ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -280,12 +281,17 @@ resultsToPredictedObserved target result =
         |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
 
 
+normalizeFieldName : String -> String
+normalizeFieldName key =
+    replace "." "_" key
+
+
 resultsToRows : Dict String String -> List DataRow
 resultsToRows result =
     dataRow
         (result
             |> Dict.toList
-            |> List.map (\( k, v ) -> ( k, Str v ))
+            |> List.map (\( k, v ) -> ( normalizeFieldName k, Str v ))
         )
         []
 
