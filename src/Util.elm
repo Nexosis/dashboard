@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Html

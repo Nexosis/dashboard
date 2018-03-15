@@ -19,7 +19,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onBlur, onCheck, onClick, onInput)
 import List.Extra as List
 import Maybe.Verify
-import Page.Helpers exposing (explainer)
+import Page.Helpers exposing (explainer, explainerFormat)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
@@ -28,7 +28,7 @@ import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime)
 import Time.TimeZones exposing (etc_universal)
 import Time.ZonedDateTime exposing (fromDateTime)
-import Util exposing ((=>), isJust, spinner, unwrapErrors)
+import Util exposing ((=>), isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -316,8 +316,16 @@ update msg model context =
                 columnModel =
                     model.columnEditorModel
 
-                ( startingDate, endingDate ) =
+                maxDate =
                     extractTimestampMax model
+
+                startingDate =
+                    if sessionType == Forecast && model.startDate == Nothing then
+                        maxDate
+                    else if sessionType == Impact && model.startDate == maxDate then
+                        Nothing
+                    else
+                        model.startDate
 
                 ( steps, showTarget ) =
                     if sessionType == Forecast || sessionType == Impact then
@@ -336,7 +344,7 @@ update msg model context =
                 columnEditorModel =
                     { columnModel | showTarget = showTarget }
             in
-            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel, errors = [], startDate = startingDate, endDate = endingDate } => Cmd.none
+            { model | selectedSessionType = Just sessionType, steps = steps, columnEditorModel = columnEditorModel, errors = [], startDate = startingDate } => Cmd.none
 
         ( StartSession, StartTheSession request ) ->
             let
@@ -706,10 +714,14 @@ sessionTypePanel imageUrl bodyHtml currentSelection sessionType =
 
 viewStartEndDates : ContextModel -> Model -> Html Msg
 viewStartEndDates context model =
+    let
+        ( min, max ) =
+            getMinMaxValueFromCandidate model
+    in
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_forecast_start_end" ]
+                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Start date" ]
@@ -737,10 +749,14 @@ viewStartEndDates context model =
 
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
 viewImpactStartEndDates context model =
+    let
+        ( min, max ) =
+            getMinMaxValueFromCandidate model
+    in
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "session_impact_start_end" ]
+                [ explainerFormat context.config "session_impact_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Event name" ]
@@ -942,61 +958,6 @@ reviewItem ( name, maybeValue, editType ) =
         maybeValue
 
 
-extractTimestampMax : Model -> ( Maybe DateTime, Maybe DateTime )
-extractTimestampMax model =
-    let
-        list =
-            case model.columnEditorModel.columnMetadata of
-                Remote.Success cm ->
-                    Dict.values cm.metadata
-
-                _ ->
-                    []
-
-        candidate =
-            dateColumnCandidate list
-
-        dateString =
-            maxValueFromCandidate candidate model.stats
-    in
-    case DateTime.fromISO8601 dateString of
-        Result.Ok date ->
-            Just date => Just (DateTime.addDays 5 date)
-
-        Result.Err err ->
-            ( Nothing, Nothing )
-
-
-dateColumnCandidate : List Columns.ColumnMetadata -> Columns.ColumnMetadata
-dateColumnCandidate list =
-    let
-        column =
-            List.filter (\a -> a.dataType == Columns.Date) list
-                |> List.append (List.filter (\a -> a.role == Columns.Timestamp) list)
-                |> List.head
-    in
-    Maybe.withDefault Columns.defaultColumnMetadata column
-
-
-maxValueFromCandidate : Columns.ColumnMetadata -> Maybe DataSetStats -> String
-maxValueFromCandidate metadata stats =
-    case stats of
-        Just statDict ->
-            let
-                stat =
-                    Dict.get metadata.name statDict.columns
-            in
-            case stat of
-                Just s ->
-                    s.max
-
-                Nothing ->
-                    ""
-
-        Nothing ->
-            ""
-
-
 editIcon : EditType -> Html Msg
 editIcon editType =
     case editType of
@@ -1005,3 +966,64 @@ editIcon editType =
 
         EditStep step ->
             i [ class "fa fa-edit", onClick (SetWizardPage step) ] []
+
+
+extractTimestampMax : Model -> Maybe DateTime
+extractTimestampMax model =
+    let
+        ( _, dateString ) =
+            getMinMaxValueFromCandidate model
+    in
+    case DateTime.fromISO8601 dateString of
+        Result.Ok date ->
+            Just date
+
+        Result.Err err ->
+            Nothing
+
+
+getDateTimeColumns : Model -> List Columns.ColumnMetadata
+getDateTimeColumns model =
+    case model.columnEditorModel.columnMetadata of
+        Remote.Success cm ->
+            Dict.values cm.metadata
+
+        _ ->
+            []
+
+
+dateColumnCandidate : Model -> Columns.ColumnMetadata
+dateColumnCandidate model =
+    let
+        list =
+            getDateTimeColumns model
+
+        column =
+            List.filter (\a -> a.dataType == Columns.Date) list
+                |> List.append (List.filter (\a -> a.role == Columns.Timestamp) list)
+                |> List.head
+    in
+    Maybe.withDefault Columns.defaultColumnMetadata column
+
+
+getMinMaxValueFromCandidate : Model -> ( String, String )
+getMinMaxValueFromCandidate model =
+    let
+        metadata =
+            dateColumnCandidate model
+    in
+    case model.stats of
+        Just statDict ->
+            let
+                stat =
+                    Dict.get metadata.name statDict.columns
+            in
+            case stat of
+                Just s ->
+                    ( s.min, s.max )
+
+                Nothing ->
+                    ( "", "" )
+
+        Nothing ->
+            ( "", "" )

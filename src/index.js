@@ -67,8 +67,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
         }
 
         Promise.all(docsRequests).then(docsContent => {
+            const cookie = getCookie('accessToken');
+            try {
+                const parsedTokenCookie = JSON.parse(cookie);
+                config.token = parsedTokenCookie.token;
+                config.identity = parsedTokenCookie.identity;
+            } catch (e) {
+                config.token = cookie;
+            }
 
-            config.token = getCookie('accessToken');
             config.toolTips = toolTips;
 
             config.explainerContent = {};
@@ -191,6 +198,16 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             });
 
             const clipboard = new ClipboardJS('.copyToClipboard');
+            clipboard.on('success', function (e) {
+                
+                e.trigger.setAttribute("data-balloon", "Copied");
+                e.trigger.setAttribute("data-balloon-pos", "right");
+
+                setTimeout(function() {
+                    e.trigger.removeAttribute("data-balloon");
+                    e.trigger.removeAttribute("data-balloon-pos")
+                }, 1500)
+            });
         });
 
         

@@ -27,7 +27,7 @@ getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
 getRetrieveDetail config name =
     let
         params =
-            pageParams 0 Config.pageSize
+            pageParams 0 1
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
