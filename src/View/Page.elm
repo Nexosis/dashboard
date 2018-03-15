@@ -1,6 +1,7 @@
 module View.Page exposing (ActivePage(..), basicLayout, layoutShowingResponses, emptyLayout)
 
 import AppRoutes
+import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.Response as Response exposing (GlobalMessage, Response)
 import Feature exposing (Feature)
@@ -38,7 +39,7 @@ type alias PageValues a =
 emptyLayout : ActivePage -> Html msg -> Html msg
 emptyLayout page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader headerLinks
+        [ viewHeader Nothing headerLinks
         , div [ class "layout-row layout-row-content" ]
             [ content
             ]
@@ -52,7 +53,7 @@ isLoading can be used to show loading during slow transitions
 layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
 layoutShowingResponses pageValues page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader headerLinks
+        [ viewHeader (Just pageValues.context.config) headerLinks
         , div [ class "layout-row layout-row-content" ]
             [ content
             ]
@@ -73,15 +74,15 @@ headerLinks =
 basicLayout : ActivePage -> Html msg -> Html msg
 basicLayout page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader []
+        [ viewHeader Nothing []
         , div [ class "layout-row layout-row-content" ]
             [ div [] [ content ]
             ]
         ]
 
 
-viewHeader : List (Html msg) -> Html msg
-viewHeader navLinks =
+viewHeader : Maybe Config -> List (Html msg) -> Html msg
+viewHeader config navLinks =
     div [ class "layout-row" ]
         [ div [ class "zone-header layout" ]
             [ header [ id "topnav" ]
@@ -132,17 +133,17 @@ viewHeader navLinks =
                             , ul [ class "nav navbar-nav navbar-right mr10", attribute "role" "navigation", attribute "aria-label" "Account menu" ]
                                 -- todo - Search
                                 [ li [ class "search" ] [ text "Search" ]
-                                , li [ class "dropdown" ]
-                                    [ --todo - Username
-                                      a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text "{UserName} ", b [ class "caret" ] [] ]
+                                , viewJust (\t -> 
+                                    li [ class "dropdown" ]
+                                    [ a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text (toString t.exp) , b [ class "caret" ] [] ]
                                     , ul [ class "dropdown-menu" ]
-                                        --todo - get base url for these links
                                         [ li [] [ a [ href "" ] [ text "Overview" ] ]
                                         , li [] [ a [ href "" ] [ text "Refer a friend" ] ]
                                         , li [] [ a [ href "" ] [ text "API Key/Profile" ] ]
                                         , li [] [ a [ href "" ] [ text "Sign Out" ] ]
                                         ]
                                     ]
+                                ) <| Maybe.andThen .token config
                                 ]
                             ]
                         ]
