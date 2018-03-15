@@ -10,7 +10,7 @@ import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
-import Util exposing (replace)
+import String.Extra exposing (replace)
 import VegaLite exposing (..)
 
 
