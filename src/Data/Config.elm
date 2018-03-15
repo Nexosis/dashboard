@@ -15,7 +15,7 @@ type alias Config =
     , subscriptionUrl : String
     , toolTips : Dict String String
     , explainerContent : Dict String String
-    , userAgent : String
+    , applicationName : String
     }
 
 
@@ -41,7 +41,7 @@ configDecoder =
         |> required "subscriptionUrl" string
         |> required "toolTips" toolTipDictDecoder
         |> required "explainerContent" (Decode.dict string)
-        |> required "userAgent" string
+        |> required "applicationName" string
 
 
 tokenDecoder : Decoder NexosisToken
@@ -77,7 +77,7 @@ withAuthorization config builder =
         Just nexosisToken ->
             builder
                 |> withBearerToken nexosisToken.rawToken
-                |> withHeader "User-Agent" config.userAgent
+                |> withHeader "application-name" config.applicationName
 
         _ ->
             builder
