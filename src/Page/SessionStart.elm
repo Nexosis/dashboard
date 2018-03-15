@@ -841,7 +841,10 @@ viewColumnMetadata : ContextModel -> Model -> Html Msg
 viewColumnMetadata context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
+            [ div [ class "alert alert-danger" ]
+                [ text "You are executing a forecast against a dataset that does not have a timestamp role. You must select a date column to use as the timestamp and set that role before starting the session."
+                ]
+            , div [ class "alert alert-info" ]
                 [ explainer context.config "session_column_metadata"
                 ]
             ]
