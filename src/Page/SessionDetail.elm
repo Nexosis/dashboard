@@ -86,7 +86,10 @@ update msg model context =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    if sessionInfo.status == Status.Completed then
+                    if sessionInfo.sessionId /= model.sessionId then
+                        -- we got a refresh updated for a different session Id
+                        model => Cmd.none
+                    else if sessionInfo.status == Status.Completed then
                         let
                             details =
                                 case sessionInfo.predictionDomain of
