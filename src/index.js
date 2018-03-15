@@ -67,8 +67,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
         }
 
         Promise.all(docsRequests).then(docsContent => {
+            const cookie = getCookie('accessToken');
+            try {
+                const parsedTokenCookie = JSON.parse(cookie);
+                config.token = parsedTokenCookie.token;
+                config.identity = parsedTokenCookie.identity;
+            } catch (e) {
+                config.token = cookie;
+            }
 
-            config.token = getCookie('accessToken');
             config.toolTips = toolTips;
 
             config.explainerContent = {};
