@@ -316,11 +316,16 @@ update msg model context =
                 columnModel =
                     model.columnEditorModel
 
+                maxDate =
+                    extractTimestampMax model
+
                 startingDate =
-                    if sessionType == Forecast then
-                        extractTimestampMax model
-                    else
+                    if sessionType == Forecast && model.startDate == Nothing then
+                        maxDate
+                    else if sessionType == Impact && model.startDate == maxDate then
                         Nothing
+                    else
+                        model.startDate
 
                 ( steps, showTarget ) =
                     if sessionType == Forecast || sessionType == Impact then
