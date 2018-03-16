@@ -17,7 +17,6 @@ type Route
     | DataSets
     | DataSetDetail DataSet.DataSetName
     | DataSetAdd
-    | Imports
     | Sessions
     | SessionDetail String
     | SessionStart DataSet.DataSetName
@@ -42,7 +41,6 @@ routeMatcher =
         , route DataSets (static "data")
         , route DataSetDetail (static "data" </> custom DataSet.dataSetNameParser)
         , route DataSetAdd (static "addData")
-        , route Imports (static "imports")
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
         , route SessionStart (static "startSession" </> custom DataSet.dataSetNameParser)
@@ -71,9 +69,6 @@ routeToString page =
 
                 DataSetAdd ->
                     [ "addData" ]
-
-                Imports ->
-                    [ "imports" ]
 
                 Sessions ->
                     [ "sessions" ]
@@ -144,9 +139,6 @@ lookupPageTitle route =
 
         DataSetAdd ->
             "Add DataSet"
-
-        Imports ->
-            "Imports"
 
         Sessions ->
             "Sessions"

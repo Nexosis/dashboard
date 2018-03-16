@@ -16,7 +16,6 @@ import Page.DataSetDetail as DataSetDetail
 import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
-import Page.Imports as Imports
 import Page.ModelDetail as ModelDetail
 import Page.Models as Models
 import Page.NotFound as NotFound
@@ -67,7 +66,6 @@ type Msg
     | DataSetsMsg DataSets.Msg
     | DataSetDetailMsg DataSetDetail.Msg
     | DataSetAddMsg DataSetAdd.Msg
-    | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | SessionDetailMsg SessionDetail.Msg
     | SessionStartMsg SessionStart.Msg
@@ -88,7 +86,6 @@ type Page
     | DataSets DataSets.Model
     | DataSetDetail DataSetDetail.Model
     | DataSetAdd DataSetAdd.Model
-    | Imports Imports.Model
     | Sessions Sessions.Model
     | SessionDetail SessionDetail.Model
     | SessionStart SessionStart.Model
@@ -153,13 +150,6 @@ setRoute route app =
                             DataSetAdd.init app.context.config
                     in
                     { app | page = DataSetAdd pageModel } => Cmd.batch [ Cmd.map DataSetAddMsg initCmd, Ports.setPageTitle title ]
-
-                Just ( AppRoutes.Imports, title ) ->
-                    let
-                        ( pageModel, initCmd ) =
-                            Imports.init app.context.config
-                    in
-                    { app | page = Imports pageModel } => Cmd.batch [ Cmd.map ImportsMsg initCmd, Ports.setPageTitle title ]
 
                 Just ( AppRoutes.Sessions, title ) ->
                     let
@@ -420,11 +410,6 @@ view model =
                     DataSetAdd.view subModel app.context
                         |> layout Page.DataSetAdd
                         |> Html.map DataSetAddMsg
-
-                Imports subModel ->
-                    Imports.view subModel
-                        |> layout Page.Imports
-                        |> Html.map ImportsMsg
 
                 Sessions subModel ->
                     Sessions.view subModel app.context
