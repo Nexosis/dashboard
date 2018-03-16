@@ -14,6 +14,10 @@ import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
 import '../docs.js'
 import { initLocalStoragePort } from './js/localStoragePort';
+import 'nexosis-styles/bootstrap-custom.css';
+import 'nexosis-styles/nexosis.css';
+import 'nexosis-styles/api-styles.css';
+import 'nexosis-styles/docs-styles.css';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
