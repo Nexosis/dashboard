@@ -193,7 +193,7 @@ setRoute route app =
                 Just ( AppRoutes.ModelDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.context.config id
+                            ModelDetail.init app.context id
                     in
                     { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
 

@@ -9,7 +9,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
-import Data.Metric exposing (Metric)
+import Data.Metric exposing (Metric, getMetricNameFromKey)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
 import Data.Status as Status exposing (Status)
@@ -559,7 +559,7 @@ viewMetricsList model results =
         listMetric key value =
             li []
                 [ strong []
-                    [ text (getMetricNameFromKey model key) ]
+                    [ text (getMetricNameFromKey model.metricList key) ]
                 , br []
                     []
                 , styledNumber <| formatFloatToString value
@@ -574,20 +574,6 @@ viewMetricsList model results =
         , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
-
-
-getMetricNameFromKey : Model -> String -> String
-getMetricNameFromKey model key =
-    let
-        candidate =
-            List.find (\a -> a.key == key) model.metricList
-    in
-    case candidate of
-        Just metric ->
-            metric.name
-
-        Nothing ->
-            ""
 
 
 
