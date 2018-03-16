@@ -1,20 +1,21 @@
-module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
+module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, subscriptions, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
 import Autocomplete
 import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
-import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onFocus, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
 import SelectWithStyle as UnionSelect
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), commaFormatInteger, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
@@ -30,10 +31,10 @@ type alias Model =
     , statsResponse : Remote.WebData DataSetStats
     , dataSetName : DataSetName
     , tableState : Table.State
-    , config : Config
     , modifiedMetadata : Dict String ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
+    , previewTarget : Maybe String
     , showAutocomplete : Bool
     , showTarget : Bool
     }
@@ -64,36 +65,39 @@ type Msg
     | SetAutoCompleteState Autocomplete.Msg
     | SetTarget String
     | SetQuery String
+    | PreviewTarget String
+    | AutocompleteWrap Bool
+    | AutocompleteReset
 
 
-init : Config -> DataSetName -> Bool -> ( Model, Cmd Msg )
-init config dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") config Dict.empty Autocomplete.empty "" False showTarget
+init : DataSetName -> Bool -> ( Model, Cmd Msg )
+init dataSetName showTarget =
+    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") Dict.empty Autocomplete.empty "" Nothing False showTarget
         => Cmd.none
 
 
-mapColumnListToPagedListing : List ColumnMetadata -> ColumnMetadataListing
-mapColumnListToPagedListing columns =
+mapColumnListToPagedListing : ContextModel -> List ColumnMetadata -> ColumnMetadataListing
+mapColumnListToPagedListing context columns =
     let
         count =
             List.length columns
 
         pageSize =
-            10
+            context.userPageSize
     in
     { pageNumber = 0
-    , totalPages = count // 10
-    , pageSize = pageSize
+    , totalPages = count // context.userPageSize
+    , pageSize = context.userPageSize
     , totalCount = count
     , metadata = DictX.fromListBy .name columns
     }
 
 
-updateDataSetResponse : Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
-updateDataSetResponse model dataSetResponse =
+updateDataSetResponse : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
+updateDataSetResponse context model dataSetResponse =
     let
         mappedColumns =
-            Remote.map (.columns >> mapColumnListToPagedListing) dataSetResponse
+            Remote.map (.columns >> mapColumnListToPagedListing context) dataSetResponse
 
         targetName =
             mappedColumns
@@ -104,14 +108,14 @@ updateDataSetResponse model dataSetResponse =
                 |> Maybe.withDefault ""
     in
     { model | columnMetadata = mappedColumns, targetQuery = targetName, showAutocomplete = False }
-        => (Request.DataSet.getStats model.config model.dataSetName
+        => (Request.DataSet.getStats context.config model.dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map StatsResponse
            )
 
 
-update : Msg -> Model -> ( ( Model, Cmd Msg ), ExternalMsg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( ( Model, Cmd Msg ), ExternalMsg )
+update msg model context =
     case msg of
         StatsResponse resp ->
             case resp of
@@ -139,20 +143,20 @@ update msg model =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
-            let
-                updatedModel =
-                    { model
-                        | modifiedMetadata =
-                            updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                                |> maybeAppendColumn model.modifiedMetadata
-                    }
-            in
             if selection == Target then
-                update (SetTarget metadata.name) updatedModel
+                update (SetTarget metadata.name) model context
             else
+                let
+                    updatedModel =
+                        { model
+                            | modifiedMetadata =
+                                updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
+                                    |> maybeAppendColumn model.modifiedMetadata
+                        }
+                in
                 updatedModel
                     => Cmd.none
                     => Updated (Dict.values updatedModel.modifiedMetadata)
@@ -197,7 +201,34 @@ update msg model =
                     newModel => Cmd.none => NoOp
 
                 Just updateMsg ->
-                    update updateMsg newModel
+                    update updateMsg newModel context
+
+        PreviewTarget targetName ->
+            { model | previewTarget = Just targetName } => Cmd.none => NoOp
+
+        AutocompleteWrap toTop ->
+            case model.previewTarget of
+                Just target ->
+                    update AutocompleteReset model context
+
+                Nothing ->
+                    if toTop then
+                        { model
+                            | autoState = Autocomplete.resetToLastItem autocompleteUpdateConfig (filterColumnNames model.targetQuery model.columnMetadata) 5 model.autoState
+                            , previewTarget = Maybe.map .name <| List.head <| List.reverse <| List.take 5 <| filterColumnNames model.targetQuery model.columnMetadata
+                        }
+                            => Cmd.none
+                            => NoOp
+                    else
+                        { model
+                            | autoState = Autocomplete.resetToFirstItem autocompleteUpdateConfig (filterColumnNames model.targetQuery model.columnMetadata) 5 model.autoState
+                            , previewTarget = Maybe.map .name <| List.head <| List.take 5 <| filterColumnNames model.targetQuery model.columnMetadata
+                        }
+                            => Cmd.none
+                            => NoOp
+
+        AutocompleteReset ->
+            { model | autoState = Autocomplete.reset autocompleteUpdateConfig model.autoState, previewTarget = Nothing } => Cmd.none => NoOp
 
         SetTarget targetName ->
             let
@@ -243,7 +274,12 @@ update msg model =
                         |> Maybe.map .name
                         |> Maybe.withDefault ""
             in
-            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False } => Cmd.none => Updated (Dict.values updatedMetadata)
+            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => Updated (Dict.values updatedMetadata)
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Autocomplete.subscription |> Sub.map SetAutoCompleteState
 
 
 filterColumnNames : String -> Remote.WebData ColumnMetadataListing -> List ColumnMetadata
@@ -261,8 +297,8 @@ filterColumnNames query columnMetadata =
 onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
 onKeyDown code maybeId =
     if code == 38 || code == 40 then
-        Nothing
-    else if code == 13 then
+        Maybe.map PreviewTarget maybeId
+    else if code == 13 || code == 9 then
         Maybe.map SetTarget maybeId
     else
         Nothing
@@ -273,8 +309,8 @@ autocompleteUpdateConfig =
     Autocomplete.updateConfig
         { toId = .name
         , onKeyDown = onKeyDown
-        , onTooLow = Nothing
-        , onTooHigh = Nothing
+        , onTooLow = Just <| AutocompleteWrap True
+        , onTooHigh = Just <| AutocompleteWrap False
         , onMouseEnter = \_ -> Nothing
         , onMouseLeave = \_ -> Nothing
         , onMouseClick = \id -> Just <| SetTarget id
@@ -338,8 +374,8 @@ generateVegaSpec column =
             ]
 
 
-view : Model -> Html Msg
-view model =
+view : ContextModel -> Model -> Html Msg
+view context model =
     let
         stats =
             model.statsResponse
@@ -363,9 +399,9 @@ view model =
             [ div [ class "col-sm-3" ]
                 [ h3 [] [ text "Columns" ] ]
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
-                [ PageSize.view ChangePageSize ]
+                [ PageSize.view ChangePageSize context.userPageSize ]
             ]
-        , Grid.view filterColumnsToDisplay (config model.config.toolTips stats) model.tableState mergedMetadata
+        , Grid.view filterColumnsToDisplay (config context.config.toolTips stats) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
         ]
 
@@ -391,7 +427,7 @@ viewTargetAndKeyColumns model =
                 _ ->
                     ( div [] [], div [] [] )
     in
-    Html.form [ class "form-horizontal" ]
+    div [ class "form-horizontal" ]
         [ keyFormGroup
         , targetFormGroup
         ]
@@ -424,11 +460,19 @@ viewKeyFormGroup key =
 viewTargetFormGroup : Model -> Html Msg
 viewTargetFormGroup model =
     if model.showTarget then
+        let
+            queryText =
+                Maybe.withDefault model.targetQuery model.previewTarget
+        in
         div [ class "form-group" ]
             [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
             , div [ class "col-sm-8" ]
-                [ input [ type_ "text", class "form-control", value model.targetQuery, onInput SetQuery ] []
-                , viewIf (\() -> Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata))) model.showAutocomplete
+                [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
+                , viewIf
+                    (\() ->
+                        div [ class "autocomplete-menu" ] [ Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata)) ]
+                    )
+                    model.showAutocomplete
                 ]
             ]
     else

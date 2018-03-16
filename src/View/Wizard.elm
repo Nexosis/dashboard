@@ -1,55 +1,90 @@
-module View.Wizard exposing (WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
+module View.Wizard exposing (HtmlDetails, StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 import Data.Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra as ListX
+import Util exposing (spinner)
 import View.Extra exposing (viewIf)
 
 
-type alias WizardConfig msg =
-    { nextMessage : msg
-    , prevMessage : msg
+type alias HtmlDetails msg =
+    { attributes : List (Attribute msg)
+    , children : List (Html msg)
     }
 
 
-viewButtons : WizardConfig msg -> Bool -> Ziplist a -> Html msg
-viewButtons wizardConfig canAdvance ziplist =
+type alias WizardConfig a error msg model result =
+    { nextMessage : msg
+    , prevMessage : msg
+    , stepValidation : List ( a, StepValidator model error )
+    , finishedValidation : model -> Result (List error) result
+    , finishedButton : model -> HtmlDetails msg
+    , finishedMsg : result -> msg
+    }
+
+
+type alias StepValidator model error =
+    model -> List error
+
+
+viewButtons : WizardConfig a b msg model request -> model -> Ziplist a -> Bool -> Bool -> Html msg
+viewButtons wizardConfig model ziplist showLoading currentStepValid =
     let
-        allowNext =
-            List.length ziplist.next > 0 && canAdvance
+        nextAttributes =
+            if currentStepValid then
+                [ class "btn btn-danger", onClick <| wizardConfig.nextMessage ]
+            else
+                [ class "btn" ]
 
         allowPrev =
             List.length ziplist.previous > 0
 
         nextVisible =
             List.length ziplist.next > 0
+
+        finishedAttributes =
+            case wizardConfig.finishedValidation model of
+                Ok validModel ->
+                    [ class "btn btn-danger", onClick <| wizardConfig.finishedMsg validModel ]
+
+                Err errors ->
+                    [ class "btn" ]
+
+        finishedButton =
+            if showLoading then
+                button [ class "btn" ] [ spinner ]
+            else
+                let
+                    finishedButtonContents =
+                        wizardConfig.finishedButton model
+                in
+                button (finishedAttributes ++ finishedButtonContents.attributes)
+                    finishedButtonContents.children
     in
-    div [ class "form-group" ]
-        [ button
-            [ class "btn secondary"
-            , onClick wizardConfig.prevMessage
-            , tabindex -1
-            , disabled <| not allowPrev
-            ]
-            [ i [ class "fa fa-chevron-left mr5" ] [], text "Previous" ]
-        , viewIf
+    div []
+        [ viewIf
             (\() ->
                 button
-                    [ class "btn"
-                    , onClick wizardConfig.nextMessage
-                    , disabled <| not allowNext
+                    [ class "btn btn-primary"
+                    , onClick wizardConfig.prevMessage
+                    , tabindex -1
                     ]
-                    [ text "Next", i [ class "fa fa-chevron-right ml5" ] [] ]
+                    [ i [ class "fa fa-chevron-left mr5" ] [], text "Previous" ]
+            )
+            allowPrev
+        , viewIf
+            (\() ->
+                button nextAttributes [ text "Next", i [ class "fa fa-chevron-right ml5" ] [] ]
             )
             nextVisible
+        , viewIf (\() -> finishedButton) (not nextVisible)
         ]
 
 
 type alias WizardProgressConfig a =
-    { stepDescriptions : List ( a, String )
-    }
+    { stepDescriptions : List ( a, String ) }
 
 
 viewProgress : WizardProgressConfig a -> Ziplist a -> Html Never

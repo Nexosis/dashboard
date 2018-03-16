@@ -2,9 +2,11 @@ module Page.SessionDetail exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Algorithm exposing (..)
-import Data.Columns as Role exposing (ColumnMetadata, Role)
+import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
 import Data.ConfusionMatrix exposing (ConfusionMatrix)
+import Data.Context exposing (ContextModel)
+import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain
@@ -15,9 +17,10 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Html.Keyed
+import Http
 import Json.Encode
 import List exposing (filter, foldr, head)
-import List.Extra as ListX
+import List.Extra as List
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
@@ -28,10 +31,15 @@ import Task
 import Time.DateTime as DateTime
 import Time.TimeZones exposing (est, utc)
 import Time.ZonedDateTime as ZonedDateTime
-import Util exposing ((=>), formatFloatToString, styledNumber)
+import Util exposing ((=>), delayTask, formatFloatToString, spinner, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
+import View.Error exposing (viewHttpError)
+import View.Extra exposing (viewIf, viewJust)
 import View.Messages as Messages
+import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 import Window
 
 
@@ -41,24 +49,25 @@ type alias Model =
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , windowWidth : Int
+    , currentPage : Int
+    , csvDownload : Remote.WebData String
     }
 
 
 init : Config -> String -> ( Model, Cmd Msg )
 init config sessionId =
     let
-        loadModelDetail =
+        getWindowWidth =
+            Task.attempt GetWindowWidth Window.width
+
+        loadSessionDetail =
             Request.Session.getOne config sessionId
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
-
-        getWindowWidth =
-            Task.attempt GetWindowWidth Window.width
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked config Nothing 1140 ! [ loadModelDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -69,36 +78,44 @@ type Msg
     | ConfusionMatrixLoaded (Remote.WebData ConfusionMatrix)
     | DataSetLoaded (Remote.WebData DataSetData)
     | GetWindowWidth (Result String Int)
+    | ChangePage Int
+    | DownloadResults
+    | DownloadResponse (Remote.WebData String)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
-                    if sessionInfo.status == Status.Completed then
+                    if sessionInfo.sessionId /= model.sessionId then
+                        -- we got a refresh updated for a different session Id
+                        model => Cmd.none
+                    else if sessionInfo.status == Status.Completed then
                         let
                             details =
                                 case sessionInfo.predictionDomain of
                                     PredictionDomain.Classification ->
-                                        getConfusionMatrix model.config model.sessionId 0 25
+                                        getConfusionMatrix context.config model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
 
                                     _ ->
                                         Cmd.none
                         in
-                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
+                        { model | sessionResponse = response }
                             => Cmd.batch
-                                [ Request.Session.results model.config model.sessionId 0 1000
+                                [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
                                 ]
+                    else if not <| Data.Session.sessionIsCompleted sessionInfo then
+                        { model | sessionResponse = response }
+                            => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response, sessionId = sessionInfo.sessionId }
-                            => Cmd.none
+                        { model | sessionResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -110,15 +127,17 @@ update msg model =
             case Remote.map2 (,) response model.sessionResponse of
                 Remote.Success ( results, session ) ->
                     let
+                        timeSeriesDataRequest =
+                            let
+                                dates =
+                                    Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                            in
+                            getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
+                                |> Remote.sendRequest
+                                |> Cmd.map DataSetLoaded
+
                         cmd =
                             case session.predictionDomain of
-                                PredictionDomain.Forecast ->
-                                    "result-vis"
-                                        => Charts.forecastResults results session model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
-
                                 PredictionDomain.Regression ->
                                     "result-vis"
                                         => Charts.regressionResults results session model.windowWidth
@@ -126,38 +145,11 @@ update msg model =
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
 
+                                PredictionDomain.Forecast ->
+                                    timeSeriesDataRequest
+
                                 PredictionDomain.Impact ->
-                                    let
-                                        dates =
-                                            case Maybe.map2 (,) session.startDate session.endDate of
-                                                Just ( start, end ) ->
-                                                    let
-                                                        startDate =
-                                                            ZonedDateTime.fromISO8601 (utc ()) start
-                                                                |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
-
-                                                        endDate =
-                                                            ZonedDateTime.fromISO8601 (utc ()) end
-                                                                |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
-
-                                                        count =
-                                                            predictionCount session.resultInterval endDate startDate
-
-                                                    in
-                                                    ( startDate |> asdf session.resultInterval (count // 2)
-                                                    , endDate |> asdf session.resultInterval (count * -1 // 2)
-                                                    )
-
-                                                Nothing ->
-                                                    let
-                                                        utcZero =
-                                                            ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero
-                                                    in
-                                                    ( utcZero, utcZero )
-                                    in
-                                    getDataByDateRange model.config (toDataSetName session.dataSourceName) (Just dates)
-                                        |> Remote.sendRequest
-                                        |> Cmd.map DataSetLoaded
+                                    timeSeriesDataRequest
 
                                 _ ->
                                     Cmd.none
@@ -181,7 +173,7 @@ update msg model =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete model.config >> ignoreCascadeParams
+                    Request.Session.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -213,6 +205,13 @@ update msg model =
                                         |> Json.Encode.object
                                         |> Ports.drawVegaChart
 
+                                PredictionDomain.Forecast ->
+                                    "result-vis"
+                                        => Charts.forecastResults results session data model.windowWidth
+                                        |> List.singleton
+                                        |> Json.Encode.object
+                                        |> Ports.drawVegaChart
+
                                 _ ->
                                     Cmd.none
                     in
@@ -232,77 +231,21 @@ update msg model =
             in
             { model | windowWidth = newWidth } => Cmd.none
 
-
-predictionCount : Maybe ResultInterval -> ZonedDateTime.ZonedDateTime -> ZonedDateTime.ZonedDateTime -> Int
-predictionCount interval start end =
-    case interval of
-        Just Hour ->
-            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start))
-
-        Just Day ->
-            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // 24
-
-        Just Week ->
-            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7)
-
-        Just Month ->
-            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7 * 30)
-
-        Just Year ->
-            totalHours (DateTime.delta (ZonedDateTime.toDateTime end) (ZonedDateTime.toDateTime start)) // (24 * 7 * 30 * 24)
-
-        Nothing ->
-            0
-
-
-totalHours : DateTime.DateTimeDelta -> Int
-totalHours delta =
-    (delta.years * 365 * 24) + (delta.days * 24) + delta.hours + (delta.minutes // 60)
-
-
-asdf : Maybe ResultInterval -> (Int -> ZonedDateTime.ZonedDateTime -> ZonedDateTime.ZonedDateTime)
-asdf interval =
-    case interval of
-        Just Hour ->
-            ZonedDateTime.addHours
-
-        Just Day ->
-            ZonedDateTime.addDays
-
-        Just Week ->
-            ZonedDateTime.addDays
-
-        Just Month ->
-            ZonedDateTime.addMonths
-
-        Just Year ->
-            ZonedDateTime.addYears
-
-        Nothing ->
-            ZonedDateTime.addDays
-
+        ChangePage page ->
+            { model | currentPage = page } => Cmd.none
 
 view : Model -> Html Msg
 view model =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ AppRoutes.href AppRoutes.Home ]
-                    [ text "API Dashboard" ]
-                ]
-            , i [ class "fa fa-angle-right", attribute "style" "margin: 0 5px;" ]
-                []
-            , span []
-                [ a [ AppRoutes.href AppRoutes.Sessions ]
-                    [ text "Sessions" ]
-                ]
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.detail AppRoutes.Sessions "Sessions"
+            , viewSessionHeader model
             ]
-        , viewSessionHeader model
-        , hr [] []
         , viewSessionDetails model
-        , hr [] []
         , viewConfusionMatrix model
         , viewResultsGraph model
+        , hr [] []
+        , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
             , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
@@ -327,34 +270,58 @@ viewSessionDetails model =
             else
                 div []
                     [ viewPendingSession session ]
-
-        statusHistoryOrMessages session =
-            if sessionIsCompleted session then
-                viewMessages session
-            else
-                viewStatusHistory session
     in
-    div [ class "row" ]
-        [ div [ class "col-sm-4" ]
+    div [ class "row", id "details" ]
+        [ div [ class "col-sm-3" ]
             [ loadingOr (pendingOrCompleted model) ]
 
         --, p []
-        --    [ a [ class "btn btn-xs secondary", href "dashboard-session-champion.html" ]
+        --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
+        , div [ class "col-sm-4" ]
+            [ loadingOr (viewSessionInfo model)
+            ]
         , div [ class "col-sm-5" ]
-            [ --loadingOr statusHistoryOrMessages
-              loadingOr viewMessages
+            [ loadingOr viewMessages
             , loadingOr viewStatusHistory
             ]
-        , div [ class "col-sm-3" ]
-            []
+        ]
+
+
+viewSessionInfo : Model -> SessionData -> Html Msg
+viewSessionInfo model session =
+    div []
+        [ p []
+            [ strong []
+                [ text "Session Type: " ]
+            , text <| toString session.predictionDomain
+            ]
+        , p []
+            [ strong [] [ text "Session ID: " ]
+            , br [] []
+            , copyableText session.sessionId
+            ]
+        , p []
+            [ strong [] [ text "API Endpoint URL: " ]
+            , br [] []
+            , copyableText ("/sessions/" ++ session.sessionId)
+            ]
+        , p []
+            [ deleteSessionButton model
+            ]
         ]
 
 
 viewMessages : SessionData -> Html Msg
 viewMessages session =
-    Messages.viewMessages session.messages
+    div []
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
+            [ strong [] [ text "Messages" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , makeCollapsible "messages" <| Messages.viewMessages session.messages
+        ]
 
 
 viewStatusHistory : SessionData -> Html Msg
@@ -362,7 +329,7 @@ viewStatusHistory session =
     let
         statusEntry status =
             tr []
-                [ td [ class "small" ]
+                [ td [ class "number small" ]
                     [ text (toShortDateTimeString status.date) ]
                 , td [ class "left" ]
                     [ statusDisplay status.status
@@ -370,20 +337,23 @@ viewStatusHistory session =
                 ]
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Status Log" ]
-        , table [ class "table table-striped" ]
-            [ thead []
-                [ tr []
-                    [ th [ class "per10" ]
-                        [ text "Date" ]
-                    , th [ class "per15" ]
-                        [ text "Status" ]
-                    ]
-                ]
-            , tbody []
-                (List.map statusEntry session.statusHistory)
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" "false", attribute "aria-controls" "status-log" ]
+            [ strong [] [ text "Status log" ]
+            , i [ class "fa fa-angle-down" ] []
             ]
+        , makeCollapsible "status-log" <|
+            table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [ class "per10" ]
+                            [ text "Date" ]
+                        , th [ class "per15" ]
+                            [ text "Status" ]
+                        ]
+                    ]
+                , tbody []
+                    (List.map statusEntry session.statusHistory)
+                ]
         ]
 
 
@@ -403,50 +373,41 @@ viewSessionHeader model =
                     view Nothing True
     in
     div []
-        [ div [ class "row" ]
-            [ loadingOr viewSessionName
-            , div [ class "col-sm-3" ]
-                [ div [ class "mt10 right" ]
-                    [ loadingOr viewPredictButton
+        [ loadingOr viewSessionName
+        , div [ class "col-sm-3" ]
+            [ div [ class "mt5 right" ]
+                [ div
+                    [ class "btn-group", attribute "role" "group" ]
+                    [ --loadingOr iterateSessionButton TODO: V2 Feature?
+                      loadingOr viewPredictButton
                     ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ loadingOr viewSessionId
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong []
-                        [ text "Session Type: " ]
-                    , loadingOr (\s -> text <| toString s.predictionDomain)
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ viewSessionButtons model
                 ]
             ]
         ]
 
 
-viewSessionButtons : Model -> Html Msg
-viewSessionButtons model =
-    div []
-        [ button [ class "btn btn-xs other" ]
-            [ i [ class "fa fa-repeat mr5" ]
-                []
-            , text "(TODO) Iterate session"
-            ]
-        , button [ class "btn btn-xs secondary", onClick (ShowDeleteDialog model) ]
-            [ i [ class "fa fa-trash-o mr5" ]
-                []
-            , text "Delete"
-            ]
+iterateSessionButton : SessionData -> Html Msg
+iterateSessionButton session =
+    button [ class "btn btn-primary" ]
+        [ i [ class "fa fa-repeat mr5" ]
+            []
+        , text "Iterate session"
+        ]
+
+
+deleteSessionButton : Model -> Html Msg
+deleteSessionButton model =
+    button [ class "btn btn-xs btn-primary", onClick (ShowDeleteDialog model) ]
+        [ i [ class "fa fa-trash-o mr5" ]
+            []
+        , text "Delete session"
         ]
 
 
 viewPredictButton : SessionData -> Html Msg
 viewPredictButton session =
     if canPredictSession session then
-        a [ class "btn", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId) True) ]
+        a [ class "btn btn-danger", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId)) ]
             [ text "Predict" ]
     else
         div [] []
@@ -463,10 +424,11 @@ viewSessionDetail session =
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
     div []
-        [ h5 [ class "mb15" ]
-            [ text "Session Status" ]
+        [ h5 [ class "mb15" ] [ text "Session Status" ]
         , h4 []
-            [ statusDisplay session.status ]
+            [ statusDisplay session.status
+            , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
+            ]
         ]
 
 
@@ -480,7 +442,7 @@ modelLink session =
             p []
                 [ strong []
                     [ text "Model: " ]
-                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId False) ]
+                , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
                     [ text session.name ]
                 ]
 
@@ -491,7 +453,7 @@ viewCompletedSession session =
         targetColumnFromColumns : SessionData -> Maybe String
         targetColumnFromColumns session =
             session.columns
-                |> ListX.find (\m -> m.role == Role.Target)
+                |> List.find (\m -> m.role == Columns.Target)
                 |> columnName
 
         targetColumn : SessionData -> Maybe String
@@ -535,9 +497,7 @@ viewCompletedSession session =
                     a.name
     in
     div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Details" ]
-        , modelLink session
+        [ modelLink session
         , p []
             [ strong []
                 [ text "Source: " ]
@@ -566,11 +526,12 @@ viewMetricsList results =
                 ]
     in
     div []
-        [ p [ class "small" ]
+        [ p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "false", attribute "aria-controls" "metrics" ]
             [ strong []
                 [ text "Metrics" ]
+            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics" ]
+        , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
 
@@ -603,6 +564,171 @@ viewResultsGraph model =
         [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
 
 
+viewResultsTable : Model -> Html Msg
+viewResultsTable model =
+    case model.sessionResponse of
+        Remote.Success sessionResponse ->
+            if Data.Session.sessionIsCompleted sessionResponse then
+                if
+                    (sessionResponse.predictionDomain == PredictionDomain.Forecast)
+                        || (sessionResponse.predictionDomain == PredictionDomain.Impact)
+                then
+                    viewTimeSeriesResults model sessionResponse
+                else if sessionResponse.predictionDomain == PredictionDomain.Anomalies then
+                    viewAnomalyResults model sessionResponse
+                else
+                    viewModelTrainingResults model sessionResponse
+            else
+                div [] []
+
+        _ ->
+            div [] []
+
+
+viewModelTrainingResults : Model -> SessionData -> Html Msg
+viewModelTrainingResults model sessionData =
+    let
+        targetColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Target)
+
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+    in
+    case targetColumn of
+        Just target ->
+            let
+                renderRow datum =
+                    let
+                        actual =
+                            Dict.get (target.name ++ ":actual") datum
+
+                        predicted =
+                            Dict.get target.name datum
+                    in
+                    tr []
+                        [ td [ class "left number" ] [ viewJust (\a -> text a) actual ]
+                        , td [ class "left number" ] [ viewJust (\p -> text p) predicted ]
+                        ]
+            in
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row" ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                        ]
+                    , table [ class "table table-striped" ]
+                        [ thead []
+                            [ tr []
+                                [ th [ class "left" ] [ text <| target.name ++ " - Actual" ]
+                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                ]
+                            ]
+                        , tbody [] (List.map renderRow (filterToPage pagedData))
+                        ]
+                    , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                    ]
+                ]
+
+        Nothing ->
+            div [] []
+
+
+viewAnomalyResults : Model -> SessionData -> Html Msg
+viewAnomalyResults model sessionData =
+    let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+
+        otherValueColumns =
+            List.filter (\c -> c.name /= "anomaly") sessionData.columns
+
+        renderRow datum =
+            let
+                anomalyScore =
+                    Dict.get "anomaly" datum
+            in
+            tr []
+                (td [ class "left number" ] [ viewJust (\a -> text a) anomalyScore ]
+                    :: (otherValueColumns
+                            |> List.map (\c -> Dict.get c.name datum)
+                            |> List.map (\v -> td [ class "left number" ] [ viewJust (\a -> text a) v ])
+                       )
+                )
+    in
+    div [ class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ div [ class "row" ]
+                [ div [ class "col-sm-9" ] [ h3 [] [ text "Anomaly Results" ] ]
+                , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                ]
+            , table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        (th [ class "left" ] [ text "Anomaly" ]
+                            :: (otherValueColumns |> List.map (\c -> th [ class "left" ] [ text c.name ]))
+                        )
+                    ]
+                , tbody [] (List.map renderRow (filterToPage pagedData))
+                ]
+            , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+            ]
+        ]
+
+
+viewTimeSeriesResults : Model -> SessionData -> Html Msg
+viewTimeSeriesResults model sessionData =
+    let
+        pagedData =
+            Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
+
+        targetColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Target)
+
+        timestampColumn =
+            sessionData.columns
+                |> List.find (\c -> c.role == Columns.Timestamp)
+    in
+    case Maybe.map2 (,) targetColumn timestampColumn of
+        Just ( target, timestamp ) ->
+            let
+                renderRow datum =
+                    let
+                        time =
+                            Dict.get timestamp.name datum
+
+                        predicted =
+                            Dict.get target.name datum
+                    in
+                    tr []
+                        [ td [ class "left number" ] [ viewJust (\a -> text a) time ]
+                        , td [ class "left number" ] [ viewJust (\p -> text p) predicted ]
+                        ]
+            in
+            div [ class "row" ]
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "row" ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Results" ] ]
+                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                        ]
+                    , table [ class "table table-striped" ]
+                        [ thead []
+                            [ tr []
+                                [ th [ class "left" ] [ text "Timestamp" ]
+                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                ]
+                            ]
+                        , tbody [] (List.map renderRow (filterToPage pagedData))
+                        ]
+                    , div [ class "center" ] [ Pager.view pagedData ChangePage ]
+                    ]
+                ]
+
+        Nothing ->
+            div [] []
+
+
 loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
 loadingOrView request view =
     case request of
@@ -628,5 +754,5 @@ viewConfusionMatrix model =
         Remote.Success response ->
             Charts.renderConfusionMatrix response
 
-        Remote.Failure _ ->
-            div [] [ text "Error" ]
+        Remote.Failure error ->
+            viewHttpError error

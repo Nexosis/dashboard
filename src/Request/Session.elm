@@ -1,4 +1,4 @@
-module Request.Session exposing (ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results)
+module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results, resultsCsv)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -9,42 +9,44 @@ import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
-import Time.DateTime exposing (DateTime, toISO8601)
+import Time.ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
 
 get : Config -> Int -> Int -> Http.Request SessionList
-get { baseUrl, token } page pageSize =
+get config page pageSize =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/sessions")
+    (config.baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 results : Config -> String -> Int -> Int -> Http.Request SessionResults
-results { baseUrl, token } sessionId page pageSize =
+results config sessionId page pageSize =
     let
-        expect =
-            decodeSessionResults
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionResults
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
+        |> HttpBuilder.toRequest
+
+
+resultsCsv : Config -> String -> Http.Request String
+resultsCsv config sessionId =
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpectString
+        |> HttpBuilder.withHeader "Accept" "text/csv"
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
@@ -56,69 +58,54 @@ pageParams page pageSize =
 
 
 getConfusionMatrix : Config -> String -> Int -> Int -> Http.Request ConfusionMatrix
-getConfusionMatrix { baseUrl, token } sessionId page pageSize =
+getConfusionMatrix config sessionId page pageSize =
     let
-        expect =
-            decodeConfusionMatrix
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeConfusionMatrix
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 getForDataset : Config -> DataSetName -> Http.Request SessionList
-getForDataset { baseUrl, token } dataSetName =
+getForDataset config dataSetName =
     let
-        expect =
-            decodeSessionList
-                |> Http.expectJson
-
         params =
             [ ( "dataSetName", dataSetNameToString dataSetName ) ]
     in
-    (baseUrl ++ "/sessions")
+    (config.baseUrl ++ "/sessions")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 delete : Config -> String -> Http.Request ()
-delete { baseUrl, token } sessionId =
-    (baseUrl ++ "/sessions/" ++ sessionId)
+delete config sessionId =
+    (config.baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.delete
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
-expectSessionData : Http.Expect SessionData
-expectSessionData =
-    decodeSession
-        |> Http.expectJson
-
-
 getOne : Config -> String -> Http.Request SessionData
-getOne { baseUrl, token } sessionId =
-    (baseUrl ++ "/sessions/" ++ sessionId)
+getOne config sessionId =
+    (config.baseUrl ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expectSessionData
-        |> withAuthorization token
+        |> HttpBuilder.withExpectJson decodeSession
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 type alias ModelSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : Maybe String
     , predictionDomain : PredictionDomain
     , balance : Maybe Bool
     , containsAnomalies : Maybe Bool
@@ -126,15 +113,15 @@ type alias ModelSessionRequest =
 
 
 postModel : Config -> ModelSessionRequest -> Http.Request SessionData
-postModel { baseUrl, token } sessionRequest =
+postModel config sessionRequest =
     let
         requestBody =
             encodeModelSessionRequest sessionRequest
     in
-    (baseUrl ++ "/sessions/model")
+    (config.baseUrl ++ "/sessions/model")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
-        |> withAuthorization token
+        |> HttpBuilder.withExpectJson decodeSession
+        |> withAuthorization config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -143,42 +130,35 @@ encodeModelSessionRequest : ModelSessionRequest -> Encode.Value
 encodeModelSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn"
-          , case sessionRequest.targetColumn of
-                Just target ->
-                    Encode.string <| target
-
-                Nothing ->
-                    Encode.null
-          )
         , ( "predictionDomain", Encode.string <| toString <| sessionRequest.predictionDomain )
         , ( "extraParameters", encodeExtraParameters <| sessionRequest )
         ]
 
 
 type alias ForecastSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : ZonedDateTime
+        , endDate : ZonedDateTime
+        }
     , resultInterval : ResultInterval
     }
 
 
 postForecast : Config -> ForecastSessionRequest -> Http.Request SessionData
-postForecast { baseUrl, token } sessionRequest =
+postForecast config sessionRequest =
     let
         requestBody =
             encodeForecastSessionRequest sessionRequest
     in
-    (baseUrl ++ "/sessions/forecast")
+    (config.baseUrl ++ "/sessions/forecast")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
-        |> withAuthorization token
+        |> HttpBuilder.withExpectJson decodeSession
+        |> withAuthorization config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -187,37 +167,37 @@ encodeForecastSessionRequest : ForecastSessionRequest -> Encode.Value
 encodeForecastSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
 
 
 type alias ImpactSessionRequest =
-    { name : String
+    { name : Maybe String
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
-    , targetColumn : String
-    , startDate : DateTime
-    , endDate : DateTime
+    , dates :
+        { startDate : ZonedDateTime
+        , endDate : ZonedDateTime
+        }
     , eventName : String
     , resultInterval : ResultInterval
     }
 
 
 postImpact : Config -> ImpactSessionRequest -> Http.Request SessionData
-postImpact { baseUrl, token } sessionRequest =
+postImpact config sessionRequest =
     let
         requestBody =
             encodeImpactSessionRequest sessionRequest
     in
-    (baseUrl ++ "/sessions/impact")
+    (config.baseUrl ++ "/sessions/impact")
         |> HttpBuilder.post
-        |> HttpBuilder.withExpect expectSessionData
-        |> withAuthorization token
+        |> HttpBuilder.withExpectJson decodeSession
+        |> withAuthorization config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -226,14 +206,20 @@ encodeImpactSessionRequest : ImpactSessionRequest -> Encode.Value
 encodeImpactSessionRequest sessionRequest =
     Encode.object
         [ ( "dataSourceName", Encode.string <| dataSetNameToString <| sessionRequest.dataSourceName )
-        , ( "name", Encode.string <| sessionRequest.name )
+        , ( "name", encodeName sessionRequest.name )
         , ( "columns", encodeColumnMetadataList <| sessionRequest.columns )
-        , ( "targetColumn", Encode.string <| sessionRequest.targetColumn )
-        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.startDate )
-        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.endDate )
+        , ( "startDate", Encode.string <| toISO8601 <| sessionRequest.dates.startDate )
+        , ( "endDate", Encode.string <| toISO8601 <| sessionRequest.dates.endDate )
         , ( "eventName", Encode.string <| sessionRequest.eventName )
         , ( "resultInterval", Encode.string <| toString <| sessionRequest.resultInterval )
         ]
+
+
+encodeName : Maybe String -> Encode.Value
+encodeName name =
+    name
+        |> Maybe.map Encode.string
+        |> Maybe.withDefault Encode.null
 
 
 encodeExtraParameters : ModelSessionRequest -> Encode.Value

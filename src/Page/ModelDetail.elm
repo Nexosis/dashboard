@@ -3,6 +3,7 @@ module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
 import Data.Model exposing (..)
 import Data.PredictionDomain exposing (..)
@@ -15,30 +16,30 @@ import Page.ModelPredict as ModelPredict
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
-import Task
 import Util exposing ((=>), formatFloatToString, styledNumber)
+import View.Breadcrumb as Breadcrumb
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 
 
 type alias Model =
     { modelId : String
     , modelResponse : Remote.WebData ModelData
-    , config : Config
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
     }
 
 
-init : Config -> String -> Bool -> ( Model, Cmd Msg )
-init config modelId showPredict =
+init : Config -> String -> ( Model, Cmd Msg )
+init config modelId =
     let
         loadModelDetail =
             Request.Model.getOne config modelId
                 |> Remote.sendRequest
-                |> Cmd.map (ModelResponse showPredict)
+                |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading config Regression Nothing Nothing => loadModelDetail
+    Model modelId Remote.Loading Regression Nothing Nothing => loadModelDetail
 
 
 subscriptions : Model -> Sub Msg
@@ -53,27 +54,19 @@ subscriptions model =
 
 
 type Msg
-    = ModelResponse Bool (Remote.WebData ModelData)
-    | TogglePredict ()
+    = ModelResponse (Remote.WebData ModelData)
     | ModelPredictMsg ModelPredict.Msg
     | ShowDeleteDialog
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
-        ModelResponse showPredict response ->
+        ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    let
-                        nextCommand =
-                            if showPredict then
-                                Task.perform TogglePredict (Task.succeed ())
-                            else
-                                Cmd.none
-                    in
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain } => nextCommand
+                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Cmd.none
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
@@ -81,24 +74,12 @@ update msg model =
                 _ ->
                     model => Cmd.none
 
-        TogglePredict _ ->
-            let
-                predictModel =
-                    case model.predictModel of
-                        Nothing ->
-                            Just (ModelPredict.init model.config model.modelId)
-
-                        Just _ ->
-                            Nothing
-            in
-            { model | predictModel = predictModel } => Cmd.none
-
         ModelPredictMsg subMsg ->
             let
                 ( predictModel, cmd ) =
                     case model.predictModel of
                         Just predictModel ->
-                            ModelPredict.update subMsg predictModel |> Tuple.mapFirst Just
+                            ModelPredict.update subMsg predictModel context |> Tuple.mapFirst Just
 
                         Nothing ->
                             ( Nothing, Cmd.none )
@@ -118,7 +99,7 @@ update msg model =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete model.config >> ignoreCascadeParams
+                    Request.Model.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -135,49 +116,18 @@ update msg model =
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "Api Dashboard" ]
-                ]
-            , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-            , span [] [ a [ href "/#/models" ] [ text "Models" ] ]
-            ]
-        , div [ class "row" ]
-            [ dataSourceName model
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.detail Routes.Models "Models"
+            , modelName model
             , div [ class "col-sm-3" ]
-                [ div [ class "mt10 right" ]
-                    [ button [ class "btn", onClick (TogglePredict ()) ] [ text "Predict" ]
-                    ]
-                ]
+                []
             ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong [] [ text "Model ID:" ]
-                    , text (padSpace model.modelId)
-                    , a [] [ i [ class "fa fa-copy color-mediumGray" ] [] ]
-                    ]
-                ]
-            , div [ class "col-sm-4" ]
-                [ p [ class "small" ]
-                    [ strong [] [ text "Model Type:" ]
-                    , text (padSpace (toString model.modelType))
-                    ]
-                ]
-            , div [ class "col-sm-4 right" ]
-                [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ]
-                    [ i [ class "fa fa-trash-o mr5" ] []
-                    , text "Delete"
-                    ]
-                ]
-            ]
-        , hr [] []
         , detailRow model
         , hr [] []
-        , renderPredict model
+        , renderPredict context model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
             , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
@@ -187,21 +137,21 @@ view model =
         ]
 
 
-renderPredict : Model -> Html Msg
-renderPredict model =
+renderPredict : ContextModel -> Model -> Html Msg
+renderPredict context model =
     case model.predictModel of
         Just predictModel ->
-            ModelPredict.view predictModel |> Html.map ModelPredictMsg
+            ModelPredict.view predictModel context |> Html.map ModelPredictMsg
 
         Nothing ->
             div [] []
 
 
-dataSourceName : Model -> Html Msg
-dataSourceName model =
+modelName : Model -> Html Msg
+modelName model =
     case model.modelResponse of
         Remote.Success resp ->
-            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text ("Model for " ++ resp.dataSourceName) ] ]
+            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
         Remote.Loading ->
             text "Loading..."
@@ -230,8 +180,24 @@ detailRow model =
                         , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
                         ]
                     ]
-                , div [ class "col-sm-5" ] [ metricsList resp.algorithm.name resp.metrics ]
-                , div [ class "col-sm-3 " ] []
+                , div [ class "col-sm-4" ] [ metricsList resp.algorithm.name resp.metrics ]
+                , div [ class "col-sm-4 " ]
+                    [ p [] [ strong [] [ text "Model Type: " ], text (toString model.modelType) ]
+                    , p []
+                        [ strong [] [ text "Model ID:" ]
+                        , br [] []
+                        , copyableText model.modelId
+                        ]
+                    , p []
+                        [ strong [] [ text "API Endpoint Url" ]
+                        , br [] []
+                        , copyableText ("/models/" ++ model.modelId)
+                        ]
+                    , button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
+                        [ i [ class "fa fa-trash-o mr5" ] []
+                        , text "Delete Model"
+                        ]
+                    ]
                 ]
 
         Remote.Loading ->
@@ -248,10 +214,11 @@ metricsList algo metrics =
             [ strong [] [ text "Algorithm: " ]
             , text algo
             ]
-        , p [ class "small" ]
+        , p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "true", attribute "aria-controls" "metrics" ]
             [ strong [] [ text "Metrics" ]
+            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics" ] (List.map metricListItem (Dict.toList metrics))
+        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map metricListItem (Dict.toList metrics))
         ]
 
 

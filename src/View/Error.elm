@@ -1,4 +1,4 @@
-module View.Error exposing (viewHttpError, viewMessagesAsError, viewRemoteError)
+module View.Error exposing (viewFieldError, viewHttpError, viewMessagesAsError, viewRemoteError)
 
 import Data.Message as Message exposing (Message)
 import Data.Response exposing (ResponseError, responseErrorDecoder)
@@ -90,3 +90,20 @@ viewMessagesAsError messages =
                 )
         )
         errorMessages
+
+
+viewFieldError : List ( err, String ) -> err -> Html msg
+viewFieldError errors field =
+    let
+        errorDisplayNodes =
+            errors
+                |> List.filter (\( f, _ ) -> f == field)
+                |> List.map Tuple.second
+                |> List.map (\message -> p [] [ text message ])
+    in
+    viewIfElements
+        (\() ->
+            div [ class "alert alert-danger mt10" ]
+                errorDisplayNodes
+        )
+        errorDisplayNodes

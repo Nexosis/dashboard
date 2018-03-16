@@ -1,6 +1,7 @@
 module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view)
 
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataFormat as DataFormat
 import Data.File as File
 import Data.Model exposing (PredictionResult, decodePredictions)
@@ -18,12 +19,11 @@ import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), spinner)
 import View.Extra exposing (viewIf)
 import View.Messages as Messages
-import View.Pager as Pager
+import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 
 
 type alias Model =
-    { config : Config
-    , modelId : String
+    { modelId : String
     , activeTab : Tab
     , inputType : DataFormat.DataFormat
     , outputType : DataFormat.DataFormat
@@ -49,7 +49,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model config modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
+    Model modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -73,8 +73,8 @@ type Tab
     | PasteIn
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         ChangeTab tab ->
             -- if we are switching to `Upload`, it's not available, if switching to `PasteIn`, it is available if content is available
@@ -159,7 +159,7 @@ update msg model =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predict model.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
+                    predict context.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
@@ -177,7 +177,7 @@ update msg model =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predictRaw model.config model.modelId value (DataFormat.dataFormatToContentType model.outputType)
+                    predictRaw context.config model.modelId value (DataFormat.dataFormatToContentType model.outputType)
                         |> Remote.sendRequest
                         |> Cmd.map DownloadResponse
             in
@@ -233,8 +233,8 @@ subscriptions model =
             Sub.none
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     let
         ( buttonText, action ) =
             case model.uploadResponse of
@@ -251,23 +251,23 @@ view model =
                     ( text "Predict again", PredictAgain )
     in
     div [ class "row" ]
-        [ div [ class "col-sm-12" ] (predictInput model)
+        [ div [ class "col-sm-12" ] (predictInput context model)
         , div [ class "col-sm-12" ]
-            [ button [ class "btn", disabled (not model.canProceedWithPrediction), onClick action ]
+            [ button [ class "btn btn-danger", disabled (not model.canProceedWithPrediction), onClick action ]
                 [ buttonText ]
             , showTable model
             ]
         ]
 
 
-predictInput : Model -> List (Html Msg)
-predictInput model =
+predictInput : ContextModel -> Model -> List (Html Msg)
+predictInput context model =
     case model.uploadResponse of
         Remote.NotAsked ->
-            viewPredictInput model
+            viewPredictInput context model
 
         Remote.Success _ ->
-            viewPredictInput model
+            viewPredictInput context model
 
         Remote.Failure err ->
             viewPredictFailure model err
@@ -276,17 +276,19 @@ predictInput model =
             [ div [] [] ]
 
 
-viewPredictInput : Model -> List (Html Msg)
-viewPredictInput model =
+viewPredictInput : ContextModel -> Model -> List (Html Msg)
+viewPredictInput context model =
     [ div [ id "predict" ]
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ h3 [ class "mt0" ]
-                    [ text "Choose prediction file" ]
+                [ h3 []
+                    [ text "Run a prediction" ]
+                , h4 []
+                    [ text "Choose your prediction file" ]
                 ]
             , div [ class "col-sm-12" ]
                 [ viewTabControl model
-                , viewTabContent model
+                , viewTabContent context model
                 ]
             ]
         ]
@@ -305,16 +307,16 @@ viewTabControl model =
         tabHeaders
 
 
-viewTabContent : Model -> Html Msg
-viewTabContent model =
+viewTabContent : ContextModel -> Model -> Html Msg
+viewTabContent context model =
     let
         content =
             case model.activeTab of
                 UploadFile ->
-                    viewUploadTab model
+                    viewUploadTab context model
 
                 PasteIn ->
-                    viewPasteData model
+                    viewPasteData context model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -322,8 +324,8 @@ viewTabContent model =
         ]
 
 
-viewUploadTab : Model -> Html Msg
-viewUploadTab model =
+viewUploadTab : ContextModel -> Model -> Html Msg
+viewUploadTab context model =
     let
         uploadButtonText =
             if String.isEmpty model.fileName then
@@ -332,29 +334,29 @@ viewUploadTab model =
                 model.fileName
     in
     div [ class "row" ]
-        [ div [ class "col-sm-6" ]
-            [ div [ class "form-group col-sm-8" ]
+        [ div [ class "col-sm-6 pl0" ]
+            [ div [ class "form-group" ]
                 [ input
-                    [ id "upload-predict"
-                    , class "upload-file"
+                    [ id "upload-dataset"
+                    , class "upload-dataset"
                     , type_ "file"
                     , on "change" (succeed FileSelected)
                     ]
                     []
-                , label [ for "upload-predict" ] [ text uploadButtonText ]
+                , label [ for "upload-dataset" ] [ text uploadButtonText ]
                 , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) model.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "how_upload_csv"
+                [ explainer context.config "how_upload_csv"
                 ]
             ]
         ]
 
 
-viewPasteData : Model -> Html Msg
-viewPasteData model =
+viewPasteData : ContextModel -> Model -> Html Msg
+viewPasteData context model =
     let
         value =
             case model.dataInput of
@@ -375,7 +377,7 @@ viewPasteData model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ explainer model.config "how_paste_data"
+                [ explainer context.config "how_paste_data"
                 ]
             ]
         ]
@@ -421,39 +423,6 @@ createErrorMessage httpError =
 
         Http.BadPayload message response ->
             message
-
-
-mapToPagedListing : Int -> List (Dict String String) -> PredictionResultListing
-mapToPagedListing currentPage rows =
-    let
-        count =
-            List.length rows
-
-        pageSize =
-            10
-    in
-    { pageNumber = currentPage
-    , totalPages = count // pageSize
-    , pageSize = pageSize
-    , totalCount = count
-    , predictions = rows
-    }
-
-
-filterToPage : Remote.WebData PredictionResultListing -> List (Dict String String)
-filterToPage model =
-    case model of
-        Remote.Success result ->
-            let
-                drop =
-                    result.pageSize * result.pageNumber
-            in
-            result.predictions
-                |> List.drop drop
-                |> List.take result.pageSize
-
-        _ ->
-            [ Dict.empty ]
 
 
 showTable : Model -> Html Msg
@@ -514,7 +483,7 @@ downloadButton model =
                     "btn-group"
     in
     div [ class dropDownClass ]
-        [ button [ class "btn", onClick FileDownload ]
+        [ button [ class "btn btn-danger", onClick FileDownload ]
             [ i [ class "fa fa-download mr5" ]
                 []
             , text "Download predictions"

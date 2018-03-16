@@ -6,7 +6,12 @@ import Html.Attributes exposing (..)
 
 
 viewMessages : List Message -> Html msg
-viewMessages messages =
+viewMessages =
+    viewMessagesInternal False
+
+
+viewMessagesInternal : Bool -> List Message -> Html msg
+viewMessagesInternal collapsed messages =
     let
         labelType : Message -> String
         labelType message =
@@ -33,20 +38,22 @@ viewMessages messages =
                 , td [ class "left" ]
                     [ text message.message ]
                 ]
+
+        collapsedAttribute collapsed =
+            if collapsed == True then
+                " collapse"
+            else
+                ""
     in
-    div []
-        [ h5 [ class "mt15 mb15" ]
-            [ text "Messages" ]
-        , table [ class "table table-striped" ]
-            [ thead []
-                [ tr []
-                    [ th [ class "per10" ]
-                        [ text "Date" ]
-                    , th [ class "per15" ]
-                        [ text "Status" ]
-                    ]
+    table [ class ("table table-striped" ++ collapsedAttribute collapsed) ]
+        [ thead []
+            [ tr []
+                [ th [ class "per10" ]
+                    [ text "Date" ]
+                , th [ class "per15" ]
+                    [ text "Status" ]
                 ]
-            , tbody []
-                (List.map messageEntry messages)
             ]
+        , tbody []
+            (List.map messageEntry messages)
         ]

@@ -6,50 +6,50 @@ Balancing your data ensures that your test set has data from every label. **Your
 <div class="row well m15 p15">
     <div class="col-sm-6">
         <h6 class="center">Not balanced</h6>
-        <table class="table table-bordered" style="background-color: #fff;">
+        <table class="table table-bordered confusion-matrix" style="background-color: #fff;">
             <tbody>
                 <tr>
                     <th class="left">Negative</th>
-                    <td class="success">710</td>
-                    <td class="warning">63</td>
-                    <td class="warning">27</td>
+                    <td class="good">710</td>
+                    <td class="medium">63</td>
+                    <td class="medium">27</td>
                 </tr>
                 <tr>
                     <th class="left">Neutral</th>
-                    <td class="danger">128</td>
-                    <td class="success">151</td>
-                    <td class="warning">29</td>
+                    <td class="really-bad">128</td>
+                    <td class="good">151</td>
+                    <td class="medium">29</td>
                 </tr>
                 <tr>
                     <th class="left">Positive</th>
-                    <td class="warning">46</td>
-                    <td class="warning">31</td>
-                    <td class="success">166</td>
+                    <td class="medium">46</td>
+                    <td class="medium">31</td>
+                    <td class="good">166</td>
                 </tr>
             </tbody>
         </table>
     </div>
     <div class="col-sm-6">
         <h6 class="center">Balanced</h6>
-        <table class="table table-bordered" style="background-color: #fff;">
+        <table class="table table-bordered confusion-matrix" style="background-color: #fff;">
             <tbody>
                 <tr>
                     <th class="left">Negative</th>
-                    <td class="success">695</td>
-                    <td class="warning">72</td>
-                    <td class="warning">32</td>
+                    <td class="good">695</td>
+                    <td class="medium">72</td>
+                    <td class="medium">32</td>
                 </tr>
                 <tr>
                     <th class="left">Neutral</th>
-                    <td class="danger">107</td>
-                    <td class="success">169</td>
-                    <td class="warning">30</td>
+                    <td class="really-bad">107</td>
+                    <td class="good">169</td>
+                    <td class="medium">30</td>
                 </tr>
                 <tr>
                     <th class="left">Positive</th>
-                    <td class="warning">39</td>
-                    <td class="warning">29</td>
-                    <td class="success">176</td>
+                    <td class="medium">39</td>
+                    <td class="medium">29</td>
+                    <td class="good">176</td>
                 </tr>
             </tbody>
         </table>

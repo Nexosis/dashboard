@@ -2,6 +2,7 @@ module Page.Home exposing (Model, Msg(..), init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
 import Data.Response exposing (Quota, Quotas, Response)
@@ -33,7 +34,6 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
-    , config : Config
     }
 
 
@@ -46,7 +46,6 @@ init config quotas =
         Remote.Loading
         []
         quotas
-        config
         => Cmd.batch
             [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
@@ -77,8 +76,8 @@ type Msg
     | QuotasUpdated (Maybe Quotas)
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     let
         toggleKeyShown id =
             case List.member id model.keysShown of
@@ -115,16 +114,16 @@ update msg model =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
-                [ viewRecentPanel "Dataset" (dataSetListView model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
-                , viewRecentPanel "Session" (sessionListView model) (AppRoutes.Sessions => Nothing)
-                , viewRecentPanel "Model" (modelListView model) (AppRoutes.Models => Nothing)
+                [ viewRecentPanel "Dataset" (dataSetListView context model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
+                , viewRecentPanel "Session" (sessionListView context model) (AppRoutes.Sessions => Nothing)
+                , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
@@ -220,13 +219,16 @@ viewSubscriptions model subscriptions =
 viewSubscription : Model -> Subscription -> Html Msg
 viewSubscription model subscription =
     div []
-        [ p [ class "mb5" ]
+        [ p [ class "mb0" ]
             [ strong [] [ text subscription.name ]
+
+            -- TODO : put this back in when we have time to wire up copy to clipboard
+            --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm"
+                [ class "btn btn-sm btn-link btn-danger"
                 , onClick (ShowApiKey subscription.id)
                 ]
-                [ i [ class "fa fa-eye" ] []
+                [ i [ class "fa fa-eye mr5" ] []
                 ]
             , p [ class "obfuscate" ]
                 [ viewApiKey model subscription
@@ -245,19 +247,19 @@ viewApiKey model subscription =
             text subscription.key
 
 
-modelListView : Model -> Html Msg
-modelListView model =
-    viewModelGridReadonly model.config.toolTips (Table.initialSort "createdDate") model.modelList |> Html.map (\_ -> None)
+modelListView : ContextModel -> Model -> Html Msg
+modelListView context model =
+    viewModelGridReadonly context.config.toolTips (Table.initialSort "createdDate") model.modelList |> Html.map (\_ -> None)
 
 
-dataSetListView : Model -> Html Msg
-dataSetListView model =
-    viewDataSetGridReadonly model.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
+dataSetListView : ContextModel -> Model -> Html Msg
+dataSetListView context model =
+    viewDataSetGridReadonly context.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
 
 
-sessionListView : Model -> Html Msg
-sessionListView model =
-    viewSessionGridReadonly model.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
+sessionListView : ContextModel -> Model -> Html Msg
+sessionListView context model =
+    viewSessionGridReadonly context.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
@@ -269,7 +271,7 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
                     div [] []
 
                 Just route ->
-                    a [ AppRoutes.href route, class "btn btn-sm" ]
+                    a [ AppRoutes.href route, class "btn btn-danger btn-sm" ]
                         [ i [ class "fa fa-plus" ] []
                         , text (" Add " ++ String.toLower thing)
                         ]
@@ -277,11 +279,11 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-6 pl10" ]
+                [ div [ class "col-sm-6 p10" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
-                , div [ class "col-sm-6 right" ]
-                    [ a [ AppRoutes.href linkRoute, class "btn secondary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
+                , div [ class "col-sm-6 pt5 pr0 right" ]
+                    [ a [ AppRoutes.href linkRoute, class "btn btn-primary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
                     , addButton addRoute
                     ]
                 ]

@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
+import Data.Context exposing (ContextModel, defaultContext)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -25,6 +26,7 @@ import Page.Sessions as Sessions
 import Ports
 import Request.Log as Log
 import Request.Token as Token
+import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
 import Task
 import Time
 import Time.DateTime as DateTime
@@ -36,19 +38,46 @@ import View.Page as Page
 
 
 type Model
-    = Initialized App
+    = ConfigurationLoaded InitState
+    | Initialized App
     | InitializationError String
+
+
+type alias InitState =
+    { config : Config
+    , route : Maybe Route
+    , enabledFeatures : List Feature
+    }
 
 
 type alias App =
     { page : Page
-    , config : Config
     , error : Maybe Http.Error
     , lastRequest : String
     , lastResponse : Maybe Response.Response
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
+    , context : ContextModel
     }
+
+
+type Msg
+    = SetRoute (Maybe AppRoutes.Route)
+    | HomeMsg Home.Msg
+    | DataSetsMsg DataSets.Msg
+    | DataSetDetailMsg DataSetDetail.Msg
+    | DataSetAddMsg DataSetAdd.Msg
+    | ImportsMsg Imports.Msg
+    | SessionsMsg Sessions.Msg
+    | SessionDetailMsg SessionDetail.Msg
+    | SessionStartMsg SessionStart.Msg
+    | ModelsMsg Models.Msg
+    | ResponseReceived (Result String Response.Response)
+    | CheckToken Time.Time
+    | RenewToken (Result Http.Error NexosisToken)
+    | ModelDetailMsg ModelDetail.Msg
+    | OnAppStateLoaded StateStorage.Msg
+    | OnAppStateUpdated StateStorage.Msg
 
 
 type Page
@@ -71,23 +100,6 @@ type Page
 ---- UPDATE ----
 
 
-type Msg
-    = SetRoute (Maybe AppRoutes.Route)
-    | HomeMsg Home.Msg
-    | DataSetsMsg DataSets.Msg
-    | DataSetDetailMsg DataSetDetail.Msg
-    | DataSetAddMsg DataSetAdd.Msg
-    | ImportsMsg Imports.Msg
-    | SessionsMsg Sessions.Msg
-    | SessionDetailMsg SessionDetail.Msg
-    | SessionStartMsg SessionStart.Msg
-    | ModelsMsg Models.Msg
-    | ResponseReceived (Result String Response.Response)
-    | CheckToken Time.Time
-    | RenewToken (Result Http.Error NexosisToken)
-    | ModelDetailMsg ModelDetail.Msg
-
-
 getQuotas : Maybe Response.Response -> Maybe Response.Quotas
 getQuotas resp =
     case resp of
@@ -100,9 +112,9 @@ getQuotas resp =
 
 setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
 setRoute route app =
-    case app.config.token of
+    case app.context.config.token of
         Nothing ->
-            app => Navigation.load app.config.loginUrl
+            app => Navigation.load app.context.config.loginUrl
 
         Just _ ->
             let
@@ -117,70 +129,70 @@ setRoute route app =
                 Just AppRoutes.Home ->
                     let
                         ( pageModel, initCmd ) =
-                            Home.init app.config (getQuotas app.lastResponse)
+                            Home.init app.context.config (getQuotas app.lastResponse)
                     in
                     ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )
 
                 Just AppRoutes.DataSets ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSets.init app.config
+                            DataSets.init app.context
                     in
                     { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
 
                 Just (AppRoutes.DataSetDetail name) ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSetDetail.init app.config name
+                            DataSetDetail.init app.context.config name
                     in
                     { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
 
                 Just AppRoutes.DataSetAdd ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSetAdd.init app.config
+                            DataSetAdd.init app.context.config
                     in
                     { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd
 
                 Just AppRoutes.Imports ->
                     let
                         ( pageModel, initCmd ) =
-                            Imports.init app.config
+                            Imports.init app.context.config
                     in
                     ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
 
                 Just AppRoutes.Sessions ->
                     let
                         ( pageModel, initCmd ) =
-                            Sessions.init app.config
+                            Sessions.init app.context
                     in
                     ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
 
                 Just (AppRoutes.SessionDetail id) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionDetail.init app.config id
+                            SessionDetail.init app.context.config id
                     in
                     ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
 
                 Just (AppRoutes.SessionStart dataSetName) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionStart.init app.config dataSetName
+                            SessionStart.init app.context.config dataSetName
                     in
                     ( { app | page = SessionStart pageModel }, Cmd.map SessionStartMsg initCmd )
 
                 Just AppRoutes.Models ->
                     let
                         ( pageModel, initCmd ) =
-                            Models.init app.config
+                            Models.init app.context
                     in
                     ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
 
-                Just (AppRoutes.ModelDetail id predict) ->
+                Just (AppRoutes.ModelDetail id) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.config id predict
+                            ModelDetail.init app.context.config id
                     in
                     ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 
@@ -188,14 +200,36 @@ setRoute route app =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
+        ConfigurationLoaded initState ->
+            case msg of
+                OnAppStateLoaded ctx ->
+                    case ctx of
+                        StateStorage.OnAppStateLoaded mbctx ->
+                            let
+                                newContext =
+                                    { mbctx | config = initState.config }
+
+                                app =
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext
+
+                                ( routedApp, cmd ) =
+                                    setRoute initState.route
+                                        app
+                            in
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd ]
+
+                OnAppStateUpdated ctx ->
+                    model => Cmd.none
+
+                _ ->
+                    InitializationError
+                        "Unknown initialization message"
+                        => Cmd.none
+
         Initialized app ->
             Tuple.mapFirst Initialized <| updatePage app.page msg app
 
         InitializationError err ->
-            let
-                e =
-                    Debug.log "Init error" err
-            in
             model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ err) Log.Error)
 
 
@@ -205,7 +239,7 @@ updatePage page msg app =
         toPage toModel toMsg subUpdate subMsg subModel =
             let
                 ( newModel, newCmd ) =
-                    subUpdate subMsg subModel
+                    subUpdate subMsg subModel app.context
             in
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
     in
@@ -266,12 +300,12 @@ updatePage page msg app =
                         |> DateTime.addHours 1
                         |> DateTime.toTimestamp
             in
-            case app.config.token of
+            case app.context.config.token of
                 Just nexosisToken ->
                     if Jwt.isExpired hourFromNow nexosisToken.rawToken |> Result.toMaybe |> Maybe.withDefault True then
                         let
                             renewTokenRequest =
-                                Token.renewAccessToken app.config
+                                Token.renewAccessToken app.context.config
                                     |> Http.send RenewToken
                         in
                         app => renewTokenRequest
@@ -284,18 +318,39 @@ updatePage page msg app =
         ( RenewToken (Ok newToken), _ ) ->
             let
                 config =
-                    app.config
+                    app.context.config
 
                 newConfig =
                     { config | token = Just newToken }
+
+                context =
+                    app.context
+
+                newContext =
+                    { context | config = newConfig }
             in
-            { app | config = newConfig } => Cmd.none
+            { app | context = newContext } => Cmd.none
 
         ( RenewToken (Err err), _ ) ->
             app
                 --todo - Log needs to finish first, try re-writing with tasks.
                 => Cmd.batch
-                    [ Navigation.load app.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
+                    [ Navigation.load app.context.config.loginUrl, Log.logMessage <| Log.LogMessage ("Error during token renewal " ++ toString err) Log.Error ]
+
+        ( OnAppStateUpdated externalMsg, _ ) ->
+            case externalMsg of
+                StateStorage.OnAppStateLoaded mbctx ->
+                    let
+                        existingConfig =
+                            app.context.config
+
+                        newContext =
+                            { mbctx | config = existingConfig }
+
+                        newApp =
+                            { app | context = newContext }
+                    in
+                    newApp => Cmd.none
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
@@ -315,10 +370,6 @@ view : Model -> Html Msg
 view model =
     case model of
         InitializationError err ->
-            let
-                e =
-                    Debug.log "err " err
-            in
             Error.pageLoadError Page.Home
                 """
             Sorry, it seems we are having an issues starting the application.
@@ -326,6 +377,10 @@ view model =
             """
                 |> Error.view
                 |> Page.basicLayout Page.Other
+
+        ConfigurationLoaded initState ->
+            Html.text ""
+                |> Page.emptyLayout Page.Other
 
         Initialized app ->
             let
@@ -347,22 +402,22 @@ view model =
                         |> layout Page.Other
 
                 Home subModel ->
-                    Home.view subModel
+                    Home.view subModel app.context
                         |> layout Page.Home
                         |> Html.map HomeMsg
 
                 DataSets subModel ->
-                    DataSets.view subModel
+                    DataSets.view subModel app.context
                         |> layout Page.DataSets
                         |> Html.map DataSetsMsg
 
                 DataSetDetail subModel ->
-                    DataSetDetail.view subModel
+                    DataSetDetail.view subModel app.context
                         |> layout Page.DataSetData
                         |> Html.map DataSetDetailMsg
 
                 DataSetAdd subModel ->
-                    DataSetAdd.view subModel
+                    DataSetAdd.view subModel app.context
                         |> layout Page.DataSetAdd
                         |> Html.map DataSetAddMsg
 
@@ -372,27 +427,27 @@ view model =
                         |> Html.map ImportsMsg
 
                 Sessions subModel ->
-                    Sessions.view subModel
+                    Sessions.view subModel app.context
                         |> layout Page.Sessions
                         |> Html.map SessionsMsg
 
                 SessionDetail subModel ->
-                    SessionDetail.view subModel
+                    SessionDetail.view subModel app.context
                         |> layout Page.SessionDetail
                         |> Html.map SessionDetailMsg
 
                 SessionStart subModel ->
-                    SessionStart.view subModel
+                    SessionStart.view subModel app.context
                         |> layout Page.SessionStart
                         |> Html.map SessionStartMsg
 
                 Models subModel ->
-                    Models.view subModel
+                    Models.view subModel app.context
                         |> layout Page.Models
                         |> Html.map ModelsMsg
 
                 ModelDetail subModel ->
-                    ModelDetail.view subModel
+                    ModelDetail.view subModel app.context
                         |> layout Page.ModelDetail
                         |> Html.map ModelDetailMsg
 
@@ -404,11 +459,15 @@ view model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
+        ConfigurationLoaded initState ->
+            Sub.map OnAppStateLoaded (appStateLoaded initState.config)
+
         Initialized app ->
             Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse app.config.baseUrl >> ResponseReceived)
+                [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
+                , Sub.map OnAppStateUpdated (appStateLoaded app.context.config)
                 ]
 
         InitializationError _ ->
@@ -425,6 +484,14 @@ pageSubscriptions page =
         ModelDetail subModel ->
             ModelDetail.subscriptions subModel
                 |> Sub.map ModelDetailMsg
+
+        SessionStart subModel ->
+            SessionStart.subscriptions subModel
+                |> Sub.map SessionStartMsg
+
+        DataSetDetail subModel ->
+            DataSetDetail.subscriptions subModel
+                |> Sub.map DataSetDetailMsg
 
         _ ->
             Sub.none
@@ -446,28 +513,23 @@ init flags location =
             decodeValue flagsDecoder flags
     in
     case flagDecodeResult of
-        Ok appContext ->
+        Ok initState ->
             let
-                ( app, cmd ) =
-                    setRoute (AppRoutes.fromLocation location)
-                        appContext
+                route =
+                    AppRoutes.fromLocation location
             in
-            Initialized app
-                => Cmd.batch [ cmd, Task.perform CheckToken Time.now ]
+            ConfigurationLoaded { initState | route = route }
+                => loadAppState
 
         Err error ->
             ( InitializationError error, Cmd.none )
 
 
-flagsDecoder : Decode.Decoder App
+flagsDecoder : Decode.Decoder InitState
 flagsDecoder =
-    Pipeline.decode App
-        |> Pipeline.hardcoded initialPage
+    Pipeline.decode InitState
         |> Pipeline.custom Data.Config.configDecoder
         |> Pipeline.hardcoded Nothing
-        |> Pipeline.hardcoded ""
-        |> Pipeline.hardcoded Nothing
-        |> Pipeline.hardcoded []
         |> Pipeline.required "enabledFeatures" (Decode.list Feature.featureDecoder)
 
 

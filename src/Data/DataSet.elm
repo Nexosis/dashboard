@@ -17,10 +17,11 @@ module Data.DataSet
         , toDataSetName
         )
 
-import Combine exposing ((<$>))
+import Combine exposing ((<$>), (>>=))
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Data.DisplayDate exposing (dateDecoder, toShortDateTimeString)
 import Dict exposing (Dict)
+import Http
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.ZonedDateTime exposing (ZonedDateTime)
@@ -113,7 +114,14 @@ dataSetNameToString (DataSetName name) =
 
 dataSetNameParser : Combine.Parser s DataSetName
 dataSetNameParser =
-    DataSetName <$> Combine.regex "[^/]+"
+    let
+        encoded name =
+            name
+                |> Http.decodeUri
+                |> Maybe.map Combine.succeed
+                |> Maybe.withDefault (Combine.fail "can't unencode")
+    in
+    DataSetName <$> (Combine.regex "[^/]+" >>= encoded)
 
 
 dataSetNameDecoder : Decoder DataSetName
@@ -203,6 +211,6 @@ variableDecoder =
         --Note that order matters.
         [ Decode.float |> Decode.andThen (\f -> succeed (formatFloatToString f))
         , Decode.bool |> Decode.andThen (\b -> succeed (toString b))
-        , dateDecoder |> Decode.andThen (\d -> succeed (toShortDateTimeString d))
+        , dateDecoder |> Decode.andThen (\d -> succeed (Time.ZonedDateTime.toISO8601 d))
         , Decode.string
         ]

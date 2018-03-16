@@ -1,7 +1,16 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
+import Data.DisplayDate exposing (toShortDateTimeString)
+import Date exposing (Date, Month)
 import Html
 import Html.Attributes
+import Process
+import Task
+import Time
+import Time.DateTime as DateTime exposing (DateTime, zero)
+import Time.TimeZone as TimeZone exposing (TimeZone)
+import Time.TimeZones
+import Time.ZonedDateTime exposing (ZonedDateTime)
 
 
 (=>) : a -> b -> ( a, b )
@@ -130,4 +139,94 @@ isActuallyInteger input =
 
 styledNumber : String -> Html.Html msg
 styledNumber input =
-    Html.span [ Html.Attributes.class "number" ] [ Html.text input ]
+    Html.span [ Html.Attributes.class "number" ] [ Html.text (tryParseAndFormat input) ]
+
+
+unwrapErrors : Result (List err) a -> List err
+unwrapErrors result =
+    case result of
+        Ok _ ->
+            []
+
+        Err errors ->
+            errors
+
+
+tryParseAndFormat : String -> String
+tryParseAndFormat input =
+    let
+        dateCandidate =
+            Time.ZonedDateTime.fromISO8601 (Time.TimeZones.etc_utc ()) input
+    in
+    case dateCandidate of
+        Result.Ok date ->
+            toShortDateTimeString date
+
+        _ ->
+            input
+
+
+delayTask : Int -> Task.Task x ()
+delayTask seconds =
+    Process.sleep (Time.second * toFloat seconds)
+
+
+dateToUtcDateTime : TimeZone -> Date -> DateTime
+dateToUtcDateTime timeZone date =
+    {- This is a bit hacky -
+       1. first drop the 'local' timezone from the date input to generate a DateTime at UTC
+       2. then figure out the offset given the timezone,
+       3. finally add the offset to the DateTime to get the right date
+       This is intended to be used with ZonedDateTime to get the date at the right time once converted to a ZonedDateTime
+    -}
+    let
+        toDate input =
+            DateTime.dateTime { zero | year = Date.year input, month = monthToInt (Date.month input), day = Date.day input, hour = Date.hour input, minute = Date.minute input, second = Date.second input }
+
+        getOffset time tz =
+            TimeZone.offset (time |> DateTime.toTimestamp) tz
+
+        dateTime =
+            toDate date
+    in
+    DateTime.addMilliseconds (getOffset dateTime timeZone) dateTime
+
+
+monthToInt : Date.Month -> Int
+monthToInt value =
+    case value of
+        Date.Jan ->
+            1
+
+        Date.Feb ->
+            2
+
+        Date.Mar ->
+            3
+
+        Date.Apr ->
+            4
+
+        Date.May ->
+            5
+
+        Date.Jun ->
+            6
+
+        Date.Jul ->
+            7
+
+        Date.Aug ->
+            8
+
+        Date.Sep ->
+            9
+
+        Date.Oct ->
+            10
+
+        Date.Nov ->
+            11
+
+        Date.Dec ->
+            12

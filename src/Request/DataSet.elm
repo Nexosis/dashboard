@@ -1,104 +1,94 @@
-module Request.DataSet exposing (MetadataUpdateRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
-import HttpBuilder exposing (RequestBuilder, withExpect)
+import HttpBuilder exposing (RequestBuilder, withExpectJson)
 import Json.Encode as Encode
 import Set
 import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
 
 get : Config -> Int -> Int -> Http.Request DataSetList
-get { baseUrl, token } page pageSize =
+get config page pageSize =
     let
-        expect =
-            DataSet.decodeDataSetList
-                |> Http.expectJson
-
         params =
             pageParams page pageSize
     in
-    (baseUrl ++ "/data")
+    (config.baseUrl ++ "/data")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
-getRetrieveDetail { baseUrl, token } name =
+getRetrieveDetail config name =
     let
-        expect =
-            DataSet.decodeDataSetData
-                |> Http.expectJson
-
         params =
-            pageParams 0 Config.pageSize
+            pageParams 0 1
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
-getDataByDateRange : Config -> DataSetName -> Maybe ( ZonedDateTime, ZonedDateTime ) -> Http.Request DataSetData
-getDataByDateRange { baseUrl, token } name dateRange =
+getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> Http.Request DataSetData
+getDataByDateRange config name dateRange =
     let
-        expect =
-            DataSet.decodeDataSetData
-                |> Http.expectJson
-
         params =
             pageParams 0 1000
                 ++ dateParams dateRange
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 getStats : Config -> DataSetName -> Http.Request DataSetStats
-getStats { baseUrl, token } name =
-    let
-        expect =
-            DataSet.decodeDataSetStats
-                |> Http.expectJson
-    in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name ++ "/stats")
+getStats config name =
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name ++ "/stats")
         |> HttpBuilder.get
-        |> HttpBuilder.withExpect expect
-        |> withAuthorization token
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
 delete : Config -> DataSetName -> Set.Set String -> Http.Request ()
-delete { baseUrl, token } name cascadeOptions =
+delete config name cascadeOptions =
     let
         cascadeList =
             Set.toList cascadeOptions
                 |> List.map (\c -> ( "cascade", c ))
     in
-    (baseUrl ++ "/data/" ++ dataSetNameToString name)
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.delete
         |> HttpBuilder.withQueryParams cascadeList
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
-put : Config -> String -> String -> String -> Http.Request ()
-put { baseUrl, token } name content contentType =
-    (baseUrl ++ "/data/" ++ name)
+type alias PutUploadRequest =
+    { name : String
+    , content : String
+    , contentType : String
+    }
+
+
+put : Config -> PutUploadRequest -> Http.Request ()
+put config { name, content, contentType } =
+    (config.baseUrl ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.toRequest
 
 
@@ -120,10 +110,10 @@ dateParams dateRange =
 
 
 updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()
-updateMetadata { baseUrl, token } request =
-    (baseUrl ++ "/data/" ++ dataSetNameToString request.dataSetName)
+updateMetadata config request =
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName request.dataSetName)
         |> HttpBuilder.put
-        |> withAuthorization token
+        |> withAuthorization config
         |> HttpBuilder.withJsonBody (encodeMetadataPutDataRequest request)
         |> HttpBuilder.toRequest
 
@@ -140,3 +130,8 @@ encodeMetadataPutDataRequest request =
         [ ( "dataSetName", Encode.string <| dataSetNameToString request.dataSetName )
         , ( "columns", encodeColumnMetadataList <| request.columns )
         ]
+
+
+uriEncodeDataSetName : DataSetName -> String
+uriEncodeDataSetName name =
+    Http.encodeUri <| dataSetNameToString name

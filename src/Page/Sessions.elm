@@ -2,6 +2,7 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 
 import AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
@@ -12,8 +13,10 @@ import Html.Events exposing (..)
 import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
+import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -27,7 +30,6 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { sessionList : Remote.WebData SessionList
     , tableState : Table.State
-    , config : Config
     , pageSize : Int
     , currentPage : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -59,10 +61,10 @@ loadSessionList config pageNo pageSize =
         |> Cmd.map SessionListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading (Table.initialSort "name") config 10 0 Nothing
-        => loadSessionList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading (Table.initialSort "name") context.userPageSize 0 Nothing
+        => loadSessionList context.config 0 context.userPageSize
 
 
 
@@ -78,8 +80,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         SessionListResponse resp ->
             { model | sessionList = resp } => Cmd.none
@@ -90,11 +92,18 @@ update msg model =
 
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading, currentPage = pgNum }
-                => loadSessionList model.config pgNum model.pageSize
+                => loadSessionList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadSessionList model.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadSessionList context.config 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
         ShowDeleteDialog sessionData ->
             { model | deleteDialogModel = Just (DeleteDialog.init sessionData.name sessionData.sessionId) }
@@ -106,7 +115,7 @@ update msg model =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete model.config >> ignoreCascadeParams
+                    Request.Session.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -117,7 +126,7 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadSessionList model.config model.currentPage model.pageSize
+                            loadSessionList context.config model.currentPage model.pageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -127,28 +136,24 @@ update msg model =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "Api Dashboard" ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Sessions" ] ++ helpIcon model.config.toolTips "Sessions") ]
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.list
+            , div [ class "col-sm-6" ] [ h2 [] ([ text "Sessions " ] ++ helpIcon context.config.toolTips "Sessions") ]
             , div [ class "col-sm-6 right" ] []
             ]
-        , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ] [ explainer model.config "what_is_session" ]
-                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.sessionList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 , div []
-                    [ viewSessionsGrid model.config.toolTips model.tableState model.sessionList
+                    [ viewSessionsGrid context.config.toolTips model.tableState model.sessionList
                     , hr [] []
                     , div [ class "center" ]
                         [ Pager.view model.sessionList ChangePage ]
@@ -296,7 +301,7 @@ createdColumn =
 
 createdCell : SessionData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.requestedDate)
         ]
 
@@ -315,5 +320,5 @@ deleteColumn =
 deleteButton : SessionData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

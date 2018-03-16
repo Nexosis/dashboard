@@ -1,7 +1,7 @@
-module Data.Config exposing (Config, NexosisToken, configDecoder, pageSize, tokenDecoder, withAuthorization)
+module Data.Config exposing (Config, NexosisToken, configDecoder, tokenDecoder, withAuthorization)
 
 import Dict exposing (Dict)
-import HttpBuilder exposing (RequestBuilder, withHeader)
+import HttpBuilder exposing (RequestBuilder, withBearerToken, withHeader)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
@@ -15,15 +15,23 @@ type alias Config =
     , subscriptionUrl : String
     , toolTips : Dict String String
     , explainerContent : Dict String String
+    , applicationName : String
+    , accountSiteUrl : String
+    , apiManagerUrl : String
+    , identityToken : Maybe IdentityToken
     }
 
 
 type alias NexosisToken =
     { iat : Int
     , exp : Int
-    , userId : Maybe String
-    , email : Maybe String
     , rawToken : String
+    }
+
+
+type alias IdentityToken =
+    { name : String
+    , email : String
     }
 
 
@@ -31,32 +39,43 @@ configDecoder : Decoder Config
 configDecoder =
     Pipeline.decode Config
         |> required "apiUrl" string
-        |> custom
-            (maybe
-                tokenDecoder
-            )
+        |> custom (maybe tokenDecoder)
         |> required "loginUrl" string
         |> required "renewalUrl" string
         |> required "subscriptionUrl" string
         |> required "toolTips" toolTipDictDecoder
         |> required "explainerContent" (Decode.dict string)
+        |> required "applicationName" string
+        |> required "accountSite" string
+        |> required "apiManagerUrl" string
+        |> custom (maybe identityTokenDecoder)
 
 
 tokenDecoder : Decoder NexosisToken
 tokenDecoder =
     field "token"
         string
-        |> andThen (\t -> field "token" (Jwt.tokenDecoder (nexosisTokenDecoder t)))
+        |> andThen (\t -> field "token" (Jwt.tokenDecoder (nexosisAccessTokenDecoder t)))
 
 
-nexosisTokenDecoder : String -> Decoder NexosisToken
-nexosisTokenDecoder rawToken =
+nexosisAccessTokenDecoder : String -> Decoder NexosisToken
+nexosisAccessTokenDecoder rawToken =
     decode NexosisToken
         |> required "iat" int
         |> required "exp" int
-        |> optional "givenName" (nullable string) Nothing
-        |> optional "email" (nullable string) Nothing
         |> hardcoded rawToken
+
+
+identityTokenDecoder : Decoder IdentityToken
+identityTokenDecoder =
+    field "identity" (Jwt.tokenDecoder nexosisIdentityTokenDecoder)
+
+
+nexosisIdentityTokenDecoder : Decoder IdentityToken
+nexosisIdentityTokenDecoder =
+    decode IdentityToken
+        |> required "name" string
+        |> required "email" string
 
 
 decodeDocs : Decoder (List String)
@@ -69,17 +88,13 @@ toolTipDictDecoder =
     dict string
 
 
-withAuthorization : Maybe NexosisToken -> RequestBuilder a -> RequestBuilder a
-withAuthorization token builder =
-    case token of
+withAuthorization : Config -> RequestBuilder a -> RequestBuilder a
+withAuthorization config builder =
+    case config.token of
         Just nexosisToken ->
             builder
-                |> withHeader "Authorization" ("Bearer " ++ nexosisToken.rawToken)
+                |> withBearerToken nexosisToken.rawToken
+                |> withHeader "application-name" config.applicationName
 
         _ ->
             builder
-
-
-pageSize : Int
-pageSize =
-    10

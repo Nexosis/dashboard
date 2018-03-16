@@ -8,13 +8,14 @@ import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
-import Html.Attributes exposing (class, style)
+import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
+import String.Extra exposing (replace)
 import VegaLite exposing (..)
 
 
-forecastResults : SessionResults -> SessionData -> Int -> Spec
-forecastResults sessionResults session windowWidth =
+forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+forecastResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
             session.columns
@@ -30,17 +31,35 @@ forecastResults sessionResults session windowWidth =
     case Maybe.map2 (,) targetColumn timestampColumn of
         Just ( targetCol, timestampCol ) ->
             let
+                pointTypeName =
+                    "Result Type"
+
+                sessionData =
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+
                 enc =
                     encoding
-                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
-                        << position Y [ PName targetCol.name, PmType Quantitative ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
+                        << color
+                            [ MName pointTypeName
+                            , MmType Nominal
+                            , MScale <|
+                                categoricalDomainMap
+                                    [ ( "Predictions", "#1F77B4" )
+                                    , ( "Observations", "#04850d" )
+                                    ]
+                            ]
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows sessionResults.data
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
                 , VegaLite.mark Line []
                 , enc []
                 ]
@@ -69,8 +88,8 @@ impactResults session sessionResults dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName timestampCol.name, PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval, PAxis [ AxTitle "Timestamp" ] ]
-                        << position Y [ PName targetCol.name, PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval, PAxis [ AxTitle "Timestamp" ] ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -204,8 +223,8 @@ regressionResults sessionResults session windowWidth =
 
                 enc =
                     encoding
-                        << position Y [ PName targetCol.name, PmType Quantitative ]
-                        << position X [ PName actualName, PmType Quantitative ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAxis [ AxTitle targetCol.name ] ]
+                        << position X [ PName (normalizeFieldName actualName), PmType Quantitative, PAxis [ AxTitle actualName ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -228,6 +247,7 @@ regressionResults sessionResults session windowWidth =
                     asSpec
                         [ enc []
                         , mark Circle []
+                        , transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
                         ]
 
                 resultData =
@@ -277,8 +297,8 @@ regressionResults sessionResults session windowWidth =
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows joinedData
                 , layer
-                    [ lineSpec
-                    , pointSpec
+                    [ pointSpec
+                    , lineSpec
                     ]
                 ]
 
@@ -302,12 +322,17 @@ resultsToPredictedObserved target result =
         |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
 
 
+normalizeFieldName : String -> String
+normalizeFieldName key =
+    replace "." "_" key
+
+
 resultsToRows : Dict String String -> List DataRow
 resultsToRows result =
     dataRow
         (result
             |> Dict.toList
-            |> List.map (\( k, v ) -> ( k, Str v ))
+            |> List.map (\( k, v ) -> ( normalizeFieldName k, Str v ))
         )
         []
 
@@ -383,31 +408,31 @@ toConfusionMatrixRow classes ( rowNumber, data ) =
         (td [ class "header" ] [ Html.text (Maybe.withDefault "" (Array.get rowNumber classes)) ]
             :: List.map
                 (\( index, value ) ->
-                    td [ style [ ( "backgroundColor", colorFromValue rowMax value (index == rowNumber) ) ] ] [ Html.text (toString value) ]
+                    td [ class (classFromValue rowMax value (index == rowNumber)) ] [ Html.text (toString value) ]
                 )
                 (Array.toIndexedList data)
         )
 
 
-colorFromValue : Int -> Int -> Bool -> String
-colorFromValue maxValue value isTarget =
+classFromValue : Int -> Int -> Bool -> String
+classFromValue maxValue value isTarget =
     let
         scaled =
             round ((toFloat value / toFloat maxValue) * 100)
     in
     if scaled == 0 then
         if isTarget then
-            "#F23131"
+            "really-bad"
         else
-            "#CABDBD"
+            "neutral"
     else if scaled < 33 then
-        "#EFE975"
+        "medium"
     else if scaled < 66 then
-        "#FFB01D"
+        "bad"
     else if scaled <= 100 then
         if isTarget then
-            "#2DB27D"
+            "good"
         else
-            "#F23131"
+            "really-bad"
     else
-        "#CABDBD"
+        "#4CFFFC"

@@ -2,18 +2,19 @@ module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), 
 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
-import Data.Config exposing (Config)
+import Data.Context exposing (..)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
-import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.DataSet
+import StateStorage
 import Table exposing (defaultCustomizations)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -40,8 +41,8 @@ defaultColumns tooltips =
         actionsColumn
         sizeColumn
         (shapeColumn tooltips)
-        (Grid.customStringColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
-        (Grid.customStringColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
+        (Grid.customNumberColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
+        (Grid.customNumberColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
 
 
 type alias Model =
@@ -49,22 +50,21 @@ type alias Model =
     , currentPage : Int
     , pageSize : Int
     , tableState : Table.State
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
-loadDataSetList : Config -> Int -> Int -> Cmd Msg
-loadDataSetList config pageNum pageSize =
-    Request.DataSet.get config pageNum pageSize
+loadDataSetList : ContextModel -> Int -> Int -> Cmd Msg
+loadDataSetList context pageNum pageSize =
+    Request.DataSet.get context.config pageNum pageSize
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading 0 10 (Table.initialSort "dataSetName") config Nothing
-        => loadDataSetList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading 0 context.userPageSize (Table.initialSort "dataSetName") Nothing
+        => loadDataSetList context 0 context.userPageSize
 
 
 
@@ -80,8 +80,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         DataSetListResponse resp ->
             { model | dataSetList = resp } => Cmd.none
@@ -92,11 +92,18 @@ update msg model =
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList model.config pgNum model.pageSize
+                => loadDataSetList context pgNum context.userPageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadDataSetList model.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadDataSetList context 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
         ShowDeleteDialog dataSet ->
             let
@@ -108,7 +115,7 @@ update msg model =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -119,7 +126,7 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList model.config model.currentPage model.pageSize
+                            loadDataSetList context model.currentPage context.userPageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -129,33 +136,30 @@ update msg model =
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
-        --todo - breadcrumbs ?
-        [ p [ class "breadcrumb" ] [ span [] [ a [ href "#" ] [ text "API Dashboard" ] ] ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-6" ]
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.list
+            , div [ class "col-sm-6" ]
                 [ h2 [ class "mt10" ]
-                    ([ text "DataSets" ]
-                        ++ helpIcon model.config.toolTips "Datasets"
+                    ([ text "DataSets " ]
+                        ++ helpIcon context.config.toolTips "Datasets"
                     )
                 ]
             , div [ class "col-sm-6 right" ]
-                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add DataSet" ]
+                [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger mt10" ] [ i [ class "fa fa-plus mr5" ] [], text "Add dataset" ]
                 ]
             ]
-        , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6" ]
-                        [ explainer model.config "what_is_dataset"
-                        ]
-                    , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                        [ PageSize.view ChangePageSize ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.dataSetList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
-                , viewDataSetGrid model.config.toolTips model.tableState model.dataSetList
+                , viewDataSetGrid context.config.toolTips model.tableState model.dataSetList
                 , hr [] []
                 , div [ class "center" ]
                     [ Pager.view model.dataSetList ChangePage ]
@@ -271,7 +275,7 @@ deleteColumn =
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
 dataSetDeleteButton dataSet =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog dataSet), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 
@@ -288,7 +292,7 @@ sizeColumn =
 
 sizeCell : DataSet -> Table.HtmlDetails msg
 sizeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (dataSizeWithSuffix dataset.dataSetSize) ]
+    Table.HtmlDetails [ class "number" ] [ text (dataSizeWithSuffix dataset.dataSetSize) ]
 
 
 shapeColumn : Dict String String -> Grid.Column DataSet msg
@@ -304,4 +308,4 @@ shapeColumn tooltips =
 
 shapeCell : DataSet -> Table.HtmlDetails msg
 shapeCell dataset =
-    Table.HtmlDetails [] [ styledNumber (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]
+    Table.HtmlDetails [ class "number" ] [ text (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]

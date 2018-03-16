@@ -1,34 +1,34 @@
-module Request.Import exposing (get, postUrl)
+module Request.Import exposing (PostUrlRequest, get, postUrl)
 
 import Data.Config exposing (Config, withAuthorization)
 import Data.Import exposing (ImportDetail, decodeImportDetail)
 import Http
-import HttpBuilder exposing (withExpect)
+import HttpBuilder exposing (withExpectJson)
 import Json.Encode exposing (Value, encode)
 
 
-expectImportDetail : Http.Expect ImportDetail
-expectImportDetail =
-    decodeImportDetail
-        |> Http.expectJson
+type alias PostUrlRequest =
+    { dataSetName : String
+    , url : String
+    }
 
 
-postUrl : Config -> String -> String -> Http.Request ImportDetail
-postUrl { token, baseUrl } dataSetName url =
-    (baseUrl ++ "/imports/url")
+postUrl : Config -> PostUrlRequest -> Http.Request ImportDetail
+postUrl config { dataSetName, url } =
+    (config.baseUrl ++ "/imports/url")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportUrl dataSetName url))
-        |> withAuthorization token
-        |> withExpect expectImportDetail
+        |> withAuthorization config
+        |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 
 get : Config -> String -> Http.Request ImportDetail
-get { token, baseUrl } importId =
-    (baseUrl ++ "/imports/" ++ importId)
+get config importId =
+    (config.baseUrl ++ "/imports/" ++ importId)
         |> HttpBuilder.get
-        |> withAuthorization token
-        |> withExpect expectImportDetail
+        |> withAuthorization config
+        |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 

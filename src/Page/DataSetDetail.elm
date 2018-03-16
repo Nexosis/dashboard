@@ -1,8 +1,9 @@
-module Page.DataSetDetail exposing (Model, Msg, init, update, view)
+module Page.DataSetDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
@@ -11,15 +12,17 @@ import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http exposing (encodeUri)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber)
+import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
+import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
 import View.Error as Error
-import View.RelatedLinks as Related exposing (view)
 
 
 ---- MODEL ----
@@ -29,7 +32,6 @@ type alias Model =
     { dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
-    , config : Config
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
     , updateResponse : Remote.WebData ()
@@ -50,9 +52,9 @@ init config dataSetName =
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
-            ColumnMetadataEditor.init config dataSetName True
+            ColumnMetadataEditor.init dataSetName True
     in
-    Model dataSetName Remote.Loading editorModel config Nothing (SessionLinks []) Remote.NotAsked
+    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
         ! [ loadData
           , loadRelatedSessions config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -79,13 +81,13 @@ type Msg
     | MetadataUpdated (Remote.WebData ())
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         DataSetDataResponse resp ->
             let
                 ( subModel, cmd ) =
-                    ColumnMetadataEditor.updateDataSetResponse model.columnMetadataEditorModel resp
+                    ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
             in
             { model | dataSetResponse = resp, columnMetadataEditorModel = subModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
@@ -93,7 +95,7 @@ update msg model =
         ColumnMetadataEditorMsg subMsg ->
             let
                 ( ( newModel, cmd ), updateMsg ) =
-                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel
+                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel context
 
                 requestMsg =
                     case updateMsg of
@@ -101,12 +103,12 @@ update msg model =
                             Cmd.none
 
                         ColumnMetadataEditor.Updated modifiedMetadata ->
-                            Request.DataSet.updateMetadata model.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
+                            Request.DataSet.updateMetadata context.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                                 |> Cmd.map MetadataUpdated
             in
             { model | columnMetadataEditorModel = newModel }
-                => requestMsg
+                => Cmd.batch [ requestMsg, Cmd.map ColumnMetadataEditorMsg cmd ]
 
         ShowDeleteDialog ->
             let
@@ -118,7 +120,7 @@ update msg model =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete model.config
+                    toDataSetName >> Request.DataSet.delete context.config
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -177,30 +179,28 @@ update msg model =
                     model => Cmd.none
 
 
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    ColumnMetadataEditor.subscriptions model.columnMetadataEditorModel
+        |> Sub.map ColumnMetadataEditorMsg
+
+
 
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
-        --todo breadcrumb
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "API Dashboard" ]
-                , i [ class "fa fa-angle-right", style [ ( "margin", "0 5px" ) ] ] []
-                , a [ href "#" ] [ text "Datasets" ]
-                ]
+        [ div [ id "page-header", class "row" ]
+            [ Breadcrumb.detail AppRoutes.DataSets "Datasets"
+            , viewNameRow model
             ]
-        , viewNameRow model
-        , viewIdRow model
-        , hr [] []
         , viewDetailsRow model
-        , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
-                , ColumnMetadataEditor.view model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+                , ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
                 ]
             ]
         , DeleteDialog.view model.deleteDialogModel
@@ -223,16 +223,6 @@ viewNameRow model =
         ]
 
 
-viewIdRow : Model -> Html Msg
-viewIdRow model =
-    div [ class "row" ]
-        [ div [ class "col-sm-8" ] []
-        , div [ class "col-sm-4 right" ]
-            [ button [ class "btn btn-xs secondary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete" ]
-            ]
-        ]
-
-
 viewError : Model -> Html Msg
 viewError model =
     case model.updateResponse of
@@ -248,19 +238,32 @@ viewError model =
 
 viewDetailsRow : Model -> Html Msg
 viewDetailsRow model =
-    div [ class "row" ]
+    div [ id "details", class "row" ]
         [ viewRolesCol model
         , viewDetailsCol model
-        , Related.view model.config (Remote.succeed model.sessionLinks)
+        , viewUrlAndDeleteCol model
         ]
 
 
 viewRolesCol : Model -> Html Msg
 viewRolesCol model =
     div [ class "col-sm-4" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Roles" ]
-        , ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
+        [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
+        ]
+
+
+viewUrlAndDeleteCol : Model -> Html Msg
+viewUrlAndDeleteCol model =
+    div [ class "col-sm-4" ]
+        [ p []
+            [ strong [] [ text "API Endpoint URL:" ]
+            , br [] []
+            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
+            ]
+        , p []
+            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
+            ]
         ]
 
 
@@ -300,9 +303,8 @@ viewDetailsCol model =
                     in
                     ( empty, empty, empty, empty )
     in
-    div [ class "col-sm-5" ]
-        [ h5 [ class "mt15 mb15" ] [ text "Details" ]
-        , p []
+    div [ class "col-sm-4" ]
+        [ p []
             [ strong [] [ text "Size: " ]
             , size
             ]

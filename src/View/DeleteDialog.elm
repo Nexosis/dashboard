@@ -194,6 +194,6 @@ deleteModalFooter model =
                     button [ class "btn btn-primary", disabled (not model.confirmEnabled), onClick ConfirmDelete ] [ text "Confirm" ]
     in
     div []
-        [ button [ class "btn secondary", onClick CancelDeleteDialog ] [ text "Cancel" ]
+        [ button [ class "btn btn-primary", onClick CancelDeleteDialog ] [ text "Cancel" ]
         , deleteButton
         ]

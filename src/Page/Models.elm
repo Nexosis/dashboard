@@ -2,17 +2,19 @@ module Page.Models exposing (Model, Msg, init, update, view, viewModelGridReadon
 
 import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
-import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
+import StateStorage exposing (saveAppState)
 import Table
 import Util exposing ((=>), spinner)
+import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -26,7 +28,6 @@ import View.Tooltip exposing (helpIcon)
 type alias Model =
     { modelList : Remote.WebData ModelList
     , tableState : Table.State
-    , config : Config
     , currentPage : Int
     , pageSize : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -40,10 +41,10 @@ loadModelList config page pageSize =
         |> Cmd.map ModelListResponse
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
-    Model Remote.Loading (Table.initialSort "createdDate") config 0 10 Nothing
-        => loadModelList config 0 10
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
+    Model Remote.Loading (Table.initialSort "createdDate") 0 context.userPageSize Nothing
+        => loadModelList context.config 0 context.userPageSize
 
 
 
@@ -59,8 +60,8 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
+update msg model context =
     case msg of
         ModelListResponse resp ->
             { model | modelList = resp } => Cmd.none
@@ -83,7 +84,7 @@ update msg model =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete model.config >> ignoreCascadeParams
+                    Request.Model.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -94,54 +95,54 @@ update msg model =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadModelList model.config model.currentPage model.pageSize
+                            loadModelList context.config model.currentPage model.pageSize
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList model.config pgNum model.pageSize
+                => loadModelList context.config pgNum model.pageSize
 
         ChangePageSize pageSize ->
-            { model | pageSize = pageSize, currentPage = 0 }
-                => loadModelList model.config 0 pageSize
+            let
+                newModel =
+                    { model | pageSize = pageSize, currentPage = 0 }
+            in
+            newModel
+                => Cmd.batch
+                    [ loadModelList context.config 0 pageSize
+                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    ]
 
 
 
 -- VIEW --
 
 
-view : Model -> Html Msg
-view model =
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
-        [ p [ class "breadcrumb" ]
-            [ span []
-                [ a [ href "#" ] [ text "Api Dashboard" ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models" ] ++ helpIcon model.config.toolTips "Models") ]
+        [ div [ class "page-header", class "row" ]
+            [ Breadcrumb.list
+            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
-        , div []
-            [ hr [] []
-            , div [ class "row" ]
-                [ div [ class "col-sm-12" ]
-                    [ div [ class "row mb25" ]
-                        [ div [ class "col-sm-6" ]
-                            [ explainer model.config "what_is_model"
-                            ]
-                        , div [ class "col-sm-2 col-sm-offset-4 right" ]
-                            [ PageSize.view ChangePageSize ]
-                        ]
+        , hr [] []
+        , div [ class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ div [ class "row mb25" ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.modelList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
                     ]
                 ]
-            , Grid.view .items (config model.config.toolTips) model.tableState model.modelList
-            , hr [] []
-            , div [ class "center" ]
-                [ Pager.view model.modelList ChangePage ]
             ]
+        , Grid.view .items (config context.config.toolTips) model.tableState model.modelList
+        , hr [] []
+        , div [ class "center" ]
+            [ Pager.view model.modelList ChangePage ]
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
             , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
@@ -201,7 +202,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId False) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
         ]
 
 
@@ -231,7 +232,7 @@ predictActionButton model =
     Table.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ a
-            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId True) ]
+            [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId) ]
             [ text "Predict" ]
         ]
 
@@ -267,14 +268,27 @@ createdColumn =
 
 createdCell : ModelData -> Table.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails []
+    Table.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.createdDate)
         ]
 
 
 lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
-    Grid.stringColumn "Last used" (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+    Grid.veryCustomColumn
+        { name = "Last used"
+        , viewData = lastUsedCell
+        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+        , headAttributes = [ class "per10" ]
+        , headHtml = []
+        }
+
+
+lastUsedCell : ModelData -> Table.HtmlDetails msg
+lastUsedCell model =
+    Table.HtmlDetails [ class "number" ]
+        [ text (toShortDateStringOrEmpty model.lastUsedDate)
+        ]
 
 
 deleteColumn : Grid.Column ModelData Msg
@@ -291,5 +305,5 @@ deleteColumn =
 deleteButton : ModelData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn-link" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn btn-link btn-danger" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

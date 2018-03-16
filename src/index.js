@@ -9,16 +9,21 @@ import '../config.json';
 import * as toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
-import '../interim.css'
+import '../dashboard.css'
 import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
 import '../docs.js'
+import { initLocalStoragePort } from './js/localStoragePort';
+import 'nexosis-styles/bootstrap-custom.css';
+import 'nexosis-styles/nexosis.css';
+import 'nexosis-styles/api-styles.css';
+import 'nexosis-styles/docs-styles.css';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
 }
 
-fetch('./config.json').then(function (response) {
+fetch('./config.json', { cache: 'no-store' }).then(function (response) {
     response.json().then(function (config) {
 
         _LTracker.push({
@@ -50,36 +55,38 @@ fetch('./config.json').then(function (response) {
                 'Level': level
             });
         };
-        
+
         const docsRequests = []
-        for(let doc of config.explainers) {
+        for (let doc of config.explainers) {
             const tmp = doc;
             docsRequests.push(
                 fetch(`./docs/${doc}.md`)
-                    .then (resp => {
-                        if(resp.ok) {
-                            return resp.text().then(text=>{return {name: tmp, content: text}});
+                    .then(resp => {
+                        if (resp.ok) {
+                            return resp.text().then(text => { return { name: tmp, content: text } });
                         }
-                        return Promise.resolve({err : resp.status});
+                        return Promise.resolve({ err: resp.status });
                     }
-                ));
+                    ));
         }
 
         Promise.all(docsRequests).then(docsContent => {
+            const cookie = getCookie('accessToken');
+            try {
+                const parsedTokenCookie = JSON.parse(cookie);
+                config.token = parsedTokenCookie.token;
+                config.identity = parsedTokenCookie.identity;
+            } catch (e) {
+                config.token = cookie;
+            }
 
-            config.token = getCookie('accessToken');
             config.toolTips = toolTips;
-            
+
             config.explainerContent = {};
-            for(let c of docsContent) {
-                if(!c.err)
-                {
+            for (let c of docsContent) {
+                if (!c.err) {
                     config.explainerContent[c.name] = c.content
                 }
-                else {
-                    console.log(c.err);
-                }
-                    
             }
 
             const mountNode = document.getElementById('main');
@@ -107,6 +114,7 @@ fetch('./config.json').then(function (response) {
                 });
             });
 
+            initLocalStoragePort(app);
 
             app.ports.uploadFileSelected.subscribe(function (id) {
 
@@ -116,31 +124,33 @@ fetch('./config.json').then(function (response) {
                 }
 
                 var file = node.files[0];
-                var reader = new FileReader();
+                if (file !== undefined) {
+                    var reader = new FileReader();
 
-                reader.onload = (function (event) {
-                    try {
+                    reader.onload = (function (event) {
+                        try {
 
-                        var fileContent = event.target.result;
+                            var fileContent = event.target.result;
 
-                        var portData = {
-                            contents: fileContent,
-                            filename: file.name,
-                            status: 'Success'
-                        };
+                            var portData = {
+                                contents: fileContent,
+                                filename: file.name,
+                                status: 'Success'
+                            };
 
-                        app.ports.fileContentRead.send(portData);
-                    }
-                    catch (e) {
+                            app.ports.fileContentRead.send(portData);
+                        }
+                        catch (e) {
+                            app.ports.fileContentRead.send({ status: 'ReadFail' })
+                        }
+                    });
+
+                    reader.onerror = (function (event) {
                         app.ports.fileContentRead.send({ status: 'ReadFail' })
-                    }
-                });
+                    });
 
-                reader.onerror = (function (event) {
-                    app.ports.fileContentRead.send({ status: 'ReadFail' })
-                });
-
-                reader.readAsText(file);
+                    reader.readAsText(file);
+                }
             });
 
 
@@ -151,31 +161,29 @@ fetch('./config.json').then(function (response) {
                 a.download = filespec.name;
                 document.body.appendChild(a);
                 a.click();
-                setTimeout(function(){
+                setTimeout(function () {
                     document.body.removeChild(a);
-                    window.URL.revokeObjectURL(fileUrl);  
-                }, 100);  
+                    window.URL.revokeObjectURL(fileUrl);
+                }, 100);
                 app.ports.fileSaved.send(true);
             });
 
-
             Intercept.addResponseCallback(function (xhr) {
-                
+
                 if (xhr.url.startsWith(config.apiUrl)) {
 
-                const getQuotaHeader = (xhr, name) => {
-                    return {
-                        allotted : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
-                        current : parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                    const getQuotaHeader = (xhr, name) => {
+                        return {
+                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
+                            current: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                        }
                     }
-                }
 
-                let quotas = {  
-                    dataSets : getQuotaHeader(xhr, "DataSetCount"),
-                    predictions : getQuotaHeader(xhr, "PredictionCount"),
-                    sessions : getQuotaHeader(xhr, "SessionCount"),
-                }
-
+                    let quotas = {
+                        dataSets: getQuotaHeader(xhr, "DataSetCount"),
+                        predictions: getQuotaHeader(xhr, "PredictionCount"),
+                        sessions: getQuotaHeader(xhr, "SessionCount"),
+                    }
 
                     let xhrInfo = {
                         status: xhr.status,
@@ -183,7 +191,7 @@ fetch('./config.json').then(function (response) {
                         response: JSON.stringify(JSON.parse(xhr.response), null, 2),
                         method: xhr.method,
                         url: xhr.url,
-                    quotas : quotas,
+                        quotas: quotas,
                         timestamp: new Date().toISOString()
                     };
 
@@ -194,8 +202,21 @@ fetch('./config.json').then(function (response) {
                     }
                 }
             });
+
+            const clipboard = new ClipboardJS('.copyToClipboard');
+            clipboard.on('success', function (e) {
+
+                e.trigger.setAttribute("data-balloon", "Copied");
+                e.trigger.setAttribute("data-balloon-pos", "right");
+
+                setTimeout(function () {
+                    e.trigger.removeAttribute("data-balloon");
+                    e.trigger.removeAttribute("data-balloon-pos")
+                }, 1500)
+            });
         });
 
-        
+
+
     });
 });

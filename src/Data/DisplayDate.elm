@@ -2,7 +2,7 @@ module Data.DisplayDate exposing (dateDecoder, toShortDateString, toShortDateStr
 
 import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
 import Time.TimeZones exposing (etc_universal)
-import Time.ZonedDateTime exposing (ZonedDateTime, day, fromDateTime, fromISO8601, hour, minute, month, toISO8601, year)
+import Time.ZonedDateTime exposing (ZonedDateTime, day, fromDateTime, fromISO8601, hour, minute, month, toISO8601, utcOffsetString, year)
 
 
 dateDecoder : Decoder ZonedDateTime
@@ -49,7 +49,9 @@ toShortDateTimeString time =
         ++ " "
         ++ padded (hour time)
         ++ ":"
-        ++ toString (minute time)
+        ++ padded (minute time)
+        ++ " "
+        ++ utcOffsetString time
 
 
 padded : Int -> String
