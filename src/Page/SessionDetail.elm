@@ -99,7 +99,7 @@ update msg model context =
                                             |> Cmd.map ConfusionMatrixLoaded
 
                                     _ ->
-                                        Cmd.none
+                                        Ports.setPageTitle (sessionInfo.name ++ " Details")
                         in
                         { model | sessionResponse = response }
                             => Cmd.batch
@@ -107,6 +107,7 @@ update msg model context =
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
+                                , Ports.setPageTitle (sessionInfo.name ++ " Details")
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
                         { model | sessionResponse = response }

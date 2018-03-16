@@ -45,7 +45,7 @@ type Model
 
 type alias InitState =
     { config : Config
-    , route : Maybe Route
+    , route : Maybe ( Route, String )
     , enabledFeatures : List Feature
     }
 
@@ -62,7 +62,7 @@ type alias App =
 
 
 type Msg
-    = SetRoute (Maybe AppRoutes.Route)
+    = SetRoute (Maybe ( AppRoutes.Route, String ))
     | HomeMsg Home.Msg
     | DataSetsMsg DataSets.Msg
     | DataSetDetailMsg DataSetDetail.Msg
@@ -110,7 +110,7 @@ getQuotas resp =
             Just resp.quotas
 
 
-setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
+setRoute : Maybe ( AppRoutes.Route, String ) -> App -> ( App, Cmd Msg )
 setRoute route app =
     case app.context.config.token of
         Nothing ->
@@ -126,75 +126,75 @@ setRoute route app =
                     -- TODO Load 404 page not found
                     ( app, Cmd.none )
 
-                Just AppRoutes.Home ->
+                Just ( AppRoutes.Home, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Home.init app.context.config (getQuotas app.lastResponse)
                     in
-                    ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )
+                    { app | page = Home pageModel } => Cmd.batch [ Cmd.map HomeMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.DataSets ->
+                Just ( AppRoutes.DataSets, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSets.init app.context
                     in
-                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+                    { app | page = DataSets pageModel } => Cmd.batch [ Cmd.map DataSetsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.DataSetDetail name) ->
+                Just ( AppRoutes.DataSetDetail name, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetDetail.init app.context.config name
                     in
-                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+                    { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.DataSetAdd ->
+                Just ( AppRoutes.DataSetAdd, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetAdd.init app.context.config
                     in
-                    { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd
+                    { app | page = DataSetAdd pageModel } => Cmd.batch [ Cmd.map DataSetAddMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.Imports ->
+                Just ( AppRoutes.Imports, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Imports.init app.context.config
                     in
-                    ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
+                    { app | page = Imports pageModel } => Cmd.batch [ Cmd.map ImportsMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.Sessions ->
+                Just ( AppRoutes.Sessions, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Sessions.init app.context
                     in
-                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+                    { app | page = Sessions pageModel } => Cmd.batch [ Cmd.map SessionsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.SessionDetail id) ->
+                Just ( AppRoutes.SessionDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             SessionDetail.init app.context.config id
                     in
-                    ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
+                    { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.SessionStart dataSetName) ->
+                Just ( AppRoutes.SessionStart dataSetName, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             SessionStart.init app.context.config dataSetName
                     in
-                    ( { app | page = SessionStart pageModel }, Cmd.map SessionStartMsg initCmd )
+                    { app | page = SessionStart pageModel } => Cmd.batch [ Cmd.map SessionStartMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.Models ->
+                Just ( AppRoutes.Models, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Models.init app.context
                     in
-                    ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
+                    { app | page = Models pageModel } => Cmd.batch [ Cmd.map ModelsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.ModelDetail id) ->
+                Just ( AppRoutes.ModelDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             ModelDetail.init app.context.config id
                     in
-                    ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
+                    { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
