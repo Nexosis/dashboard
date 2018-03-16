@@ -1,4 +1,4 @@
-module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
+module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, subscriptions, update, updateDataSetResponse, view, viewTargetAndKeyColumns)
 
 import Autocomplete
 import Char
@@ -10,7 +10,7 @@ import Dict exposing (Dict)
 import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onFocus, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -34,6 +34,7 @@ type alias Model =
     , modifiedMetadata : Dict String ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
+    , previewTarget : Maybe String
     , showAutocomplete : Bool
     , showTarget : Bool
     }
@@ -64,11 +65,14 @@ type Msg
     | SetAutoCompleteState Autocomplete.Msg
     | SetTarget String
     | SetQuery String
+    | PreviewTarget String
+    | AutocompleteWrap Bool
+    | AutocompleteReset
 
 
 init : DataSetName -> Bool -> ( Model, Cmd Msg )
 init dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") Dict.empty Autocomplete.empty "" False showTarget
+    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") Dict.empty Autocomplete.empty "" Nothing False showTarget
         => Cmd.none
 
 
@@ -199,6 +203,33 @@ update msg model context =
                 Just updateMsg ->
                     update updateMsg newModel context
 
+        PreviewTarget targetName ->
+            { model | previewTarget = Just targetName } => Cmd.none => NoOp
+
+        AutocompleteWrap toTop ->
+            case model.previewTarget of
+                Just target ->
+                    update AutocompleteReset model context
+
+                Nothing ->
+                    if toTop then
+                        { model
+                            | autoState = Autocomplete.resetToLastItem autocompleteUpdateConfig (filterColumnNames model.targetQuery model.columnMetadata) 5 model.autoState
+                            , previewTarget = Maybe.map .name <| List.head <| List.reverse <| List.take 5 <| filterColumnNames model.targetQuery model.columnMetadata
+                        }
+                            => Cmd.none
+                            => NoOp
+                    else
+                        { model
+                            | autoState = Autocomplete.resetToFirstItem autocompleteUpdateConfig (filterColumnNames model.targetQuery model.columnMetadata) 5 model.autoState
+                            , previewTarget = Maybe.map .name <| List.head <| List.take 5 <| filterColumnNames model.targetQuery model.columnMetadata
+                        }
+                            => Cmd.none
+                            => NoOp
+
+        AutocompleteReset ->
+            { model | autoState = Autocomplete.reset autocompleteUpdateConfig model.autoState, previewTarget = Nothing } => Cmd.none => NoOp
+
         SetTarget targetName ->
             let
                 ( newTarget, oldTarget ) =
@@ -243,7 +274,12 @@ update msg model context =
                         |> Maybe.map .name
                         |> Maybe.withDefault ""
             in
-            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False } => Cmd.none => Updated (Dict.values updatedMetadata)
+            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => Updated (Dict.values updatedMetadata)
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Autocomplete.subscription |> Sub.map SetAutoCompleteState
 
 
 filterColumnNames : String -> Remote.WebData ColumnMetadataListing -> List ColumnMetadata
@@ -261,8 +297,8 @@ filterColumnNames query columnMetadata =
 onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
 onKeyDown code maybeId =
     if code == 38 || code == 40 then
-        Nothing
-    else if code == 13 then
+        Maybe.map PreviewTarget maybeId
+    else if code == 13 || code == 9 then
         Maybe.map SetTarget maybeId
     else
         Nothing
@@ -273,8 +309,8 @@ autocompleteUpdateConfig =
     Autocomplete.updateConfig
         { toId = .name
         , onKeyDown = onKeyDown
-        , onTooLow = Nothing
-        , onTooHigh = Nothing
+        , onTooLow = Just <| AutocompleteWrap True
+        , onTooHigh = Just <| AutocompleteWrap False
         , onMouseEnter = \_ -> Nothing
         , onMouseLeave = \_ -> Nothing
         , onMouseClick = \id -> Just <| SetTarget id
@@ -391,7 +427,7 @@ viewTargetAndKeyColumns model =
                 _ ->
                     ( div [] [], div [] [] )
     in
-    Html.form [ class "form-horizontal" ]
+    div [ class "form-horizontal" ]
         [ keyFormGroup
         , targetFormGroup
         ]
@@ -424,11 +460,19 @@ viewKeyFormGroup key =
 viewTargetFormGroup : Model -> Html Msg
 viewTargetFormGroup model =
     if model.showTarget then
+        let
+            queryText =
+                Maybe.withDefault model.targetQuery model.previewTarget
+        in
         div [ class "form-group" ]
             [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
             , div [ class "col-sm-8" ]
-                [ input [ type_ "text", class "form-control", value model.targetQuery, onInput SetQuery ] []
-                , viewIf (\() -> Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata))) model.showAutocomplete
+                [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
+                , viewIf
+                    (\() ->
+                        div [ class "autocomplete-menu" ] [ Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata)) ]
+                    )
+                    model.showAutocomplete
                 ]
             ]
     else
