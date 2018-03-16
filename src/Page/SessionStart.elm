@@ -280,16 +280,22 @@ verifyTimestampRole model =
         shouldValidate =
             model.selectedSessionType == Just Forecast || model.selectedSessionType == Just Impact
 
-        dateCandidateDataSet =
-            dateColumnCandidate <| getMetaDataColumns model
+        merged =
+            Dict.values model.columnEditorModel.modifiedMetadata |> mergeMetadata (getMetaDataColumns model)
 
-        dateCandidateModified =
-            dateColumnCandidate <| Dict.values model.columnEditorModel.modifiedMetadata
+        dateCandidate =
+            dateColumnCandidate merged
+
+        hasDate =
+            not (dateCandidate == Columns.defaultColumnMetadata)
+
+        hasTimestamp =
+            dateCandidate.role == Columns.Timestamp
 
         errorMessage =
-            if dateCandidateDataSet.role == Columns.Timestamp || dateCandidateModified.role == Columns.Timestamp then
+            if hasTimestamp then
                 ""
-            else if not (dateCandidateDataSet == Columns.defaultColumnMetadata) && dateCandidateModified == Columns.defaultColumnMetadata then
+            else if hasDate then
                 "You are executing a forecast against a dataset that does not have a timestamp role. You must select a date column to use as the timestamp and set that role before starting the session."
             else
                 "Dataset contains neither timestamp nor date column. We cannot run time-series algorithms without a date value of some kind."
@@ -298,6 +304,12 @@ verifyTimestampRole model =
         Err [ MetadataField => errorMessage ]
     else
         Ok ""
+
+
+mergeMetadata : List Columns.ColumnMetadata -> List Columns.ColumnMetadata -> List Columns.ColumnMetadata
+mergeMetadata left right =
+    List.filter (\b -> List.member b.name (List.map (\a -> a.name) left)) right
+        ++ List.filterNot (\b -> List.member b.name (List.map (\a -> a.name) right)) left
 
 
 configWizard : WizardConfig Step FieldError Msg Model SessionRequest
@@ -513,6 +525,7 @@ update msg model context =
                 , stats = stats
                 , target = target
             }
+                |> recheckErrors
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ( _, SetWizardPage step ) ->
