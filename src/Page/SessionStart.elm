@@ -287,7 +287,7 @@ verifyTimestampRole model =
             dateColumnCandidate merged
 
         hasDate =
-            not (dateCandidate == Columns.defaultColumnMetadata)
+            dateCandidate.dataType == Columns.Date
 
         hasTimestamp =
             dateCandidate.role == Columns.Timestamp
@@ -910,8 +910,6 @@ viewColumnMetadata context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ viewFieldError model.errors MetadataField
-
-            --text
             , div [ class "alert alert-info" ]
                 [ explainer context.config "session_column_metadata"
                 ]
