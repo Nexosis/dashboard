@@ -13,6 +13,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
+import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
@@ -66,7 +67,7 @@ update msg model context =
         ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Cmd.none
+                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
 
                 Remote.Failure err ->
                     model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
