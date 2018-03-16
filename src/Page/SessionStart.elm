@@ -9,9 +9,9 @@ import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
-import Date exposing (Date)
+import Date exposing (Date, Month)
 import DateTimePicker
-import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
+import DateTimePicker.Config exposing (defaultDatePickerConfig, defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
 import Dict
 import Html exposing (..)
@@ -25,15 +25,17 @@ import Request.DataSet
 import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
 import String.Verify exposing (notBlank)
-import Time.DateTime as DateTime exposing (DateTime)
-import Time.TimeZones exposing (etc_universal)
-import Time.ZonedDateTime exposing (fromDateTime)
+import Time.DateTime as DateTime exposing (DateTime, zero)
+import Time.TimeZone as TimeZone
+import Time.TimeZones exposing (fromName, utc)
+import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
 import Util exposing ((=>), isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewFieldError, viewRemoteError)
 import View.Extra exposing (viewJust)
+import View.TimeZonePicker exposing (timeZoneList)
 import View.Wizard as Wizard exposing (StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
@@ -46,8 +48,9 @@ type alias Model =
     , sessionName : Maybe String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
-    , startDate : Maybe DateTime
-    , endDate : Maybe DateTime
+    , startDate : Maybe Date
+    , endDate : Maybe Date
+    , timeZone : TimeZone.TimeZone
     , startDatePickerState : DateTimePicker.State
     , endDatePickerState : DateTimePicker.State
     , resultInterval : ResultInterval
@@ -74,6 +77,7 @@ type Msg
     | EndDateChanged DateTimePicker.State (Maybe Date)
     | ChangeEventName String
     | IntervalChanged ResultInterval
+    | TimeZoneSelected String
     | SelectContainsAnomalies Bool
     | SelectBalance Bool
     | SetWizardPage Step
@@ -125,6 +129,7 @@ init config dataSetName =
         Remote.NotAsked
         Nothing
         Nothing
+        (utc ())
         DateTimePicker.initialState
         DateTimePicker.initialState
         Session.Day
@@ -170,12 +175,32 @@ validateModel model =
             Err [ SessionTypeField => "Session Type Selection is required" ]
 
 
-verifyStartEndDates : Model -> Result (List FieldError) { endDate : DateTime, startDate : DateTime }
-verifyStartEndDates { startDate, endDate } =
+verifyStartEndDates : Model -> Result (List FieldError) { endDate : ZonedDateTime, startDate : ZonedDateTime }
+verifyStartEndDates { startDate, endDate, timeZone } =
+    let
+        toDate input =
+            DateTime.dateTime { zero | year = Date.year input, month = monthToInt (Date.month input), day = Date.day input, hour = Date.hour input, minute = Date.minute input }
+
+        getOffset time tz =
+            TimeZone.offset (time |> DateTime.toTimestamp) tz
+    in
     case ( startDate, endDate ) of
         ( Just startDate, Just endDate ) ->
-            if DateTime.compare startDate endDate == LT then
-                Ok { startDate = startDate, endDate = endDate }
+            let
+                start =
+                    startDate |> toDate
+
+                end =
+                    endDate |> toDate
+
+                startResult =
+                    DateTime.addMilliseconds (getOffset start timeZone) start
+
+                endResult =
+                    DateTime.addMilliseconds (getOffset end timeZone) end
+            in
+            if DateTime.compare start end == LT then
+                Ok { startDate = ZonedDateTime.fromDateTime timeZone startResult, endDate = ZonedDateTime.fromDateTime timeZone endResult }
             else
                 Err [ StartDateField => "Start date must be before the end date." ]
 
@@ -370,7 +395,7 @@ update msg model context =
 
         ( _, StartDateChanged state value ) ->
             { model
-                | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                | startDate = value
                 , startDatePickerState = state
             }
                 |> recheckErrors
@@ -378,11 +403,18 @@ update msg model context =
 
         ( _, EndDateChanged state value ) ->
             { model
-                | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                | endDate = value
                 , endDatePickerState = state
             }
                 |> recheckErrors
                 => Cmd.none
+
+        ( StartEndDates, TimeZoneSelected tz ) ->
+            let
+                timeZone =
+                    fromName tz |> Maybe.withDefault (utc ())
+            in
+            { model | timeZone = timeZone } => Cmd.none
 
         ( StartEndDates, IntervalChanged interval ) ->
             { model | resultInterval = interval }
@@ -732,12 +764,17 @@ viewStartEndDates context model =
             [ div [ class "alert alert-info" ]
                 [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
-        , div [ class "form-group col-sm-3" ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        , viewTzList model
+        , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                , viewDatePicker model StartDateChanged [] model.startDatePickerState model.startDate
                 ]
             , viewFieldError model.errors StartDateField
             ]
@@ -746,12 +783,8 @@ viewStartEndDates context model =
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                , viewDatePicker model EndDateChanged [] model.endDatePickerState model.endDate
                 ]
-            ]
-        , div [ class "form-group col-sm-3 clearfix-left" ]
-            [ label [] [ text "Result Interval" ]
-            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
             ]
         ]
 
@@ -773,11 +806,16 @@ viewImpactStartEndDates context model =
             , viewFieldError model.errors EventNameField
             ]
         , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        , viewTzList model
+        , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                , viewDatePicker model StartDateChanged [] model.startDatePickerState model.startDate
                 ]
             , viewFieldError model.errors StartDateField
             ]
@@ -786,31 +824,35 @@ viewImpactStartEndDates context model =
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                , viewDatePicker model EndDateChanged [] model.endDatePickerState model.endDate
                 ]
-            ]
-        , div [ class "form-group col-sm-3 clearfix-left" ]
-            [ label [] [ text "Result Interval" ]
-            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
             ]
         ]
 
 
-toDate : Maybe DateTime -> Maybe Date
-toDate dateTime =
-    case dateTime of
-        Just dt ->
-            dt
-                |> DateTime.toISO8601
-                |> Date.fromString
-                |> Result.toMaybe
+viewTzList : Model -> Html Msg
+viewTzList model =
+    case model.resultInterval of
+        Session.Hour ->
+            div [ class "form-group col-sm-3 clearfix-left" ]
+                [ label [] [ text "Timezone" ]
+                , TimeZone.name model.timeZone |> timeZoneList TimeZoneSelected
+                ]
 
-        Nothing ->
-            Nothing
+        _ ->
+            div [] []
 
 
-datePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
-datePickerConfig msg =
+viewDatePicker : Model -> (DateTimePicker.State -> Maybe Date -> Msg) -> List (Attribute Msg) -> DateTimePicker.State -> Maybe Date -> Html Msg
+viewDatePicker model msg =
+    if model.resultInterval == Session.Hour then
+        DateTimePicker.dateTimePickerWithConfig (dateTimePickerConfig msg)
+    else
+        DateTimePicker.datePickerWithConfig (defaultDatePickerConfig msg)
+
+
+dateTimePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
+dateTimePickerConfig msg =
     let
         defaultDateTimeConfig =
             defaultDateTimePickerConfig msg
@@ -911,22 +953,19 @@ viewStartSession model =
             Maybe.map2
                 (\start end ->
                     let
-                        utc =
-                            etc_universal ()
-
                         convertedStart =
-                            fromDateTime utc start
+                            fromDateTime (utc ()) start
 
                         convertedEnd =
-                            fromDateTime utc end
+                            fromDateTime (utc ()) end
                     in
                     if model.resultInterval == Hour then
                         toShortDateTimeString convertedStart ++ " - " ++ toShortDateTimeString convertedEnd
                     else
                         toShortDateString convertedStart ++ " - " ++ toShortDateString convertedEnd
                 )
-                model.startDate
-                model.endDate
+                (model.startDate |> Maybe.map (\d -> d |> Date.toTime |> DateTime.fromTimestamp))
+                (model.endDate |> Maybe.map (\d -> d |> Date.toTime |> DateTime.fromTimestamp))
 
         maybeResultInterval =
             Maybe.map (\_ -> toString model.resultInterval) model.startDate
@@ -974,13 +1013,13 @@ editIcon editType =
             i [ class "fa fa-edit", onClick (SetWizardPage step) ] []
 
 
-extractTimestampMax : Model -> Maybe DateTime
+extractTimestampMax : Model -> Maybe Date
 extractTimestampMax model =
     let
         ( _, dateString ) =
             getMinMaxValueFromCandidate model
     in
-    case DateTime.fromISO8601 dateString of
+    case Date.fromString dateString of
         Result.Ok date ->
             Just date
 
@@ -1033,3 +1072,43 @@ getMinMaxValueFromCandidate model =
 
         Nothing ->
             ( "", "" )
+
+
+monthToInt : Date.Month -> Int
+monthToInt value =
+    case value of
+        Date.Jan ->
+            1
+
+        Date.Feb ->
+            2
+
+        Date.Mar ->
+            3
+
+        Date.Apr ->
+            4
+
+        Date.May ->
+            5
+
+        Date.Jun ->
+            6
+
+        Date.Jul ->
+            7
+
+        Date.Aug ->
+            8
+
+        Date.Sep ->
+            9
+
+        Date.Oct ->
+            10
+
+        Date.Nov ->
+            11
+
+        Date.Dec ->
+            12
