@@ -9,6 +9,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.Metric exposing (Metric)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
 import Data.Status as Status exposing (Status)
@@ -50,21 +51,22 @@ type alias Model =
     , windowWidth : Int
     , currentPage : Int
     , csvDownload : Remote.WebData String
+    , metricList : List Metric
     }
 
 
-init : Config -> String -> ( Model, Cmd Msg )
-init config sessionId =
+init : ContextModel -> String -> ( Model, Cmd Msg )
+init context sessionId =
     let
         getWindowWidth =
             Task.attempt GetWindowWidth Window.width
 
         loadSessionDetail =
-            Request.Session.getOne config sessionId
+            Request.Session.getOne context.config sessionId
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -297,13 +299,13 @@ viewSessionDetails : Model -> Html Msg
 viewSessionDetails model =
     let
         loadingOr =
-            loadingOrView model.sessionResponse
+            loadingOrView model model.sessionResponse
 
         pendingOrCompleted model session =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , loadingOrView model.resultsResponse viewMetricsList
+                    , loadingOrView model model.resultsResponse viewMetricsList
                     ]
             else
                 div []
@@ -311,14 +313,14 @@ viewSessionDetails model =
     in
     div [ class "row", id "details" ]
         [ div [ class "col-sm-3" ]
-            [ loadingOr (pendingOrCompleted model) ]
+            [ loadingOr pendingOrCompleted ]
 
         --, p []
         --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
         , div [ class "col-sm-4" ]
-            [ loadingOr (viewSessionInfo model)
+            [ loadingOr viewSessionInfo
             ]
         , div [ class "col-sm-5" ]
             [ loadingOr viewMessages
@@ -351,8 +353,8 @@ viewSessionInfo model session =
         ]
 
 
-viewMessages : SessionData -> Html Msg
-viewMessages session =
+viewMessages : Model -> SessionData -> Html Msg
+viewMessages model session =
     div []
         [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
             [ strong [] [ text "Messages" ]
@@ -362,8 +364,8 @@ viewMessages session =
         ]
 
 
-viewStatusHistory : SessionData -> Html Msg
-viewStatusHistory session =
+viewStatusHistory : Model -> SessionData -> Html Msg
+viewStatusHistory model session =
     let
         statusEntry status =
             tr []
@@ -399,7 +401,7 @@ viewSessionHeader : Model -> Html Msg
 viewSessionHeader model =
     let
         loadingOr =
-            loadingOrView model.sessionResponse
+            loadingOrView model model.sessionResponse
 
         disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
         disabledOr request view =
@@ -442,8 +444,8 @@ deleteSessionButton model =
         ]
 
 
-viewPredictButton : SessionData -> Html Msg
-viewPredictButton session =
+viewPredictButton : Model -> SessionData -> Html Msg
+viewPredictButton model session =
     if canPredictSession session then
         a [ class "btn btn-danger", AppRoutes.href (AppRoutes.ModelDetail (Maybe.withDefault "" session.modelId)) ]
             [ text "Predict" ]
@@ -551,8 +553,8 @@ viewCompletedSession session =
         ]
 
 
-viewMetricsList : SessionResults -> Html Msg
-viewMetricsList results =
+viewMetricsList : Model -> SessionResults -> Html Msg
+viewMetricsList model results =
     let
         listMetric key value =
             li []
@@ -574,8 +576,8 @@ viewMetricsList results =
         ]
 
 
-viewSessionName : SessionData -> Html Msg
-viewSessionName session =
+viewSessionName : Model -> SessionData -> Html Msg
+viewSessionName model session =
     div [ class "col-sm-9" ]
         [ h2 [ class "mt10" ] [ text session.name ]
         ]
@@ -767,11 +769,11 @@ viewTimeSeriesResults model sessionData =
             div [] []
 
 
-loadingOrView : Remote.WebData a -> (a -> Html Msg) -> Html Msg
-loadingOrView request view =
+loadingOrView : Model -> Remote.WebData a -> (Model -> a -> Html Msg) -> Html Msg
+loadingOrView model request view =
     case request of
         Remote.Success resp ->
-            view resp
+            view model resp
 
         Remote.Loading ->
             div [ class "loading--line" ] []
