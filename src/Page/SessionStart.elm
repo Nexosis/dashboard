@@ -1,4 +1,4 @@
-module Page.SessionStart exposing (Model, Msg, init, update, view)
+module Page.SessionStart exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Columns as Columns
@@ -565,6 +565,12 @@ getTargetColumn metadata =
     metadata
         |> List.find (\c -> c.role == Columns.Target)
         |> Maybe.map .name
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    ColumnMetadataEditor.subscriptions model.columnEditorModel
+        |> Sub.map ColumnMetadataEditorMsg
 
 
 view : Model -> ContextModel -> Html Msg

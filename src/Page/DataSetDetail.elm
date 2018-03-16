@@ -1,4 +1,4 @@
-module Page.DataSetDetail exposing (Model, Msg, init, update, view)
+module Page.DataSetDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes
 import Data.Cascade as Cascade
@@ -177,6 +177,12 @@ update msg model context =
 
                 _ ->
                     model => Cmd.none
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    ColumnMetadataEditor.subscriptions model.columnMetadataEditorModel
+        |> Sub.map ColumnMetadataEditorMsg
 
 
 

@@ -14,6 +14,10 @@ import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
 import '../docs.js'
 import { initLocalStoragePort } from './js/localStoragePort';
+import 'nexosis-styles/bootstrap-custom.css';
+import 'nexosis-styles/nexosis.css';
+import 'nexosis-styles/api-styles.css';
+import 'nexosis-styles/docs-styles.css';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -120,31 +124,33 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 }
 
                 var file = node.files[0];
-                var reader = new FileReader();
+                if (file !== undefined) {
+                    var reader = new FileReader();
 
-                reader.onload = (function (event) {
-                    try {
+                    reader.onload = (function (event) {
+                        try {
 
-                        var fileContent = event.target.result;
+                            var fileContent = event.target.result;
 
-                        var portData = {
-                            contents: fileContent,
-                            filename: file.name,
-                            status: 'Success'
-                        };
+                            var portData = {
+                                contents: fileContent,
+                                filename: file.name,
+                                status: 'Success'
+                            };
 
-                        app.ports.fileContentRead.send(portData);
-                    }
-                    catch (e) {
+                            app.ports.fileContentRead.send(portData);
+                        }
+                        catch (e) {
+                            app.ports.fileContentRead.send({ status: 'ReadFail' })
+                        }
+                    });
+
+                    reader.onerror = (function (event) {
                         app.ports.fileContentRead.send({ status: 'ReadFail' })
-                    }
-                });
+                    });
 
-                reader.onerror = (function (event) {
-                    app.ports.fileContentRead.send({ status: 'ReadFail' })
-                });
-
-                reader.readAsText(file);
+                    reader.readAsText(file);
+                }
             });
 
 
@@ -199,18 +205,18 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             const clipboard = new ClipboardJS('.copyToClipboard');
             clipboard.on('success', function (e) {
-                
+
                 e.trigger.setAttribute("data-balloon", "Copied");
                 e.trigger.setAttribute("data-balloon-pos", "right");
 
-                setTimeout(function() {
+                setTimeout(function () {
                     e.trigger.removeAttribute("data-balloon");
                     e.trigger.removeAttribute("data-balloon-pos")
                 }, 1500)
             });
         });
 
-        
+
 
     });
 });
