@@ -149,6 +149,7 @@ type Field
     = EventNameField
     | StartDateField
     | SessionTypeField
+    | MetadataField
 
 
 validateModel : Model -> Result (List FieldError) SessionRequest
@@ -256,6 +257,7 @@ perStepValidations : List ( Step, Model -> List FieldError )
 perStepValidations =
     [ ( StartEndDates, verifyStartEndStep )
     , ( SessionType, verifySessionType >> unwrapErrors )
+    , ( ColumnMetadata, verifyMetadataStep )
     ]
 
 
@@ -265,6 +267,49 @@ verifyStartEndStep model =
         [ verifyStartEndDates >> unwrapErrors
         , verifyEventName >> unwrapErrors
         ]
+
+
+verifyMetadataStep : Model -> List FieldError
+verifyMetadataStep model =
+    List.concatMap (\f -> f model) [ verifyTimestampRole >> unwrapErrors ]
+
+
+verifyTimestampRole : Model -> Result (List FieldError) String
+verifyTimestampRole model =
+    let
+        shouldValidate =
+            model.selectedSessionType == Just Forecast || model.selectedSessionType == Just Impact
+
+        merged =
+            Dict.values model.columnEditorModel.modifiedMetadata |> mergeMetadata (getMetaDataColumns model)
+
+        dateCandidate =
+            dateColumnCandidate merged
+
+        hasDate =
+            dateCandidate.dataType == Columns.Date
+
+        hasTimestamp =
+            dateCandidate.role == Columns.Timestamp
+
+        errorMessage =
+            if hasTimestamp then
+                ""
+            else if hasDate then
+                "You are executing a forecast against a dataset that does not have a timestamp role. You must select a date column to use as the timestamp and set that role before starting the session."
+            else
+                "Dataset contains neither timestamp nor date column. We cannot run time-series algorithms without a date value of some kind."
+    in
+    if shouldValidate && String.length errorMessage > 0 then
+        Err [ MetadataField => errorMessage ]
+    else
+        Ok ""
+
+
+mergeMetadata : List Columns.ColumnMetadata -> List Columns.ColumnMetadata -> List Columns.ColumnMetadata
+mergeMetadata left right =
+    List.filter (\b -> List.member b.name (List.map (\a -> a.name) left)) right
+        ++ List.filterNot (\b -> List.member b.name (List.map (\a -> a.name) right)) left
 
 
 configWizard : WizardConfig Step FieldError Msg Model SessionRequest
@@ -423,7 +468,7 @@ update msg model context =
                 { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
-            { model | steps = Ziplist.rewind model.steps } => Cmd.none
+            { model | steps = Ziplist.rewind model.steps, errors = [] } => Cmd.none
 
         ( _, InputBlur ) ->
             recheckErrors model => Cmd.none
@@ -480,6 +525,7 @@ update msg model context =
                 , stats = stats
                 , target = target
             }
+                |> recheckErrors
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ( _, SetWizardPage step ) ->
@@ -866,7 +912,8 @@ viewColumnMetadata : ContextModel -> Model -> Html Msg
 viewColumnMetadata context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
+            [ viewFieldError model.errors MetadataField
+            , div [ class "alert alert-info" ]
                 [ explainer context.config "session_column_metadata"
                 ]
             ]
@@ -988,8 +1035,8 @@ extractTimestampMax model =
             Nothing
 
 
-getDateTimeColumns : Model -> List Columns.ColumnMetadata
-getDateTimeColumns model =
+getMetaDataColumns : Model -> List Columns.ColumnMetadata
+getMetaDataColumns model =
     case model.columnEditorModel.columnMetadata of
         Remote.Success cm ->
             Dict.values cm.metadata
@@ -998,12 +1045,9 @@ getDateTimeColumns model =
             []
 
 
-dateColumnCandidate : Model -> Columns.ColumnMetadata
-dateColumnCandidate model =
+dateColumnCandidate : List Columns.ColumnMetadata -> Columns.ColumnMetadata
+dateColumnCandidate list =
     let
-        list =
-            getDateTimeColumns model
-
         column =
             List.filter (\a -> a.dataType == Columns.Date) list
                 |> List.append (List.filter (\a -> a.role == Columns.Timestamp) list)
@@ -1016,7 +1060,7 @@ getMinMaxValueFromCandidate : Model -> ( String, String )
 getMinMaxValueFromCandidate model =
     let
         metadata =
-            dateColumnCandidate model
+            dateColumnCandidate <| getMetaDataColumns model
     in
     case model.stats of
         Just statDict ->
