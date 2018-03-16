@@ -22,6 +22,7 @@ import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
+import View.Tooltip exposing (helpIconFromText)
 
 
 type alias Model =
@@ -228,7 +229,7 @@ metricsList model algo metrics =
 metricListItem : Model -> ( String, Float ) -> Html Msg
 metricListItem model ( name, value ) =
     li []
-        [ strong [] [ text (getMetricNameFromKey model.metricList name) ]
+        [ strong [] ([ text (getMetricNameFromKey model.metricList name) ] ++ helpIconFromText (getMetricDescriptionFromKey model.metricList name))
         , br [] []
         , styledNumber <| formatFloatToString value
         ]

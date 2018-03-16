@@ -9,7 +9,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
-import Data.Metric exposing (Metric, getMetricNameFromKey)
+import Data.Metric exposing (..)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
 import Data.Status as Status exposing (Status)
@@ -38,6 +38,7 @@ import View.Error exposing (viewHttpError)
 import View.Extra exposing (viewIf, viewJust)
 import View.Messages as Messages
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
+import View.Tooltip exposing (helpIconFromText)
 import Window
 
 
@@ -559,7 +560,9 @@ viewMetricsList model results =
         listMetric key value =
             li []
                 [ strong []
-                    [ text (getMetricNameFromKey model.metricList key) ]
+                    ([ text (getMetricNameFromKey model.metricList key) ]
+                        ++ helpIconFromText (getMetricDescriptionFromKey model.metricList key)
+                    )
                 , br []
                     []
                 , styledNumber <| formatFloatToString value
@@ -574,10 +577,6 @@ viewMetricsList model results =
         , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
-
-
-
---List.foldr (\a b -> a.name) key (List.filter (\a -> a.key == key) model.metricList)
 
 
 viewSessionName : Model -> SessionData -> Html Msg
