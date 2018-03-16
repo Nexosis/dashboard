@@ -29,7 +29,7 @@ import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
 import Time.TimeZones exposing (fromName, utc)
 import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
-import Util exposing ((=>), isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+import Util exposing ((=>), dateToUtcDateTime, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -177,30 +177,17 @@ validateModel model =
 
 verifyStartEndDates : Model -> Result (List FieldError) { endDate : ZonedDateTime, startDate : ZonedDateTime }
 verifyStartEndDates { startDate, endDate, timeZone } =
-    let
-        toDate input =
-            DateTime.dateTime { zero | year = Date.year input, month = monthToInt (Date.month input), day = Date.day input, hour = Date.hour input, minute = Date.minute input }
-
-        getOffset time tz =
-            TimeZone.offset (time |> DateTime.toTimestamp) tz
-    in
     case ( startDate, endDate ) of
         ( Just startDate, Just endDate ) ->
             let
                 start =
-                    startDate |> toDate
+                    startDate |> dateToUtcDateTime timeZone
 
                 end =
-                    endDate |> toDate
-
-                startResult =
-                    DateTime.addMilliseconds (getOffset start timeZone) start
-
-                endResult =
-                    DateTime.addMilliseconds (getOffset end timeZone) end
+                    endDate |> dateToUtcDateTime timeZone
             in
             if DateTime.compare start end == LT then
-                Ok { startDate = ZonedDateTime.fromDateTime timeZone startResult, endDate = ZonedDateTime.fromDateTime timeZone endResult }
+                Ok { startDate = ZonedDateTime.fromDateTime timeZone start, endDate = ZonedDateTime.fromDateTime timeZone end }
             else
                 Err [ StartDateField => "Start date must be before the end date." ]
 
@@ -952,20 +939,13 @@ viewStartSession model =
         maybeStartEndDates =
             Maybe.map2
                 (\start end ->
-                    let
-                        convertedStart =
-                            fromDateTime (utc ()) start
-
-                        convertedEnd =
-                            fromDateTime (utc ()) end
-                    in
                     if model.resultInterval == Hour then
-                        toShortDateTimeString convertedStart ++ " - " ++ toShortDateTimeString convertedEnd
+                        toShortDateTimeString start ++ " - " ++ toShortDateTimeString end
                     else
-                        toShortDateString convertedStart ++ " - " ++ toShortDateString convertedEnd
+                        toShortDateString start ++ " - " ++ toShortDateString end
                 )
-                (model.startDate |> Maybe.map (\d -> d |> Date.toTime |> DateTime.fromTimestamp))
-                (model.endDate |> Maybe.map (\d -> d |> Date.toTime |> DateTime.fromTimestamp))
+                (model.startDate |> Maybe.map (\d -> d |> dateToUtcDateTime model.timeZone |> ZonedDateTime.fromDateTime model.timeZone))
+                (model.endDate |> Maybe.map (\d -> d |> dateToUtcDateTime model.timeZone |> ZonedDateTime.fromDateTime model.timeZone))
 
         maybeResultInterval =
             Maybe.map (\_ -> toString model.resultInterval) model.startDate
@@ -1072,43 +1052,3 @@ getMinMaxValueFromCandidate model =
 
         Nothing ->
             ( "", "" )
-
-
-monthToInt : Date.Month -> Int
-monthToInt value =
-    case value of
-        Date.Jan ->
-            1
-
-        Date.Feb ->
-            2
-
-        Date.Mar ->
-            3
-
-        Date.Apr ->
-            4
-
-        Date.May ->
-            5
-
-        Date.Jun ->
-            6
-
-        Date.Jul ->
-            7
-
-        Date.Aug ->
-            8
-
-        Date.Sep ->
-            9
-
-        Date.Oct ->
-            10
-
-        Date.Nov ->
-            11
-
-        Date.Dec ->
-            12
