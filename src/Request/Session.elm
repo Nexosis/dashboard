@@ -9,7 +9,7 @@ import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
-import Time.DateTime exposing (DateTime, toISO8601)
+import Time.ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
 
 get : Config -> Int -> Int -> Http.Request SessionList
@@ -142,8 +142,8 @@ type alias ForecastSessionRequest =
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
     , dates :
-        { startDate : DateTime
-        , endDate : DateTime
+        { startDate : ZonedDateTime
+        , endDate : ZonedDateTime
         }
     , resultInterval : ResultInterval
     }
@@ -180,8 +180,8 @@ type alias ImpactSessionRequest =
     , dataSourceName : DataSetName
     , columns : List ColumnMetadata
     , dates :
-        { startDate : DateTime
-        , endDate : DateTime
+        { startDate : ZonedDateTime
+        , endDate : ZonedDateTime
         }
     , eventName : String
     , resultInterval : ResultInterval
