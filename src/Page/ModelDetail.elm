@@ -2,7 +2,6 @@ module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
-import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
 import Data.Metric exposing (..)
