@@ -559,7 +559,7 @@ viewMetricsList model results =
         listMetric key value =
             li []
                 [ strong []
-                    [ text key ]
+                    [ text (getMetricNameFromKey model key) ]
                 , br []
                     []
                 , styledNumber <| formatFloatToString value
@@ -574,6 +574,24 @@ viewMetricsList model results =
         , ul [ class "collapse small algorithm-metrics", id "metrics" ]
             (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
         ]
+
+
+getMetricNameFromKey : Model -> String -> String
+getMetricNameFromKey model key =
+    let
+        candidate =
+            List.find (\a -> a.key == key) model.metricList
+    in
+    case candidate of
+        Just metric ->
+            metric.name
+
+        Nothing ->
+            ""
+
+
+
+--List.foldr (\a b -> a.name) key (List.filter (\a -> a.key == key) model.metricList)
 
 
 viewSessionName : Model -> SessionData -> Html Msg
