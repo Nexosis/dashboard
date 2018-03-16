@@ -88,7 +88,7 @@ impactResults session sessionResults dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval, PAxis [ AxTitle "Timestamp" ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -101,10 +101,10 @@ impactResults session sessionResults dataSet windowWidth =
                             ]
 
                 minPos =
-                    position X [ PName timestampCol.name, PmType Temporal, PAggregate Min ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit Date, PAggregate Min ]
 
                 maxPos =
-                    position X [ PName timestampCol.name, PmType Temporal, PAggregate Max ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit Date, PAggregate Max ]
 
                 predictionsOnly =
                     transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []

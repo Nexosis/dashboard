@@ -28,10 +28,10 @@ import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
-import Time.DateTime as DateTime
-import Time.TimeZones exposing (est, utc)
+import Time.DateTime as DateTime exposing (DateTime)
+import Time.TimeZones exposing (utc)
 import Time.ZonedDateTime as ZonedDateTime
-import Util exposing ((=>), delayTask, formatFloatToString, spinner, styledNumber)
+import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -130,9 +130,26 @@ update msg model context =
                         timeSeriesDataRequest =
                             let
                                 dates =
-                                    Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                                    case Maybe.map2 (,) session.startDate session.endDate of
+                                        Just ( start, end ) ->
+                                            let
+                                                startDate =
+                                                    DateTime.fromISO8601 start |> Result.withDefault DateTime.epoch
+
+                                                endDate =
+                                                    DateTime.fromISO8601 end |> Result.withDefault DateTime.epoch
+
+                                                count =
+                                                    predictionCount session.resultInterval endDate startDate
+                                            in
+                                            ( startDate |> asdf session.resultInterval count |> DateTime.toISO8601
+                                            , endDate |> asdf session.resultInterval (count * -1) |> DateTime.toISO8601
+                                            )
+
+                                        Nothing ->
+                                            ( "", "" )
                             in
-                            getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
+                            getDataByDateRange context.config (toDataSetName session.dataSourceName) (Just dates)
                                 |> Remote.sendRequest
                                 |> Cmd.map DataSetLoaded
 
@@ -272,6 +289,55 @@ delayAndRecheckSession config sessionId =
 formatFilename : Model -> String
 formatFilename model =
     model.sessionId ++ "-results." ++ Format.dataFormatToString Format.Csv
+
+
+predictionCount : Maybe ResultInterval -> DateTime -> DateTime -> Int
+predictionCount interval start end =
+    case interval of
+        Just Hour ->
+            totalHours (DateTime.delta end start)
+
+        Just Day ->
+            totalHours (DateTime.delta end start) // 24
+
+        Just Week ->
+            totalHours (DateTime.delta end start) // (24 * 7)
+
+        Just Month ->
+            totalHours (DateTime.delta end start) // (24 * 7 * 30)
+
+        Just Year ->
+            totalHours (DateTime.delta end start) // (24 * 7 * 30 * 24)
+
+        Nothing ->
+            0
+
+
+totalHours : DateTime.DateTimeDelta -> Int
+totalHours delta =
+    (delta.years * 365 * 24) + (delta.days * 24) + delta.hours + (delta.minutes // 60)
+
+
+asdf : Maybe ResultInterval -> (Int -> DateTime -> DateTime)
+asdf interval =
+    case interval of
+        Just Hour ->
+            DateTime.addHours
+
+        Just Day ->
+            DateTime.addDays
+
+        Just Week ->
+            DateTime.addDays
+
+        Just Month ->
+            DateTime.addMonths
+
+        Just Year ->
+            DateTime.addYears
+
+        Nothing ->
+            DateTime.addDays
 
 
 view : Model -> ContextModel -> Html Msg
