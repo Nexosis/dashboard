@@ -36,26 +36,25 @@ view pagedValues changePageMsg =
 
                         next =
                             changePageMsg (successResponse.pageNumber + 1)
+
+                        first =
+                            changePageMsg 0
+
+                        last =
+                            changePageMsg (successResponse.totalPages - 1)
                     in
                     div [ class "pagination" ]
                         [ div [ class "btn-group", attribute "role" "group" ]
-                            (backButton prevEnabled prev
-                                :: pageButtons
+                            (firstButton prevEnabled first
+                                :: [ backButton prevEnabled prev ]
+                                ++ pageButtons
                                 ++ [ nextButton nextEnabled next ]
+                                ++ [ lastButton nextEnabled last ]
                             )
                         ]
 
                 _ ->
-                    let
-                        changeMsg =
-                            changePageMsg 0
-                    in
-                    div []
-                        [ div [ class "btn-group", attribute "role" "group" ]
-                            [ backButton False changeMsg
-                            , nextButton False changeMsg
-                            ]
-                        ]
+                    div [] []
     in
     pager
 
@@ -107,6 +106,18 @@ nextButton : Bool -> msg -> Html msg
 nextButton isEnabled msg =
     button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
         [ i [ class "fa fa-angle-right" ] [] ]
+
+
+firstButton : Bool -> msg -> Html msg
+firstButton isEnabled msg =
+    button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
+        [ i [ class "fa fa-angle-left" ] [], i [ class "fa fa-angle-left" ] [] ]
+
+
+lastButton : Bool -> msg -> Html msg
+lastButton isEnabled msg =
+    button [ class "btn btn-default", disabled (not isEnabled), onClick msg ]
+        [ i [ class "fa fa-angle-right" ] [], i [ class "fa fa-angle-right" ] [] ]
 
 
 type alias PagedListing a =
