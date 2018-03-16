@@ -1,2 +1,15 @@
 ##### How to enter data
-Paste instructions go here!
+If you have a small amount of data to use then you may paste it directly into the text box. The format of the data must either be a CSV or adhere to our JSON format ('columns' object is optional):
+
+``` json
+{
+  "columns" : {
+    "Date" :{"role" : "timestamp"}
+  },
+  "data" :[
+  {
+    "Date": "2008-04-08 15:00:00+08:00",
+    "Count": 207
+  }
+}
+```

@@ -485,6 +485,14 @@ pageSubscriptions page =
             ModelDetail.subscriptions subModel
                 |> Sub.map ModelDetailMsg
 
+        SessionStart subModel ->
+            SessionStart.subscriptions subModel
+                |> Sub.map SessionStartMsg
+
+        DataSetDetail subModel ->
+            DataSetDetail.subscriptions subModel
+                |> Sub.map DataSetDetailMsg
+
         _ ->
             Sub.none
 
