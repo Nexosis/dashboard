@@ -523,8 +523,11 @@ getTargetColumn metadata =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    ColumnMetadataEditor.subscriptions model.columnEditorModel
-        |> Sub.map ColumnMetadataEditorMsg
+    if model.steps.current == ColumnMetadata then
+        ColumnMetadataEditor.subscriptions model.columnEditorModel
+            |> Sub.map ColumnMetadataEditorMsg
+    else
+        Sub.none
 
 
 view : Model -> ContextModel -> Html Msg
