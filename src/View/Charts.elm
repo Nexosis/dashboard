@@ -435,4 +435,4 @@ classFromValue maxValue value isTarget =
         else
             "really-bad"
     else
-        "#4CFFFC"
+        "neutral"

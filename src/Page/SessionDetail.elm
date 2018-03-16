@@ -234,8 +234,48 @@ update msg model context =
         ChangePage page ->
             { model | currentPage = page } => Cmd.none
 
-view : Model -> Html Msg
-view model =
+        DownloadResults ->
+            let
+                resultsRequest =
+                    Request.Session.resultsCsv context.config model.sessionId
+                        |> Remote.sendRequest
+                        |> Cmd.map DownloadResponse
+            in
+            { model | csvDownload = Remote.Loading } => resultsRequest
+
+        DownloadResponse result ->
+            case result of
+                Remote.Success csv ->
+                    { model | csvDownload = result }
+                        => Ports.requestSaveFile
+                            { contents = csv
+                            , contentType = Format.dataFormatToString Format.Csv
+                            , name = formatFilename model
+                            }
+
+                Remote.Failure err ->
+                    { model | csvDownload = result }
+                        => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+
+delayAndRecheckSession : Config -> String -> Cmd Msg
+delayAndRecheckSession config sessionId =
+    delayTask 15
+        |> Task.andThen (\_ -> Request.Session.getOne config sessionId |> Http.toTask)
+        |> Remote.asCmd
+        |> Cmd.map SessionResponse
+
+
+formatFilename : Model -> String
+formatFilename model =
+    model.sessionId ++ "-results." ++ Format.dataFormatToString Format.Csv
+
+
+view : Model -> ContextModel -> Html Msg
+view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.detail AppRoutes.Sessions "Sessions"
