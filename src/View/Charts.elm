@@ -42,7 +42,7 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName

@@ -29,8 +29,6 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Time.TimeZones exposing (utc)
-import Time.ZonedDateTime as ZonedDateTime
 import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
@@ -127,7 +125,7 @@ update msg model context =
             case Remote.map2 (,) response model.sessionResponse of
                 Remote.Success ( results, session ) ->
                     let
-                        timeSeriesDataRequest =
+                        timeSeriesDataRequest domain =
                             let
                                 dates =
                                     case Maybe.map2 (,) session.startDate session.endDate of
@@ -140,11 +138,21 @@ update msg model context =
                                                     DateTime.fromISO8601 end |> Result.withDefault DateTime.epoch
 
                                                 count =
-                                                    predictionCount session.resultInterval endDate startDate
+                                                    predictionCount session.resultInterval startDate endDate |> Debug.log "count"
                                             in
-                                            ( startDate |> asdf session.resultInterval count |> DateTime.toISO8601
-                                            , endDate |> asdf session.resultInterval (count * -1) |> DateTime.toISO8601
-                                            )
+                                            case domain of
+                                                PredictionDomain.Forecast ->
+                                                    ( startDate |> extendDate session.resultInterval (count * 2) |> DateTime.toISO8601
+                                                    , endDate |> DateTime.toISO8601
+                                                    )
+
+                                                PredictionDomain.Impact ->
+                                                    ( startDate |> extendDate session.resultInterval count |> DateTime.toISO8601
+                                                    , endDate |> extendDate session.resultInterval (count * -1) |> DateTime.toISO8601
+                                                    )
+
+                                                _ ->
+                                                    ( "", "" )
 
                                         Nothing ->
                                             ( "", "" )
@@ -163,10 +171,10 @@ update msg model context =
                                         |> Ports.drawVegaChart
 
                                 PredictionDomain.Forecast ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 PredictionDomain.Impact ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 _ ->
                                     Cmd.none
@@ -293,33 +301,32 @@ formatFilename model =
 
 predictionCount : Maybe ResultInterval -> DateTime -> DateTime -> Int
 predictionCount interval start end =
+    let
+        delta =
+            DateTime.delta start end |> Debug.log "delta"
+    in
     case interval of
         Just Hour ->
-            totalHours (DateTime.delta end start)
+            delta.hours
 
         Just Day ->
-            totalHours (DateTime.delta end start) // 24
+            delta.days
 
         Just Week ->
-            totalHours (DateTime.delta end start) // (24 * 7)
+            delta.days // 7
 
         Just Month ->
-            totalHours (DateTime.delta end start) // (24 * 7 * 30)
+            delta.months
 
         Just Year ->
-            totalHours (DateTime.delta end start) // (24 * 7 * 30 * 24)
+            delta.years
 
         Nothing ->
             0
 
 
-totalHours : DateTime.DateTimeDelta -> Int
-totalHours delta =
-    (delta.years * 365 * 24) + (delta.days * 24) + delta.hours + (delta.minutes // 60)
-
-
-asdf : Maybe ResultInterval -> (Int -> DateTime -> DateTime)
-asdf interval =
+extendDate : Maybe ResultInterval -> (Int -> DateTime -> DateTime)
+extendDate interval =
     case interval of
         Just Hour ->
             DateTime.addHours
