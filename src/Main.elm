@@ -3,6 +3,7 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
+import Data.Metric exposing (Metric)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -23,7 +24,9 @@ import Page.SessionDetail as SessionDetail
 import Page.SessionStart as SessionStart
 import Page.Sessions as Sessions
 import Ports
+import RemoteData as Remote
 import Request.Log as Log
+import Request.Metric as Metrics
 import Request.Token as Token
 import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
 import Task
@@ -76,6 +79,7 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
+    | MetricTextLoaded (Remote.WebData (List Metric))
 
 
 type Page
@@ -95,6 +99,13 @@ type Page
 
 
 ---- UPDATE ----
+
+
+getMetrics : ContextModel -> Cmd Msg
+getMetrics context =
+    Metrics.get context.config
+        |> Remote.sendRequest
+        |> Cmd.map MetricTextLoaded
 
 
 getQuotas : Maybe Response.Response -> Maybe Response.Quotas
@@ -161,7 +172,7 @@ setRoute route app =
                 Just ( AppRoutes.SessionDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionDetail.init app.context.config id
+                            SessionDetail.init app.context id
                     in
                     { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title ]
 
@@ -182,7 +193,7 @@ setRoute route app =
                 Just ( AppRoutes.ModelDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.context.config id
+                            ModelDetail.init app.context id
                     in
                     { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
 
@@ -206,7 +217,7 @@ update msg model =
                                     setRoute initState.route
                                         app
                             in
-                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd ]
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext ]
 
                 OnAppStateUpdated ctx ->
                     model => Cmd.none
@@ -341,6 +352,21 @@ updatePage page msg app =
                             { app | context = newContext }
                     in
                     newApp => Cmd.none
+
+        ( MetricTextLoaded response, _ ) ->
+            case response of
+                Remote.Success metrics ->
+                    let
+                        context =
+                            app.context
+
+                        newContext =
+                            { context | metricExplainers = metrics }
+                    in
+                    { app | context = newContext } => Cmd.none
+
+                _ ->
+                    app => Cmd.none
 
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the

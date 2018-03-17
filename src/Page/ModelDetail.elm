@@ -2,9 +2,9 @@ module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
-import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (toDataSetName)
+import Data.Metric exposing (..)
 import Data.Model exposing (..)
 import Data.PredictionDomain exposing (..)
 import Dict exposing (Dict)
@@ -21,6 +21,7 @@ import Util exposing ((=>), formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
+import View.Tooltip exposing (helpIconFromText)
 
 
 type alias Model =
@@ -29,18 +30,19 @@ type alias Model =
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
+    , metricList : List Metric
     }
 
 
-init : Config -> String -> ( Model, Cmd Msg )
-init config modelId =
+init : ContextModel -> String -> ( Model, Cmd Msg )
+init context modelId =
     let
         loadModelDetail =
-            Request.Model.getOne config modelId
+            Request.Model.getOne context.config modelId
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading Regression Nothing Nothing => loadModelDetail
+    Model modelId Remote.Loading Regression Nothing Nothing context.metricExplainers => loadModelDetail
 
 
 subscriptions : Model -> Sub Msg
@@ -181,7 +183,7 @@ detailRow model =
                         , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
                         ]
                     ]
-                , div [ class "col-sm-4" ] [ metricsList resp.algorithm.name resp.metrics ]
+                , div [ class "col-sm-4" ] [ metricsList model resp.algorithm.name resp.metrics ]
                 , div [ class "col-sm-4 " ]
                     [ p [] [ strong [] [ text "Model Type: " ], text (toString model.modelType) ]
                     , p []
@@ -208,8 +210,8 @@ detailRow model =
             text "Not found"
 
 
-metricsList : String -> Dict String Float -> Html Msg
-metricsList algo metrics =
+metricsList : Model -> String -> Dict String Float -> Html Msg
+metricsList model algo metrics =
     div []
         [ p []
             [ strong [] [ text "Algorithm: " ]
@@ -219,14 +221,14 @@ metricsList algo metrics =
             [ strong [] [ text "Metrics" ]
             , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map metricListItem (Dict.toList metrics))
+        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map (metricListItem model) (Dict.toList metrics))
         ]
 
 
-metricListItem : ( String, Float ) -> Html Msg
-metricListItem ( name, value ) =
+metricListItem : Model -> ( String, Float ) -> Html Msg
+metricListItem model ( name, value ) =
     li []
-        [ strong [] [ text name ]
+        [ strong [] ([ text (getMetricNameFromKey model.metricList name) ] ++ helpIconFromText (getMetricDescriptionFromKey model.metricList name))
         , br [] []
         , styledNumber <| formatFloatToString value
         ]
