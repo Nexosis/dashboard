@@ -6,6 +6,7 @@ import Html.Attributes as Attr
 import Navigation exposing (Location)
 import Route exposing ((</>), Route, Router, custom, int, match, route, router, static, string)
 import String.Extra exposing (replace)
+import Util exposing ((=>))
 
 
 -- ROUTING --
@@ -16,7 +17,6 @@ type Route
     | DataSets
     | DataSetDetail DataSet.DataSetName
     | DataSetAdd
-    | Imports
     | Sessions
     | SessionDetail String
     | SessionStart DataSet.DataSetName
@@ -41,7 +41,6 @@ routeMatcher =
         , route DataSets (static "data")
         , route DataSetDetail (static "data" </> custom DataSet.dataSetNameParser)
         , route DataSetAdd (static "addData")
-        , route Imports (static "imports")
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
         , route SessionStart (static "startSession" </> custom DataSet.dataSetNameParser)
@@ -70,9 +69,6 @@ routeToString page =
 
                 DataSetAdd ->
                     [ "addData" ]
-
-                Imports ->
-                    [ "imports" ]
 
                 Sessions ->
                     [ "sessions" ]
@@ -111,12 +107,13 @@ newUrl =
     routeToString >> Navigation.newUrl
 
 
-fromLocation : Location -> Maybe Route
+fromLocation : Location -> Maybe ( Route, String )
 fromLocation location =
     if String.isEmpty location.hash then
-        Just Home
+        Just ( Home, "Dashboard" )
     else
         match routeMatcher (String.dropLeft 1 location.hash)
+            |> Maybe.map (\r -> r => lookupPageTitle r)
 
 
 fromApiUrl : String -> String -> Maybe Route
@@ -126,3 +123,34 @@ fromApiUrl baseUrl apiUrl =
             replace baseUrl "" apiUrl
     in
     match routeMatcher urlPart
+
+
+lookupPageTitle : Route -> String
+lookupPageTitle route =
+    case route of
+        Home ->
+            "Dashboard"
+
+        DataSets ->
+            "DataSets"
+
+        DataSetDetail name ->
+            "DataSet " ++ DataSet.dataSetNameToString name
+
+        DataSetAdd ->
+            "Add DataSet"
+
+        Sessions ->
+            "Sessions"
+
+        SessionDetail _ ->
+            "Session"
+
+        SessionStart dataSetName ->
+            "Start Session " ++ DataSet.dataSetNameToString dataSetName
+
+        Models ->
+            "Models"
+
+        ModelDetail _ ->
+            "Model Details"

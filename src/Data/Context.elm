@@ -1,6 +1,7 @@
 module Data.Context exposing (..)
 
 import Data.Config exposing (Config)
+import Data.Metric exposing (Metric)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (object)
@@ -9,6 +10,7 @@ import Json.Encode as Encode exposing (object)
 type alias ContextModel =
     { userPageSize : Int
     , config : Config
+    , metricExplainers : List Metric
     }
 
 
@@ -29,8 +31,9 @@ modelDecoder config =
     decode ContextModel
         |> required "userPageSize" Decode.int
         |> hardcoded config
+        |> hardcoded []
 
 
 defaultContext : Config -> ContextModel
 defaultContext config =
-    ContextModel 10 config
+    ContextModel 10 config []

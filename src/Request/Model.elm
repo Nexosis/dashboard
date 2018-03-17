@@ -54,11 +54,11 @@ predict config modelId content contentType =
         |> HttpBuilder.toRequest
 
 
-predictRaw : Config -> String -> String -> String -> Http.Request String
-predictRaw config modelId content contentType =
+predictRaw : Config -> String -> String -> String -> String -> Http.Request String
+predictRaw config modelId content uploadType contentType =
     (config.baseUrl ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
-        |> HttpBuilder.withBody (Http.stringBody "application/json" content)
+        |> HttpBuilder.withBody (Http.stringBody uploadType content)
         |> HttpBuilder.withHeader "Accept" contentType
         |> withAuthorization config
         |> HttpBuilder.withExpectString

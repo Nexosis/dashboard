@@ -214,9 +214,10 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                     e.trigger.removeAttribute("data-balloon-pos")
                 }, 1500)
             });
+
+            app.ports.setPageTitle.subscribe(function (title) {
+                document.title = `${title} - Nexosis API`;
+            });
         });
-
-
-
     });
 });

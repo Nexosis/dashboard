@@ -3,6 +3,7 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
+import Data.Metric exposing (Metric)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -16,7 +17,6 @@ import Page.DataSetDetail as DataSetDetail
 import Page.DataSets as DataSets
 import Page.Error as Error exposing (PageLoadError)
 import Page.Home as Home
-import Page.Imports as Imports
 import Page.ModelDetail as ModelDetail
 import Page.Models as Models
 import Page.NotFound as NotFound
@@ -24,7 +24,9 @@ import Page.SessionDetail as SessionDetail
 import Page.SessionStart as SessionStart
 import Page.Sessions as Sessions
 import Ports
+import RemoteData as Remote
 import Request.Log as Log
+import Request.Metric as Metrics
 import Request.Token as Token
 import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
 import Task
@@ -45,7 +47,7 @@ type Model
 
 type alias InitState =
     { config : Config
-    , route : Maybe Route
+    , route : Maybe ( Route, String )
     , enabledFeatures : List Feature
     }
 
@@ -62,12 +64,11 @@ type alias App =
 
 
 type Msg
-    = SetRoute (Maybe AppRoutes.Route)
+    = SetRoute (Maybe ( AppRoutes.Route, String ))
     | HomeMsg Home.Msg
     | DataSetsMsg DataSets.Msg
     | DataSetDetailMsg DataSetDetail.Msg
     | DataSetAddMsg DataSetAdd.Msg
-    | ImportsMsg Imports.Msg
     | SessionsMsg Sessions.Msg
     | SessionDetailMsg SessionDetail.Msg
     | SessionStartMsg SessionStart.Msg
@@ -78,6 +79,7 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
+    | MetricTextLoaded (Remote.WebData (List Metric))
 
 
 type Page
@@ -88,7 +90,6 @@ type Page
     | DataSets DataSets.Model
     | DataSetDetail DataSetDetail.Model
     | DataSetAdd DataSetAdd.Model
-    | Imports Imports.Model
     | Sessions Sessions.Model
     | SessionDetail SessionDetail.Model
     | SessionStart SessionStart.Model
@@ -98,6 +99,13 @@ type Page
 
 
 ---- UPDATE ----
+
+
+getMetrics : ContextModel -> Cmd Msg
+getMetrics context =
+    Metrics.get context.config
+        |> Remote.sendRequest
+        |> Cmd.map MetricTextLoaded
 
 
 getQuotas : Maybe Response.Response -> Maybe Response.Quotas
@@ -110,7 +118,7 @@ getQuotas resp =
             Just resp.quotas
 
 
-setRoute : Maybe AppRoutes.Route -> App -> ( App, Cmd Msg )
+setRoute : Maybe ( AppRoutes.Route, String ) -> App -> ( App, Cmd Msg )
 setRoute route app =
     case app.context.config.token of
         Nothing ->
@@ -126,75 +134,68 @@ setRoute route app =
                     -- TODO Load 404 page not found
                     ( app, Cmd.none )
 
-                Just AppRoutes.Home ->
+                Just ( AppRoutes.Home, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Home.init app.context.config (getQuotas app.lastResponse)
                     in
-                    ( { app | page = Home pageModel }, Cmd.map HomeMsg initCmd )
+                    { app | page = Home pageModel } => Cmd.batch [ Cmd.map HomeMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.DataSets ->
+                Just ( AppRoutes.DataSets, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSets.init app.context
                     in
-                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd
+                    { app | page = DataSets pageModel } => Cmd.batch [ Cmd.map DataSetsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.DataSetDetail name) ->
+                Just ( AppRoutes.DataSetDetail name, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetDetail.init app.context.config name
                     in
-                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd
+                    { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.DataSetAdd ->
+                Just ( AppRoutes.DataSetAdd, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetAdd.init app.context.config
                     in
-                    { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd
+                    { app | page = DataSetAdd pageModel } => Cmd.batch [ Cmd.map DataSetAddMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.Imports ->
-                    let
-                        ( pageModel, initCmd ) =
-                            Imports.init app.context.config
-                    in
-                    ( { app | page = Imports pageModel }, Cmd.map ImportsMsg initCmd )
-
-                Just AppRoutes.Sessions ->
+                Just ( AppRoutes.Sessions, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Sessions.init app.context
                     in
-                    ( { app | page = Sessions pageModel }, Cmd.map SessionsMsg initCmd )
+                    { app | page = Sessions pageModel } => Cmd.batch [ Cmd.map SessionsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.SessionDetail id) ->
+                Just ( AppRoutes.SessionDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            SessionDetail.init app.context.config id
+                            SessionDetail.init app.context id
                     in
-                    ( { app | page = SessionDetail pageModel }, Cmd.map SessionDetailMsg initCmd )
+                    { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.SessionStart dataSetName) ->
+                Just ( AppRoutes.SessionStart dataSetName, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             SessionStart.init app.context.config dataSetName
                     in
-                    ( { app | page = SessionStart pageModel }, Cmd.map SessionStartMsg initCmd )
+                    { app | page = SessionStart pageModel } => Cmd.batch [ Cmd.map SessionStartMsg initCmd, Ports.setPageTitle title ]
 
-                Just AppRoutes.Models ->
+                Just ( AppRoutes.Models, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Models.init app.context
                     in
-                    ( { app | page = Models pageModel }, Cmd.map ModelsMsg initCmd )
+                    { app | page = Models pageModel } => Cmd.batch [ Cmd.map ModelsMsg initCmd, Ports.setPageTitle title ]
 
-                Just (AppRoutes.ModelDetail id) ->
+                Just ( AppRoutes.ModelDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            ModelDetail.init app.context.config id
+                            ModelDetail.init app.context id
                     in
-                    ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
+                    { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -216,7 +217,7 @@ update msg model =
                                     setRoute initState.route
                                         app
                             in
-                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd ]
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext ]
 
                 OnAppStateUpdated ctx ->
                     model => Cmd.none
@@ -352,6 +353,21 @@ updatePage page msg app =
                     in
                     newApp => Cmd.none
 
+        ( MetricTextLoaded response, _ ) ->
+            case response of
+                Remote.Success metrics ->
+                    let
+                        context =
+                            app.context
+
+                        newContext =
+                            { context | metricExplainers = metrics }
+                    in
+                    { app | context = newContext } => Cmd.none
+
+                _ ->
+                    app => Cmd.none
+
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -420,11 +436,6 @@ view model =
                     DataSetAdd.view subModel app.context
                         |> layout Page.DataSetAdd
                         |> Html.map DataSetAddMsg
-
-                Imports subModel ->
-                    Imports.view subModel
-                        |> layout Page.Imports
-                        |> Html.map ImportsMsg
 
                 Sessions subModel ->
                     Sessions.view subModel app.context
