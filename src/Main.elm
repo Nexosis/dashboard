@@ -24,6 +24,7 @@ import Page.SessionDetail as SessionDetail
 import Page.SessionStart as SessionStart
 import Page.Sessions as Sessions
 import Ports
+import RemoteData as Remote
 import Request.Log as Log
 import Request.Token as Token
 import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
@@ -31,6 +32,7 @@ import Task
 import Time
 import Time.DateTime as DateTime
 import Util exposing ((=>))
+import View.Error as ErrorView
 import View.Page as Page
 
 
@@ -58,7 +60,12 @@ type alias App =
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     , context : ContextModel
+    , pageLoadFailed : Maybe ( Page, Http.Error )
     }
+
+
+type alias Loading a b =
+    { a | loadingResponse : Remote.WebData b }
 
 
 type Msg
@@ -78,6 +85,7 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
+    | PageLoadFailed Http.Error
 
 
 type Page
@@ -197,6 +205,11 @@ setRoute route app =
                     ( { app | page = ModelDetail pageModel }, Cmd.map ModelDetailMsg initCmd )
 
 
+extractError : { b | loadingError : Maybe Http.Error } -> Maybe Http.Error
+extractError { loadingError } =
+    loadingError
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
@@ -210,7 +223,7 @@ update msg model =
                                     { mbctx | config = initState.config }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -242,8 +255,19 @@ updatePage page msg app =
                     subUpdate subMsg subModel app.context
             in
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
+
+        errorOr : Loading a b -> ( App, Cmd Msg ) -> ( App, Cmd Msg )
+        errorOr loading view =
+            case loading.loadingResponse of
+                Remote.Failure err ->
+                    ( app, Task.perform PageLoadFailed <| Task.succeed err )
+                _ ->
+                    view
     in
     case ( msg, page ) of
+        ( PageLoadFailed err, _ ) ->
+            ( { app | pageLoadFailed = Just <| ( page, err ) }, Cmd.none ) |> Debug.log "err"
+
         -- Update for page transitions
         ( SetRoute route, _ ) ->
             setRoute route app
@@ -265,7 +289,7 @@ updatePage page msg app =
             toPage Models ModelsMsg Models.update subMsg subModel
 
         ( ModelDetailMsg subMsg, ModelDetail subModel ) ->
-            toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
+            errorOr subModel <| toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
 
         ( SessionsMsg subMsg, Sessions subModel ) ->
             toPage Sessions SessionsMsg Sessions.update subMsg subModel
@@ -387,69 +411,74 @@ view model =
                 layout =
                     Page.layoutShowingResponses app
             in
-            case app.page of
-                NotFound ->
-                    layout Page.Other NotFound.view
+            case app.pageLoadFailed of
+                Just ( page, err ) ->
+                    ErrorView.viewHttpError err |> Error.viewError |> layout Page.Other
 
-                Blank ->
-                    -- This is for the very initial page load, while we are loading
-                    -- data via HTTP. We could also render a spinner here.
-                    Html.text ""
-                        |> layout Page.Other
+                Nothing ->
+                    case app.page of
+                        NotFound ->
+                            layout Page.Other NotFound.view
 
-                Error subModel ->
-                    Error.view subModel
-                        |> layout Page.Other
+                        Blank ->
+                            -- This is for the very initial page load, while we are loading
+                            -- data via HTTP. We could also render a spinner here.
+                            Html.text ""
+                                |> layout Page.Other
 
-                Home subModel ->
-                    Home.view subModel app.context
-                        |> layout Page.Home
-                        |> Html.map HomeMsg
+                        Error subModel ->
+                            Error.view subModel
+                                |> layout Page.Other
 
-                DataSets subModel ->
-                    DataSets.view subModel app.context
-                        |> layout Page.DataSets
-                        |> Html.map DataSetsMsg
+                        Home subModel ->
+                            Home.view subModel app.context
+                                |> layout Page.Home
+                                |> Html.map HomeMsg
 
-                DataSetDetail subModel ->
-                    DataSetDetail.view subModel app.context
-                        |> layout Page.DataSetData
-                        |> Html.map DataSetDetailMsg
+                        DataSets subModel ->
+                            DataSets.view subModel app.context
+                                |> layout Page.DataSets
+                                |> Html.map DataSetsMsg
 
-                DataSetAdd subModel ->
-                    DataSetAdd.view subModel app.context
-                        |> layout Page.DataSetAdd
-                        |> Html.map DataSetAddMsg
+                        DataSetDetail subModel ->
+                            DataSetDetail.view subModel app.context
+                                |> layout Page.DataSetData
+                                |> Html.map DataSetDetailMsg
 
-                Imports subModel ->
-                    Imports.view subModel
-                        |> layout Page.Imports
-                        |> Html.map ImportsMsg
+                        DataSetAdd subModel ->
+                            DataSetAdd.view subModel app.context
+                                |> layout Page.DataSetAdd
+                                |> Html.map DataSetAddMsg
 
-                Sessions subModel ->
-                    Sessions.view subModel app.context
-                        |> layout Page.Sessions
-                        |> Html.map SessionsMsg
+                        Imports subModel ->
+                            Imports.view subModel
+                                |> layout Page.Imports
+                                |> Html.map ImportsMsg
 
-                SessionDetail subModel ->
-                    SessionDetail.view subModel app.context
-                        |> layout Page.SessionDetail
-                        |> Html.map SessionDetailMsg
+                        Sessions subModel ->
+                            Sessions.view subModel app.context
+                                |> layout Page.Sessions
+                                |> Html.map SessionsMsg
 
-                SessionStart subModel ->
-                    SessionStart.view subModel app.context
-                        |> layout Page.SessionStart
-                        |> Html.map SessionStartMsg
+                        SessionDetail subModel ->
+                            SessionDetail.view subModel app.context
+                                |> layout Page.SessionDetail
+                                |> Html.map SessionDetailMsg
 
-                Models subModel ->
-                    Models.view subModel app.context
-                        |> layout Page.Models
-                        |> Html.map ModelsMsg
+                        SessionStart subModel ->
+                            SessionStart.view subModel app.context
+                                |> layout Page.SessionStart
+                                |> Html.map SessionStartMsg
 
-                ModelDetail subModel ->
-                    ModelDetail.view subModel app.context
-                        |> layout Page.ModelDetail
-                        |> Html.map ModelDetailMsg
+                        Models subModel ->
+                            Models.view subModel app.context
+                                |> layout Page.Models
+                                |> Html.map ModelsMsg
+
+                        ModelDetail subModel ->
+                            ModelDetail.view subModel app.context
+                                |> layout Page.ModelDetail
+                                |> Html.map ModelDetailMsg
 
 
 
