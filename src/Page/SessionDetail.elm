@@ -42,7 +42,7 @@ import Window
 
 type alias Model =
     { sessionId : String
-    , sessionResponse : Remote.WebData SessionData
+    , loadingResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
@@ -101,7 +101,7 @@ update msg model context =
                                     _ ->
                                         Cmd.none
                         in
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => Cmd.batch
                                 [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
@@ -109,10 +109,10 @@ update msg model context =
                                 , details
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response } => Cmd.none
+                        { model | loadingResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -121,7 +121,7 @@ update msg model context =
                     model => Cmd.none
 
         ResultsResponse response ->
-            case Remote.map2 (,) response model.sessionResponse of
+            case Remote.map2 (,) response model.loadingResponse of
                 Remote.Success ( results, session ) ->
                     let
                         timeSeriesDataRequest =
@@ -190,7 +190,7 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
+            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
                     let
                         cmd =
@@ -296,7 +296,7 @@ viewSessionDetails : Model -> Html Msg
 viewSessionDetails model =
     let
         loadingOr =
-            loadingOrView model.sessionResponse
+            loadingOrView model.loadingResponse
 
         pendingOrCompleted model session =
             if session.status == Status.Completed then
@@ -398,7 +398,7 @@ viewSessionHeader : Model -> Html Msg
 viewSessionHeader model =
     let
         loadingOr =
-            loadingOrView model.sessionResponse
+            loadingOrView model.loadingResponse
 
         disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
         disabledOr request view =
@@ -603,7 +603,7 @@ viewResultsGraph model =
 
 viewResultsTable : Model -> Html Msg
 viewResultsTable model =
-    case model.sessionResponse of
+    case model.loadingResponse of
         Remote.Success sessionResponse ->
             if Data.Session.sessionIsCompleted sessionResponse then
                 if
