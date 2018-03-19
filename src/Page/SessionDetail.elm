@@ -53,6 +53,7 @@ type alias Model =
     , currentPage : Int
     , csvDownload : Remote.WebData String
     , metricList : List Metric
+    , predictionDomain : Maybe PredictionDomain.PredictionDomain
     }
 
 
@@ -67,7 +68,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers Nothing ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -155,7 +156,7 @@ update msg model context =
                                 _ ->
                                     Cmd.none
                     in
-                    { model | resultsResponse = response }
+                    { model | resultsResponse = response, predictionDomain = Just session.predictionDomain }
                         => cmd
 
                 Remote.Failure err ->
@@ -285,7 +286,7 @@ view model context =
         , viewSessionDetails model
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , hr [] []
+        , maybeDisplayHR model --TODO: remove when anomalies have visualization
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -294,6 +295,24 @@ view model context =
             }
             |> Html.map DeleteDialogMsg
         ]
+
+
+
+--HACK: Until we have graphs for anomalies...
+
+
+maybeDisplayHR : Model -> Html Msg
+maybeDisplayHR model =
+    let
+        domain =
+            Maybe.withDefault PredictionDomain.Forecast model.predictionDomain
+    in
+    case domain of
+        PredictionDomain.Anomalies ->
+            span [] []
+
+        _ ->
+            hr [] []
 
 
 viewSessionDetails : Model -> Html Msg
