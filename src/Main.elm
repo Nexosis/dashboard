@@ -137,7 +137,7 @@ setRoute route app =
                 Just ( AppRoutes.Home, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            Home.init app.context.config (getQuotas app.lastResponse)
+                            Home.init app.context.config (getQuotas app.lastResponse) app.messages
                     in
                     { app | page = Home pageModel } => Cmd.batch [ Cmd.map HomeMsg initCmd, Ports.setPageTitle title ]
 

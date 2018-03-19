@@ -5,7 +5,7 @@ import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
-import Data.Response exposing (Quota, Quotas, Response)
+import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
@@ -22,6 +22,7 @@ import Request.Session
 import Request.Subscription
 import Table
 import Util exposing ((=>))
+import View.Extra exposing (viewIfElements)
 
 
 ---- MODEL ----
@@ -34,11 +35,12 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
+    , messages : List GlobalMessage
     }
 
 
-init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
-init config quotas =
+init : Config -> Maybe Quotas -> List GlobalMessage -> ( Model, Cmd Msg )
+init config quotas messages =
     Model
         Remote.Loading
         Remote.Loading
@@ -46,6 +48,7 @@ init config quotas =
         Remote.Loading
         []
         quotas
+        messages
         => Cmd.batch
             [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
@@ -126,11 +129,11 @@ view model context =
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
-                ]
+                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model)) ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewQuotas model.quotas)
-                ]
+                [ viewSidePanel (viewQuotas model.quotas) ]
+            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
+                [ viewSidePanel (viewRecentMessages model.messages) ]
             ]
         ]
 
@@ -188,6 +191,31 @@ viewQuota name quota =
                 [ text ((value quota.current |> toString) ++ "/" ++ (value quota.allotted |> toString)) ]
             ]
         , hr [] []
+        ]
+
+
+viewRecentMessages : List GlobalMessage -> Html Msg
+viewRecentMessages messages =
+    let
+        recentMessages =
+            List.take 5 messages
+    in
+    viewIfElements
+        (\() ->
+            div [ class "row m0" ]
+                (h4 [ class "mb15" ]
+                    [ strong [] [ text "Recent API Messages" ]
+                    ]
+                    :: List.map viewMessage recentMessages
+                )
+        )
+        recentMessages
+
+
+viewMessage : GlobalMessage -> Html Msg
+viewMessage message =
+    div [ class "message-group" ]
+        [ p [] [ text message.message ]
         ]
 
 
