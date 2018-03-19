@@ -155,10 +155,10 @@ update msg model context =
                         => cmd
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | resultsResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | resultsResponse = response } => Cmd.none
 
         ShowDeleteDialog model ->
             { model | deleteDialogModel = Just (DeleteDialog.init "" model.sessionId) }
@@ -302,7 +302,7 @@ viewSessionDetails model =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , loadingOrView model.resultsResponse viewMetricsList
+                    , errorOrView model.resultsResponse viewMetricsList
                     ]
             else
                 div []
