@@ -268,7 +268,7 @@ updatePage page msg app =
     in
     case ( msg, page ) of
         ( PageLoadFailed err, _ ) ->
-            ( { app | pageLoadFailed = Just <| ( page, err ) }, Cmd.none ) |> Debug.log "err"
+            ( { app | pageLoadFailed = Just <| ( page, err ) }, Cmd.none )
 
         -- Update for page transitions
         ( SetRoute route, _ ) ->
