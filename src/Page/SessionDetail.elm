@@ -1,4 +1,4 @@
-module Page.SessionDetail exposing (Model, Msg, getDataDateRange, init, update, view)
+module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRange, init, update, view)
 
 import AppRoutes
 import Data.Algorithm exposing (..)
@@ -135,7 +135,7 @@ update msg model context =
                         timeSeriesDataRequest domain =
                             let
                                 dates =
-                                    getDataDateRange session
+                                    getDataDateRange { startDate = session.startDate, endDate = session.endDate, resultInterval = session.resultInterval, predictionDomain = session.predictionDomain }
                             in
                             getDataByDateRange context.config (toDataSetName session.dataSourceName) (Just dates) includedColumns
                                 |> Remote.sendRequest
@@ -265,7 +265,15 @@ update msg model context =
                     model => Cmd.none
 
 
-getDataDateRange : SessionData -> ( String, String )
+type alias SessionDateData =
+    { startDate : Maybe String
+    , endDate : Maybe String
+    , resultInterval : Maybe ResultInterval
+    , predictionDomain : PredictionDomain.PredictionDomain
+    }
+
+
+getDataDateRange : SessionDateData -> ( String, String )
 getDataDateRange { startDate, endDate, resultInterval, predictionDomain } =
     case Maybe.map2 (,) startDate endDate of
         Just ( start, end ) ->
