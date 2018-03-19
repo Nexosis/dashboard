@@ -9,7 +9,7 @@ import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (attribute, class)
+import Html.Attributes exposing (attribute, class, id)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -197,7 +197,7 @@ viewRecentMessages : List GlobalMessage -> Html Msg
 viewRecentMessages messages =
     viewIfElements
         (\() ->
-            div [ class "row m0" ]
+            div [ id "api-messages", class "row m0" ]
                 (h4 [ class "mb15" ]
                     [ strong [] [ text "Recent API Messages" ]
                     ]
