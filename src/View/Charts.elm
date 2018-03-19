@@ -60,7 +60,7 @@ forecastResults sessionResults session dataSet windowWidth =
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
-                , VegaLite.mark Line []
+                , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
 
@@ -69,8 +69,8 @@ forecastResults sessionResults session dataSet windowWidth =
                 []
 
 
-impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
-impactResults session sessionResults dataSet windowWidth =
+impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+impactResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
             session.columns
@@ -101,10 +101,10 @@ impactResults session sessionResults dataSet windowWidth =
                             ]
 
                 minPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit Date, PAggregate Min ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Min ]
 
                 maxPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit Date, PAggregate Max ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]
 
                 predictionsOnly =
                     transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
@@ -112,7 +112,7 @@ impactResults session sessionResults dataSet windowWidth =
                 lineSpec =
                     asSpec
                         [ lineEnc []
-                        , mark Line []
+                        , mark Line [ MInterpolate Monotone ]
                         , transform << filter (FOneOf pointTypeName (Strings [ "Predictions", "Observations" ])) <| []
                         ]
 
@@ -132,7 +132,7 @@ impactResults session sessionResults dataSet windowWidth =
 
                 boxSpec =
                     asSpec
-                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PAggregate Max ]) []
+                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]) []
                         , mark Rect [ MFillOpacity 0.1 ]
                         , predictionsOnly
                         ]
