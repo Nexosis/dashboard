@@ -1,4 +1,4 @@
-module Page.SessionDetail exposing (Model, Msg, init, update, view)
+module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRange, init, update, view)
 
 import AppRoutes
 import Data.Algorithm exposing (..)
@@ -29,7 +29,8 @@ import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
-import Util exposing ((=>), delayTask, formatFloatToString, spinner, styledNumber)
+import Time.DateTime as DateTime exposing (DateTime)
+import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -128,12 +129,15 @@ update msg model context =
             case Remote.map2 (,) response model.sessionResponse of
                 Remote.Success ( results, session ) ->
                     let
-                        timeSeriesDataRequest =
+                        includedColumns =
+                            session.columns |> List.filter (\c -> c.role == Columns.Target || c.role == Columns.Timestamp) |> List.map (\c -> c.name)
+
+                        timeSeriesDataRequest domain =
                             let
                                 dates =
-                                    Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                                    getDataDateRange { startDate = session.startDate, endDate = session.endDate, resultInterval = session.resultInterval, predictionDomain = session.predictionDomain }
                             in
-                            getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
+                            getDataByDateRange context.config (toDataSetName session.dataSourceName) (Just dates) includedColumns
                                 |> Remote.sendRequest
                                 |> Cmd.map DataSetLoaded
 
@@ -147,10 +151,10 @@ update msg model context =
                                         |> Ports.drawVegaChart
 
                                 PredictionDomain.Forecast ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 PredictionDomain.Impact ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 _ ->
                                     Cmd.none
@@ -197,21 +201,20 @@ update msg model context =
             case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
                 Remote.Success ( results, session, data ) ->
                     let
+                        renderGraph graph =
+                            "result-vis"
+                                => graph results session data model.windowWidth
+                                |> List.singleton
+                                |> Json.Encode.object
+                                |> Ports.drawVegaChart
+
                         cmd =
                             case session.predictionDomain of
                                 PredictionDomain.Impact ->
-                                    "result-vis"
-                                        => Charts.impactResults session results data model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
+                                    renderGraph Charts.impactResults
 
                                 PredictionDomain.Forecast ->
-                                    "result-vis"
-                                        => Charts.forecastResults results session data model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
+                                    renderGraph Charts.forecastResults
 
                                 _ ->
                                     Cmd.none
@@ -262,6 +265,46 @@ update msg model context =
                     model => Cmd.none
 
 
+type alias SessionDateData =
+    { startDate : Maybe String
+    , endDate : Maybe String
+    , resultInterval : Maybe ResultInterval
+    , predictionDomain : PredictionDomain.PredictionDomain
+    }
+
+
+getDataDateRange : SessionDateData -> ( String, String )
+getDataDateRange { startDate, endDate, resultInterval, predictionDomain } =
+    case Maybe.map2 (,) startDate endDate of
+        Just ( start, end ) ->
+            let
+                startDate =
+                    DateTime.fromISO8601 start |> Result.withDefault DateTime.epoch
+
+                endDate =
+                    DateTime.fromISO8601 end |> Result.withDefault DateTime.epoch
+
+                count =
+                    predictionCount resultInterval startDate endDate
+            in
+            case predictionDomain of
+                PredictionDomain.Forecast ->
+                    ( startDate |> extendDate resultInterval (count * 2) |> DateTime.toISO8601
+                    , endDate |> DateTime.toISO8601
+                    )
+
+                PredictionDomain.Impact ->
+                    ( startDate |> extendDate resultInterval count |> DateTime.toISO8601
+                    , endDate |> extendDate resultInterval (count * -1) |> DateTime.toISO8601
+                    )
+
+                _ ->
+                    ( "", "" )
+
+        Nothing ->
+            ( "", "" )
+
+
 delayAndRecheckSession : Config -> String -> Cmd Msg
 delayAndRecheckSession config sessionId =
     delayTask 15
@@ -273,6 +316,58 @@ delayAndRecheckSession config sessionId =
 formatFilename : Model -> String
 formatFilename model =
     model.sessionId ++ "-results." ++ Format.dataFormatToString Format.Csv
+
+
+predictionCount : Maybe ResultInterval -> DateTime -> DateTime -> Int
+predictionCount interval start end =
+    let
+        delta =
+            DateTime.delta start end
+    in
+    case interval of
+        Just Hour ->
+            delta.hours
+
+        Just Day ->
+            delta.days
+
+        Just Week ->
+            delta.days // 7
+
+        Just Month ->
+            delta.months
+
+        Just Year ->
+            delta.years
+
+        Nothing ->
+            0
+
+
+extendDate : Maybe ResultInterval -> (Int -> DateTime -> DateTime)
+extendDate interval =
+    case interval of
+        Just Hour ->
+            DateTime.addHours
+
+        Just Day ->
+            DateTime.addDays
+
+        Just Week ->
+            let
+                extend count from =
+                    DateTime.addDays (count * 7) from
+            in
+            extend
+
+        Just Month ->
+            DateTime.addMonths
+
+        Just Year ->
+            DateTime.addYears
+
+        Nothing ->
+            DateTime.addDays
 
 
 view : Model -> ContextModel -> Html Msg

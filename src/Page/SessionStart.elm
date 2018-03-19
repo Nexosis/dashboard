@@ -9,7 +9,8 @@ import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
-import Date exposing (Date, Month)
+import Date exposing (Date, Month(..))
+import Date.Extra as Date
 import DateTimePicker
 import DateTimePicker.Config exposing (defaultDatePickerConfig, defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
@@ -24,6 +25,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
+import String.Extra as String
 import String.Verify exposing (notBlank)
 import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
@@ -1045,8 +1047,11 @@ extractTimestampMax model =
     let
         ( _, dateString ) =
             getMinMaxValueFromCandidate model
+
+        date =
+            dateString |> String.replaceSlice "" 19 100 |> Date.fromIsoString
     in
-    case Date.fromString dateString of
+    case date of
         Result.Ok date ->
             Just date
 

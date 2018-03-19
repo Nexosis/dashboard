@@ -42,7 +42,7 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName
@@ -60,7 +60,7 @@ forecastResults sessionResults session dataSet windowWidth =
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
-                , VegaLite.mark Line []
+                , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
 
@@ -69,12 +69,9 @@ forecastResults sessionResults session dataSet windowWidth =
                 []
 
 
-impactResults : SessionData -> SessionResults -> DataSetData -> Int -> Spec
-impactResults session sessionResults dataSet windowWidth =
+impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+impactResults sessionResults session dataSet windowWidth =
     let
-        pointTypeName =
-            "Result Type"
-
         targetColumn =
             session.columns
                 |> find (\c -> c.role == Columns.Target)
@@ -89,16 +86,10 @@ impactResults session sessionResults dataSet windowWidth =
     case Maybe.map2 (,) targetColumn timestampColumn of
         Just ( targetCol, timestampCol ) ->
             let
-                sessionData =
-                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
-
-                dataSetData =
-                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
-
-                enc =
+                lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit <| resultIntervalToTimeUnit session.resultInterval ]
-                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -108,15 +99,65 @@ impactResults session sessionResults dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
+
+                minPos =
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Min ]
+
+                maxPos =
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]
+
+                predictionsOnly =
+                    transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
+
+                lineSpec =
+                    asSpec
+                        [ lineEnc []
+                        , mark Line [ MInterpolate Monotone ]
+                        , transform << filter (FOneOf pointTypeName (Strings [ "Predictions", "Observations" ])) <| []
+                        ]
+
+                minSpec =
+                    asSpec
+                        [ (encoding << minPos) []
+                        , mark Rule []
+                        , predictionsOnly
+                        ]
+
+                maxSpec =
+                    asSpec
+                        [ (encoding << maxPos) []
+                        , mark Rule []
+                        , predictionsOnly
+                        ]
+
+                boxSpec =
+                    asSpec
+                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]) []
+                        , mark Rect [ MFillOpacity 0.1 ]
+                        , predictionsOnly
+                        ]
+
+                pointTypeName =
+                    "Result Type"
+
+                sessionData =
+                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+
+                dataSetData =
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
             in
             toVegaLite
-                [ VegaLite.title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
-                , VegaLite.width chartWidth
-                , VegaLite.height chartHeight
+                [ title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
+                , width chartWidth
+                , height chartHeight
                 , autosize [ AFit, APadding ]
                 , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
-                , VegaLite.mark Line [ MInterpolate Monotone ]
-                , enc []
+                , layer
+                    [ lineSpec
+                    , minSpec
+                    , maxSpec
+                    , boxSpec
+                    ]
                 ]
 
         _ ->
