@@ -16,12 +16,13 @@
         <script src="https://d2zah9y47r7bi2.cloudfront.net/releases/current/tracker.js"></script>
         <% } %> -->
 
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width,maximum-scale=2">
     <title>Nexosis Dashboard</title>
-    <link rel="stylesheet" href="https://developers.nexosis.com/themes/portals.themes.bootstrap/styles/bootstrap.published.less"
+    <link rel="preload" as="style" href="https://developers.nexosis.com/themes/portals.themes.bootstrap/styles/bootstrap.published.less"
     />
-    <script src="https://use.fontawesome.com/524bb1a518.js"></script>
+    <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/fetch-inject@1.9.1/dist/fetch-inject.umd.min.js">
 
     <style>
         .line-height {
@@ -48,10 +49,84 @@
             }
         }
     </style>
+
+    <link rel="stylesheet" href="https://developers.nexosis.com/themes/portals.themes.bootstrap/styles/bootstrap.published.less"
+    />
 </head>
 
 <body>
-    <div id="main"></div>
+    <div id="main" class="layout">
+        <div class="layout-row">
+            <div class="zone-header layout">
+                <!-- Start Header Section -->
+                <header id="topnav">
+                    <nav class="nav navbar-fixed-top" role="navigation">
+                        <div class="container">
+                            <!-- Brand and toggle get grouped for better mobile display -->
+                            <div class="navbar-header">
+                                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#topnav-collapse" aria-expanded="false">
+                                    <span class="sr-only">Toggle navigation</span>
+                                    <i class="fa fa-bars fa-lg"></i>
+                                </button>
+                                <a href="dashboard.html" class="navbar-brand">
+                                    <img src="https://nexosis.com/assets/img/logo-horizontal.png" alt="" height="50%">
+                                    <div class="badge badge-danger badge-logo">API</div>
+                                </a>
+                            </div>
+                            <!-- Toggle Elements -->
+                            <div id="topnav-collapse" class="collapse navbar-collapse">
+                                <ul class="nav navbar-nav navbar-left">
+                                    <li>
+                                        <a href="#/data">Datasets</i>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#/sessions">Sessions</i>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#/models">Models</i>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Developers
+                                            <span class="caret"></span>
+                                        </a>
+                                        <ul class="dropdown-menu">
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <a href="https://support.nexosis.com" target="_blank">Help</a>
+                                    </li>
+                                </ul>
+                                <ul class="nav navbar-nav navbar-right mr10" role="navigation" aria-label="Account menu">
+                                    <li class="dropdown">
+                                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">Account
+                                            <b class="caret"></b>
+                                        </a>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a href="https://account.nexosis.com/apiaccount/accountstatus">Overview</a>
+                                            </li>
+                                            <li>
+                                                <a href="https://account.nexosis.com/apiAccount/referAFriend">Refer a friend</a>
+                                            </li>
+                                            <li>
+                                                <a href="https://developers.nexosis.com/signout">Sign Out</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </div>
+                            <!-- /.navbar-collapse -->
+                        </div>
+                        <!-- /.container-fluid -->
+                    </nav>
+                </header>
+                <!-- End Header Section -->
+            </div>
+        </div>
+    </div>
     <!-- FOOTER  -->
     <div class="footer-nav">
         <div class="footer-nav-top">
@@ -142,18 +217,7 @@
                 </div>
                 <div class="col-sm-6 col-md-6 col-lg-6 col-xl-6 col-sm-offset-2 col-md-offset-2 col-lg-offset-2 col-xl-offset-2">
                     <h4>Newsletter</h4>
-                    <div class="hs-footer">
-                        <!--[if lte IE 8]>
-                            <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/v2-legacy.js"></script>
-                            <![endif]-->
-                        <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/v2.js"></script>
-                        <script>
-                            hbspt.forms.create({
-                                css: '',
-                                portalId: '2307117',
-                                formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84'
-                            });
-                        </script>
+                    <div id="hs-footer" class="hs-footer">
                     </div>
                 </div>
             </div>
@@ -180,12 +244,28 @@
             </div>
         </div>
     </footer>
-    <script src="https://cdn.jsdelivr.net/npm/vega@3.0.10"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@2.1.3"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@3.0.0"></script>
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>    
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fetch-inject@1.9.1/dist/fetch-inject.umd.min.js"></script>
+    <script>
+        fetchInject(["https://cdn.jsdelivr.net/npm/vega-embed@3.0.0/build/vega-embed.min.js"],
+            fetchInject(["https://cdn.jsdelivr.net/npm/vega-lite@2.1.3/build/vega-lite.min.js"],
+                fetchInject(['https://cdn.jsdelivr.net/npm/vega@3.0.10/build/vega.min.js'])
+            )
+        );
+        fetchInject(["https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"],
+            fetchInject(["https://code.jquery.com/jquery-3.2.1.slim.min.js"]));
+
+        fetchInject(["https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"]);
+
+        fetchInject(['//js.hsforms.net/forms/v2.js']).then(function () {
+            hbspt.forms.create({
+                css: '',
+                portalId: '2307117',
+                formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84',
+                target: '#hs-footer'
+            })
+        });
+    </script>
+    <script src="https://use.fontawesome.com/524bb1a518.js" async></script>
 </body>
 
 </html>
