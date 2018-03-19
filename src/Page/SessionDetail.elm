@@ -354,7 +354,11 @@ extendDate interval =
             DateTime.addDays
 
         Just Week ->
-            DateTime.addDays
+            let
+                extend count from =
+                    DateTime.addDays (count * 7) from
+            in
+            extend
 
         Just Month ->
             DateTime.addMonths

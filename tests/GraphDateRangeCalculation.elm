@@ -36,6 +36,10 @@ impactSessionDates =
             (\_ ->
                 Expect.equal ( "2018-02-28T09:00:00.000Z", "2018-03-02T06:00:00.000Z" ) (getDataDateRange (SessionDateData (Just "2018-03-01T00:00:00.000Z") (Just "2018-03-01T15:00:00.000Z") (Just Hour) PredictionDomain.Impact))
             )
+        , test "returns range with weekly count before and after"
+            (\_ ->
+                Expect.equal ( "2018-02-01T00:00:00.000Z", "2018-04-26T00:00:00.000Z" ) (getDataDateRange (SessionDateData (Just "2018-03-01T00:00:00.000Z") (Just "2018-03-29T00:00:00.000Z") (Just Week) PredictionDomain.Impact))
+            )
         ]
 
 
