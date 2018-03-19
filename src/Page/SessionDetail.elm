@@ -142,7 +142,7 @@ update msg model context =
                                                     DateTime.fromISO8601 end |> Result.withDefault DateTime.epoch
 
                                                 count =
-                                                    predictionCount session.resultInterval startDate endDate |> Debug.log "count"
+                                                    predictionCount session.resultInterval startDate endDate
                                             in
                                             case domain of
                                                 PredictionDomain.Forecast ->
@@ -307,7 +307,7 @@ predictionCount : Maybe ResultInterval -> DateTime -> DateTime -> Int
 predictionCount interval start end =
     let
         delta =
-            DateTime.delta start end |> Debug.log "delta"
+            DateTime.delta start end
     in
     case interval of
         Just Hour ->
