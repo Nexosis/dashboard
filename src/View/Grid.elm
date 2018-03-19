@@ -270,7 +270,7 @@ view toData config state response =
                 items =
                     successResponse |> toData
             in
-            div [ class "table-responsive" ]
+            div []
                 [ Table.view tableConfig state items
                 ]
 
@@ -289,7 +289,7 @@ view toData config state response =
                 errorMessageRow =
                     tr [] [ td [ colspan columnCount ] [ text (niceErrorMessage err) ] ]
             in
-            div [ class "table-responsive" ]
+            div []
                 [ Table.view tableConfig state []
                 , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
@@ -319,7 +319,7 @@ view toData config state response =
                 loadingRows =
                     List.repeat 10 (tr [] loadingTds)
             in
-            div [ class "table-responsive" ]
+            div []
                 [ Table.view tableConfig state []
                 , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []

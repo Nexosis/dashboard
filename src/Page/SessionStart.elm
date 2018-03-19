@@ -9,9 +9,10 @@ import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
-import Date exposing (Date)
+import Date exposing (Date, Month(..))
+import Date.Extra as Date
 import DateTimePicker
-import DateTimePicker.Config exposing (defaultDateTimePickerConfig)
+import DateTimePicker.Config exposing (defaultDatePickerConfig, defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
 import Dict
 import Html exposing (..)
@@ -24,16 +25,19 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
+import String.Extra as String
 import String.Verify exposing (notBlank)
-import Time.DateTime as DateTime exposing (DateTime)
-import Time.TimeZones exposing (etc_universal)
-import Time.ZonedDateTime exposing (fromDateTime)
-import Util exposing ((=>), isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+import Time.DateTime as DateTime exposing (DateTime, zero)
+import Time.TimeZone as TimeZone
+import Time.TimeZones exposing (fromName, utc)
+import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
+import Util exposing ((=>), dateToUtcDateTime, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.Error exposing (viewFieldError, viewRemoteError)
 import View.Extra exposing (viewJust)
+import View.TimeZonePicker exposing (timeZoneList)
 import View.Wizard as Wizard exposing (StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
 
@@ -46,8 +50,9 @@ type alias Model =
     , sessionName : Maybe String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
-    , startDate : Maybe DateTime
-    , endDate : Maybe DateTime
+    , startDate : Maybe Date
+    , endDate : Maybe Date
+    , timeZone : TimeZone.TimeZone
     , startDatePickerState : DateTimePicker.State
     , endDatePickerState : DateTimePicker.State
     , resultInterval : ResultInterval
@@ -74,6 +79,7 @@ type Msg
     | EndDateChanged DateTimePicker.State (Maybe Date)
     | ChangeEventName String
     | IntervalChanged ResultInterval
+    | TimeZoneSelected String
     | SelectContainsAnomalies Bool
     | SelectBalance Bool
     | SetWizardPage Step
@@ -125,6 +131,7 @@ init config dataSetName =
         Remote.NotAsked
         Nothing
         Nothing
+        (utc ())
         DateTimePicker.initialState
         DateTimePicker.initialState
         Session.Day
@@ -149,6 +156,7 @@ type Field
     = EventNameField
     | StartDateField
     | SessionTypeField
+    | MetadataField
 
 
 validateModel : Model -> Result (List FieldError) SessionRequest
@@ -170,12 +178,19 @@ validateModel model =
             Err [ SessionTypeField => "Session Type Selection is required" ]
 
 
-verifyStartEndDates : Model -> Result (List FieldError) { endDate : DateTime, startDate : DateTime }
-verifyStartEndDates { startDate, endDate } =
+verifyStartEndDates : Model -> Result (List FieldError) { endDate : ZonedDateTime, startDate : ZonedDateTime }
+verifyStartEndDates { startDate, endDate, timeZone } =
     case ( startDate, endDate ) of
         ( Just startDate, Just endDate ) ->
-            if DateTime.compare startDate endDate == LT then
-                Ok { startDate = startDate, endDate = endDate }
+            let
+                start =
+                    startDate |> dateToUtcDateTime timeZone
+
+                end =
+                    endDate |> dateToUtcDateTime timeZone
+            in
+            if DateTime.compare start end == LT then
+                Ok { startDate = ZonedDateTime.fromDateTime timeZone start, endDate = ZonedDateTime.fromDateTime timeZone end }
             else
                 Err [ StartDateField => "Start date must be before the end date." ]
 
@@ -256,6 +271,7 @@ perStepValidations : List ( Step, Model -> List FieldError )
 perStepValidations =
     [ ( StartEndDates, verifyStartEndStep )
     , ( SessionType, verifySessionType >> unwrapErrors )
+    , ( ColumnMetadata, verifyMetadataStep )
     ]
 
 
@@ -265,6 +281,49 @@ verifyStartEndStep model =
         [ verifyStartEndDates >> unwrapErrors
         , verifyEventName >> unwrapErrors
         ]
+
+
+verifyMetadataStep : Model -> List FieldError
+verifyMetadataStep model =
+    List.concatMap (\f -> f model) [ verifyTimestampRole >> unwrapErrors ]
+
+
+verifyTimestampRole : Model -> Result (List FieldError) String
+verifyTimestampRole model =
+    let
+        shouldValidate =
+            model.selectedSessionType == Just Forecast || model.selectedSessionType == Just Impact
+
+        merged =
+            Dict.values model.columnEditorModel.modifiedMetadata |> mergeMetadata (getMetaDataColumns model)
+
+        dateCandidate =
+            dateColumnCandidate merged
+
+        hasDate =
+            dateCandidate.dataType == Columns.Date
+
+        hasTimestamp =
+            dateCandidate.role == Columns.Timestamp
+
+        errorMessage =
+            if hasTimestamp then
+                ""
+            else if hasDate then
+                "You are executing a forecast against a dataset that does not have a timestamp role. You must select a date column to use as the timestamp and set that role before starting the session."
+            else
+                "Dataset contains neither timestamp nor date column. We cannot run time-series algorithms without a date value of some kind."
+    in
+    if shouldValidate && String.length errorMessage > 0 then
+        Err [ MetadataField => errorMessage ]
+    else
+        Ok ""
+
+
+mergeMetadata : List Columns.ColumnMetadata -> List Columns.ColumnMetadata -> List Columns.ColumnMetadata
+mergeMetadata left right =
+    List.filter (\b -> List.member b.name (List.map (\a -> a.name) left)) right
+        ++ List.filterNot (\b -> List.member b.name (List.map (\a -> a.name) right)) left
 
 
 configWizard : WizardConfig Step FieldError Msg Model SessionRequest
@@ -370,7 +429,7 @@ update msg model context =
 
         ( _, StartDateChanged state value ) ->
             { model
-                | startDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                | startDate = value
                 , startDatePickerState = state
             }
                 |> recheckErrors
@@ -378,11 +437,18 @@ update msg model context =
 
         ( _, EndDateChanged state value ) ->
             { model
-                | endDate = value |> Maybe.map (Date.toTime >> DateTime.fromTimestamp)
+                | endDate = value
                 , endDatePickerState = state
             }
                 |> recheckErrors
                 => Cmd.none
+
+        ( StartEndDates, TimeZoneSelected tz ) ->
+            let
+                timeZone =
+                    fromName tz |> Maybe.withDefault (utc ())
+            in
+            { model | timeZone = timeZone } => Cmd.none
 
         ( StartEndDates, IntervalChanged interval ) ->
             { model | resultInterval = interval }
@@ -423,7 +489,7 @@ update msg model context =
                 { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
-            { model | steps = Ziplist.rewind model.steps } => Cmd.none
+            { model | steps = Ziplist.rewind model.steps, errors = [] } => Cmd.none
 
         ( _, InputBlur ) ->
             recheckErrors model => Cmd.none
@@ -480,6 +546,7 @@ update msg model context =
                 , stats = stats
                 , target = target
             }
+                |> recheckErrors
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ( _, SetWizardPage step ) ->
@@ -732,12 +799,17 @@ viewStartEndDates context model =
             [ div [ class "alert alert-info" ]
                 [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
             ]
-        , div [ class "form-group col-sm-3" ]
+        , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        , viewTzList model
+        , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                , viewDatePicker model StartDateChanged [] model.startDatePickerState model.startDate
                 ]
             , viewFieldError model.errors StartDateField
             ]
@@ -746,12 +818,8 @@ viewStartEndDates context model =
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                , viewDatePicker model EndDateChanged [] model.endDatePickerState model.endDate
                 ]
-            ]
-        , div [ class "form-group col-sm-3 clearfix-left" ]
-            [ label [] [ text "Result Interval" ]
-            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
             ]
         ]
 
@@ -773,11 +841,16 @@ viewImpactStartEndDates context model =
             , viewFieldError model.errors EventNameField
             ]
         , div [ class "form-group col-sm-3 clearfix-left" ]
+            [ label [] [ text "Result Interval" ]
+            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
+            ]
+        , viewTzList model
+        , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Start date" ]
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig StartDateChanged) [] model.startDatePickerState (model.startDate |> toDate)
+                , viewDatePicker model StartDateChanged [] model.startDatePickerState model.startDate
                 ]
             , viewFieldError model.errors StartDateField
             ]
@@ -786,31 +859,35 @@ viewImpactStartEndDates context model =
             , div [ class "input-group" ]
                 [ span [ class "input-group-addon" ]
                     [ i [ class "fa fa-calendar" ] [] ]
-                , DateTimePicker.dateTimePickerWithConfig (datePickerConfig EndDateChanged) [] model.endDatePickerState (model.endDate |> toDate)
+                , viewDatePicker model EndDateChanged [] model.endDatePickerState model.endDate
                 ]
-            ]
-        , div [ class "form-group col-sm-3 clearfix-left" ]
-            [ label [] [ text "Result Interval" ]
-            , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
             ]
         ]
 
 
-toDate : Maybe DateTime -> Maybe Date
-toDate dateTime =
-    case dateTime of
-        Just dt ->
-            dt
-                |> DateTime.toISO8601
-                |> Date.fromString
-                |> Result.toMaybe
+viewTzList : Model -> Html Msg
+viewTzList model =
+    case model.resultInterval of
+        Session.Hour ->
+            div [ class "form-group col-sm-3 clearfix-left" ]
+                [ label [] [ text "Timezone" ]
+                , TimeZone.name model.timeZone |> timeZoneList TimeZoneSelected
+                ]
 
-        Nothing ->
-            Nothing
+        _ ->
+            div [] []
 
 
-datePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
-datePickerConfig msg =
+viewDatePicker : Model -> (DateTimePicker.State -> Maybe Date -> Msg) -> List (Attribute Msg) -> DateTimePicker.State -> Maybe Date -> Html Msg
+viewDatePicker model msg =
+    if model.resultInterval == Session.Hour then
+        DateTimePicker.dateTimePickerWithConfig (dateTimePickerConfig msg)
+    else
+        DateTimePicker.datePickerWithConfig (defaultDatePickerConfig msg)
+
+
+dateTimePickerConfig : (DateTimePicker.State -> Maybe Date -> Msg) -> DateTimePicker.Config.Config (DateTimePicker.Config.CssConfig (DateTimePicker.Config.DatePickerConfig DateTimePicker.Config.TimePickerConfig) Msg DateTimePicker.SharedStyles.CssClasses) Msg
+dateTimePickerConfig msg =
     let
         defaultDateTimeConfig =
             defaultDateTimePickerConfig msg
@@ -866,7 +943,8 @@ viewColumnMetadata : ContextModel -> Model -> Html Msg
 viewColumnMetadata context model =
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
+            [ viewFieldError model.errors MetadataField
+            , div [ class "alert alert-info" ]
                 [ explainer context.config "session_column_metadata"
                 ]
             ]
@@ -910,23 +988,13 @@ viewStartSession model =
         maybeStartEndDates =
             Maybe.map2
                 (\start end ->
-                    let
-                        utc =
-                            etc_universal ()
-
-                        convertedStart =
-                            fromDateTime utc start
-
-                        convertedEnd =
-                            fromDateTime utc end
-                    in
                     if model.resultInterval == Hour then
-                        toShortDateTimeString convertedStart ++ " - " ++ toShortDateTimeString convertedEnd
+                        toShortDateTimeString start ++ " - " ++ toShortDateTimeString end
                     else
-                        toShortDateString convertedStart ++ " - " ++ toShortDateString convertedEnd
+                        toShortDateString start ++ " - " ++ toShortDateString end
                 )
-                model.startDate
-                model.endDate
+                (model.startDate |> Maybe.map (\d -> d |> dateToUtcDateTime model.timeZone |> ZonedDateTime.fromDateTime model.timeZone))
+                (model.endDate |> Maybe.map (\d -> d |> dateToUtcDateTime model.timeZone |> ZonedDateTime.fromDateTime model.timeZone))
 
         maybeResultInterval =
             Maybe.map (\_ -> toString model.resultInterval) model.startDate
@@ -974,13 +1042,16 @@ editIcon editType =
             i [ class "fa fa-edit", onClick (SetWizardPage step) ] []
 
 
-extractTimestampMax : Model -> Maybe DateTime
+extractTimestampMax : Model -> Maybe Date
 extractTimestampMax model =
     let
         ( _, dateString ) =
             getMinMaxValueFromCandidate model
+
+        date =
+            dateString |> String.replaceSlice "" 19 100 |> Date.fromIsoString
     in
-    case DateTime.fromISO8601 dateString of
+    case date of
         Result.Ok date ->
             Just date
 
@@ -988,8 +1059,8 @@ extractTimestampMax model =
             Nothing
 
 
-getDateTimeColumns : Model -> List Columns.ColumnMetadata
-getDateTimeColumns model =
+getMetaDataColumns : Model -> List Columns.ColumnMetadata
+getMetaDataColumns model =
     case model.columnEditorModel.columnMetadata of
         Remote.Success cm ->
             Dict.values cm.metadata
@@ -998,12 +1069,9 @@ getDateTimeColumns model =
             []
 
 
-dateColumnCandidate : Model -> Columns.ColumnMetadata
-dateColumnCandidate model =
+dateColumnCandidate : List Columns.ColumnMetadata -> Columns.ColumnMetadata
+dateColumnCandidate list =
     let
-        list =
-            getDateTimeColumns model
-
         column =
             List.filter (\a -> a.dataType == Columns.Date) list
                 |> List.append (List.filter (\a -> a.role == Columns.Timestamp) list)
@@ -1016,7 +1084,7 @@ getMinMaxValueFromCandidate : Model -> ( String, String )
 getMinMaxValueFromCandidate model =
     let
         metadata =
-            dateColumnCandidate model
+            dateColumnCandidate <| getMetaDataColumns model
     in
     case model.stats of
         Just statDict ->

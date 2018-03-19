@@ -425,9 +425,19 @@ view model context =
 viewChooseUploadType : ContextModel -> Model -> Html Msg
 viewChooseUploadType context model =
     div []
-        [ div [ class "col-sm-12" ]
-            [ h3 [ class "mt0" ] [ text "Choose Upload type" ]
-            , div [ class "form-group col-sm-4" ]
+        [ div [ class "col-sm-12 mb20 session-step" ]
+            [ div [ class "col-sm-6 pl0" ] [ h3 [] [ text "Choose Upload type" ] ]
+            , div [ class "col-sm-6 right" ]
+                [ viewButtons configWizard
+                    model
+                    model.steps
+                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (model.errors == [])
+                ]
+            ]
+        , div
+            [ class "col-sm-12" ]
+            [ div [ class "form-group col-sm-4" ]
                 [ label [] [ text "DataSet Name" ]
                 , input [ class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
                 , viewFieldError model.errors DataSetNameField
@@ -486,20 +496,33 @@ viewSetKey config model =
                         _ ->
                             viewRemoteError model.importResponse
     in
-    div [ class "col-sm-12" ]
-        [ div [ id "review" ] <| viewEntryReview model
-        , hr [] []
-        , h3 [ class "mt0" ] [ text "Do you want to specify a key?" ]
-        , div [ class "col-sm-4" ]
-            [ div [ class "form-group" ]
-                [ label [] [ text "Key" ]
-                , input [ class "form-control", placeholder "(Optional)", value model.key ] []
+    div []
+        [ div [ class "col-sm-12" ]
+            [ div [ class "col-sm-8 pl0" ]
+                [ div [ id "review" ] <| viewEntryReview model
                 ]
-            , errorDisplay
+            , div
+                [ class "col-sm-4 right" ]
+                [ viewButtons configWizard model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == []) ]
             ]
-        , div [ class "col-sm-6" ]
-            [ div [ class "alert alert-info" ]
-                [ explainer config "why_choose_key"
+        , div
+            [ class "col-sm-12" ]
+            [ hr []
+                []
+            , h3
+                [ class "mt0" ]
+                [ text "Do you want to specify a key?" ]
+            , div [ class "col-sm-4" ]
+                [ div [ class "form-group" ]
+                    [ label [] [ text "Key" ]
+                    , input [ class "form-control", placeholder "(Optional)", value model.key ] []
+                    ]
+                , errorDisplay
+                ]
+            , div [ class "col-sm-6" ]
+                [ div [ class "alert alert-info" ]
+                    [ explainer config "why_choose_key"
+                    ]
                 ]
             ]
         ]
