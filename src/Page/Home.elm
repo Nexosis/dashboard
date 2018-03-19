@@ -23,6 +23,7 @@ import Request.Subscription
 import Table
 import Util exposing ((=>))
 import View.Extra exposing (viewIfElements)
+import View.Messages exposing (messageSeverityDisplay)
 
 
 ---- MODEL ----
@@ -35,12 +36,11 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
-    , messages : List GlobalMessage
     }
 
 
-init : Config -> Maybe Quotas -> List GlobalMessage -> ( Model, Cmd Msg )
-init config quotas messages =
+init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
+init config quotas =
     Model
         Remote.Loading
         Remote.Loading
@@ -48,7 +48,6 @@ init config quotas messages =
         Remote.Loading
         []
         quotas
-        messages
         => Cmd.batch
             [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
@@ -117,8 +116,8 @@ update msg model context =
 -- VIEW --
 
 
-view : Model -> ContextModel -> Html Msg
-view model context =
+view : Model -> ContextModel -> List GlobalMessage -> Html Msg
+view model context messages =
     div []
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
@@ -133,7 +132,7 @@ view model context =
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (viewQuotas model.quotas) ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewRecentMessages model.messages) ]
+                [ viewSidePanel (viewRecentMessages messages) ]
             ]
         ]
 
@@ -196,27 +195,39 @@ viewQuota name quota =
 
 viewRecentMessages : List GlobalMessage -> Html Msg
 viewRecentMessages messages =
-    let
-        recentMessages =
-            List.take 5 messages
-    in
     viewIfElements
         (\() ->
             div [ class "row m0" ]
                 (h4 [ class "mb15" ]
                     [ strong [] [ text "Recent API Messages" ]
                     ]
-                    :: List.map viewMessage recentMessages
+                    :: List.map viewMessage messages
                 )
         )
-        recentMessages
+        messages
 
 
 viewMessage : GlobalMessage -> Html Msg
 viewMessage message =
-    div [ class "message-group" ]
-        [ p [] [ text message.message ]
-        ]
+    let
+        messageDisplay =
+            div [ class "message-group" ]
+                [ p [ class "api-code" ] [ messageSeverityDisplay message ]
+                , p [ class "message" ] [ text message.message ]
+
+                -- todo - Messages don't have timestamps, but, if we create an endpoint to gather all messages,
+                -- that will probably change.
+                -- , p [ class "date" ]
+                --     [ i [ class "fa fa-calendar-o" ]
+                --         [ text "date"
+                --         ]
+                --     ]
+                ]
+    in
+    message.routeToResource
+        |> Maybe.map
+            (\route -> a [ AppRoutes.href route ] [ messageDisplay ])
+        |> Maybe.withDefault messageDisplay
 
 
 viewSidePanel : Html Msg -> Html Msg
