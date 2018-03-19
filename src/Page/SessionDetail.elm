@@ -115,10 +115,10 @@ update msg model context =
                         { model | loadingResponse = response } => Cmd.none
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ResultsResponse response ->
             case Remote.map2 (,) response model.loadingResponse of

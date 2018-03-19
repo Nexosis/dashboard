@@ -249,20 +249,22 @@ update msg model =
 updatePage : Page -> Msg -> App -> ( App, Cmd Msg )
 updatePage page msg app =
     let
-        toPage toModel toMsg subUpdate subMsg subModel =
-            let
-                ( newModel, newCmd ) =
-                    subUpdate subMsg subModel app.context
-            in
+        doUpdate subUpdate subMsg subModel =
+            subUpdate subMsg subModel app.context
+
+        toPage toModel toMsg ( newModel, newCmd ) =
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
 
-        errorOr : Loading a b -> ( App, Cmd Msg ) -> ( App, Cmd Msg )
-        errorOr loading view =
-            case loading.loadingResponse of
+        resetError app =
+            { app | pageLoadFailed = Nothing }
+
+        toPageOrError toModel toMsg ( newModel, newCmd ) =
+            case newModel.loadingResponse of
                 Remote.Failure err ->
                     ( app, Task.perform PageLoadFailed <| Task.succeed err )
+
                 _ ->
-                    view
+                    toPage toModel toMsg ( newModel, newCmd )
     in
     case ( msg, page ) of
         ( PageLoadFailed err, _ ) ->
@@ -270,35 +272,35 @@ updatePage page msg app =
 
         -- Update for page transitions
         ( SetRoute route, _ ) ->
-            setRoute route app
+            setRoute route <| resetError app
 
         -- Update for page specific msgs
         ( HomeMsg subMsg, Home subModel ) ->
-            toPage Home HomeMsg Home.update subMsg subModel
+            toPage Home HomeMsg <| doUpdate Home.update subMsg subModel
 
         ( DataSetsMsg subMsg, DataSets subModel ) ->
-            toPage DataSets DataSetsMsg DataSets.update subMsg subModel
+            toPage DataSets DataSetsMsg <| doUpdate DataSets.update subMsg subModel
 
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
-            toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
+            toPageOrError DataSetDetail DataSetDetailMsg <| doUpdate DataSetDetail.update subMsg subModel
 
         ( DataSetAddMsg subMsg, DataSetAdd subModel ) ->
-            toPage DataSetAdd DataSetAddMsg DataSetAdd.update subMsg subModel
+            toPage DataSetAdd DataSetAddMsg <| doUpdate DataSetAdd.update subMsg subModel
 
         ( ModelsMsg subMsg, Models subModel ) ->
-            toPage Models ModelsMsg Models.update subMsg subModel
+            toPage Models ModelsMsg <| doUpdate Models.update subMsg subModel
 
         ( ModelDetailMsg subMsg, ModelDetail subModel ) ->
-            errorOr subModel <| toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
+            toPageOrError ModelDetail ModelDetailMsg <| doUpdate ModelDetail.update subMsg subModel
 
         ( SessionsMsg subMsg, Sessions subModel ) ->
-            toPage Sessions SessionsMsg Sessions.update subMsg subModel
+            toPage Sessions SessionsMsg <| doUpdate Sessions.update subMsg subModel
 
         ( SessionDetailMsg subMsg, SessionDetail subModel ) ->
-            toPage SessionDetail SessionDetailMsg SessionDetail.update subMsg subModel
+            toPageOrError SessionDetail SessionDetailMsg <| doUpdate SessionDetail.update subMsg subModel
 
         ( SessionStartMsg subMsg, SessionStart subModel ) ->
-            toPage SessionStart SessionStartMsg SessionStart.update subMsg subModel
+            toPage SessionStart SessionStartMsg <| doUpdate SessionStart.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             let

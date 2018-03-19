@@ -70,10 +70,10 @@ update msg model context =
                     { model | loadingResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Cmd.none
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
+                    { model | loadingResponse = response } => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ModelPredictMsg subMsg ->
             let
