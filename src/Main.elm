@@ -386,6 +386,10 @@ view : Model -> Html Msg
 view model =
     case model of
         InitializationError err ->
+            let
+                d =
+                    Debug.log "" err
+            in
             Error.pageLoadError Page.Home
                 """
             Sorry, it seems we are having an issues starting the application.

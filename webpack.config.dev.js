@@ -4,6 +4,7 @@ import combineLoaders from 'webpack-combine-loaders';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 
 export default {
+    mode: 'development',
     devtool: 'eval-source-map',
     cache: true,
     entry: [
@@ -29,7 +30,6 @@ export default {
             __DEV__: true
         }),
         new webpack.HotModuleReplacementPlugin(),
-        new webpack.NoEmitOnErrorsPlugin(),
         new HtmlWebpackPlugin({
             template: 'src/index.ejs',
             minify: {
@@ -39,6 +39,9 @@ export default {
             inject: true
         })
     ],
+    optimization: {
+        noEmitOnErrors: true
+    },
     module: {
         rules: [
             {
@@ -86,6 +89,7 @@ export default {
                 ]
             },
             {
+                type: 'javascript/auto',
                 test: /(config)\.json$/,
                 use: [
                     {
@@ -100,14 +104,6 @@ export default {
                     {
                         loader: 'file-loader',
                         options: { name: 'docs/[name].[ext]' }
-                    }
-                ]
-            },
-            {
-                test: /(tooltips)\.json$/,
-                use: [
-                    {
-                        loader: 'json-loader'
                     }
                 ]
             }
