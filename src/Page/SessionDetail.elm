@@ -1,4 +1,4 @@
-module Page.SessionDetail exposing (Model, Msg, init, update, view)
+module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRange, init, update, view)
 
 import AppRoutes
 import Data.Algorithm exposing (..)
@@ -29,7 +29,8 @@ import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
-import Util exposing ((=>), delayTask, formatFloatToString, spinner, styledNumber)
+import Time.DateTime as DateTime exposing (DateTime)
+import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -44,7 +45,7 @@ import Window
 
 type alias Model =
     { sessionId : String
-    , sessionResponse : Remote.WebData SessionData
+    , loadingResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
@@ -53,6 +54,7 @@ type alias Model =
     , currentPage : Int
     , csvDownload : Remote.WebData String
     , metricList : List Metric
+    , predictionDomain : Maybe PredictionDomain.PredictionDomain
     }
 
 
@@ -67,7 +69,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers Nothing ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -104,7 +106,7 @@ update msg model context =
                                     _ ->
                                         Ports.setPageTitle (sessionInfo.name ++ " Details")
                         in
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => Cmd.batch
                                 [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
@@ -113,27 +115,30 @@ update msg model context =
                                 , Ports.setPageTitle (sessionInfo.name ++ " Details")
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response } => Cmd.none
+                        { model | loadingResponse = response } => Cmd.none
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ResultsResponse response ->
-            case Remote.map2 (,) response model.sessionResponse of
+            case Remote.map2 (,) response model.loadingResponse of
                 Remote.Success ( results, session ) ->
                     let
-                        timeSeriesDataRequest =
+                        includedColumns =
+                            session.columns |> List.filter (\c -> c.role == Columns.Target || c.role == Columns.Timestamp) |> List.map (\c -> c.name)
+
+                        timeSeriesDataRequest domain =
                             let
                                 dates =
-                                    Just ( Maybe.withDefault "" session.startDate, Maybe.withDefault "" session.endDate )
+                                    getDataDateRange { startDate = session.startDate, endDate = session.endDate, resultInterval = session.resultInterval, predictionDomain = session.predictionDomain }
                             in
-                            getDataByDateRange context.config (toDataSetName session.dataSourceName) dates
+                            getDataByDateRange context.config (toDataSetName session.dataSourceName) (Just dates) includedColumns
                                 |> Remote.sendRequest
                                 |> Cmd.map DataSetLoaded
 
@@ -147,22 +152,22 @@ update msg model context =
                                         |> Ports.drawVegaChart
 
                                 PredictionDomain.Forecast ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 PredictionDomain.Impact ->
-                                    timeSeriesDataRequest
+                                    timeSeriesDataRequest session.predictionDomain
 
                                 _ ->
                                     Cmd.none
                     in
-                    { model | resultsResponse = response }
+                    { model | resultsResponse = response, predictionDomain = Just session.predictionDomain }
                         => cmd
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | resultsResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | resultsResponse = response } => Cmd.none
 
         ShowDeleteDialog model ->
             { model | deleteDialogModel = Just (DeleteDialog.init "" model.sessionId) }
@@ -194,24 +199,23 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
+            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
                     let
+                        renderGraph graph =
+                            "result-vis"
+                                => graph results session data model.windowWidth
+                                |> List.singleton
+                                |> Json.Encode.object
+                                |> Ports.drawVegaChart
+
                         cmd =
                             case session.predictionDomain of
                                 PredictionDomain.Impact ->
-                                    "result-vis"
-                                        => Charts.impactResults session results data model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
+                                    renderGraph Charts.impactResults
 
                                 PredictionDomain.Forecast ->
-                                    "result-vis"
-                                        => Charts.forecastResults results session data model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
+                                    renderGraph Charts.forecastResults
 
                                 _ ->
                                     Cmd.none
@@ -262,6 +266,46 @@ update msg model context =
                     model => Cmd.none
 
 
+type alias SessionDateData =
+    { startDate : Maybe String
+    , endDate : Maybe String
+    , resultInterval : Maybe ResultInterval
+    , predictionDomain : PredictionDomain.PredictionDomain
+    }
+
+
+getDataDateRange : SessionDateData -> ( String, String )
+getDataDateRange { startDate, endDate, resultInterval, predictionDomain } =
+    case Maybe.map2 (,) startDate endDate of
+        Just ( start, end ) ->
+            let
+                startDate =
+                    DateTime.fromISO8601 start |> Result.withDefault DateTime.epoch
+
+                endDate =
+                    DateTime.fromISO8601 end |> Result.withDefault DateTime.epoch
+
+                count =
+                    predictionCount resultInterval startDate endDate
+            in
+            case predictionDomain of
+                PredictionDomain.Forecast ->
+                    ( startDate |> extendDate resultInterval (count * 2) |> DateTime.toISO8601
+                    , endDate |> DateTime.toISO8601
+                    )
+
+                PredictionDomain.Impact ->
+                    ( startDate |> extendDate resultInterval count |> DateTime.toISO8601
+                    , endDate |> extendDate resultInterval (count * -1) |> DateTime.toISO8601
+                    )
+
+                _ ->
+                    ( "", "" )
+
+        Nothing ->
+            ( "", "" )
+
+
 delayAndRecheckSession : Config -> String -> Cmd Msg
 delayAndRecheckSession config sessionId =
     delayTask 15
@@ -275,6 +319,58 @@ formatFilename model =
     model.sessionId ++ "-results." ++ Format.dataFormatToString Format.Csv
 
 
+predictionCount : Maybe ResultInterval -> DateTime -> DateTime -> Int
+predictionCount interval start end =
+    let
+        delta =
+            DateTime.delta start end
+    in
+    case interval of
+        Just Hour ->
+            delta.hours
+
+        Just Day ->
+            delta.days
+
+        Just Week ->
+            delta.days // 7
+
+        Just Month ->
+            delta.months
+
+        Just Year ->
+            delta.years
+
+        Nothing ->
+            0
+
+
+extendDate : Maybe ResultInterval -> (Int -> DateTime -> DateTime)
+extendDate interval =
+    case interval of
+        Just Hour ->
+            DateTime.addHours
+
+        Just Day ->
+            DateTime.addDays
+
+        Just Week ->
+            let
+                extend count from =
+                    DateTime.addDays (count * 7) from
+            in
+            extend
+
+        Just Month ->
+            DateTime.addMonths
+
+        Just Year ->
+            DateTime.addYears
+
+        Nothing ->
+            DateTime.addDays
+
+
 view : Model -> ContextModel -> Html Msg
 view model context =
     div []
@@ -285,7 +381,7 @@ view model context =
         , viewSessionDetails model
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , hr [] []
+        , maybeDisplayHR model --TODO: remove when anomalies have visualization
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -296,17 +392,35 @@ view model context =
         ]
 
 
+
+--HACK: Until we have graphs for anomalies...
+
+
+maybeDisplayHR : Model -> Html Msg
+maybeDisplayHR model =
+    let
+        domain =
+            Maybe.withDefault PredictionDomain.Forecast model.predictionDomain
+    in
+    case domain of
+        PredictionDomain.Anomalies ->
+            span [] []
+
+        _ ->
+            hr [] []
+
+
 viewSessionDetails : Model -> Html Msg
 viewSessionDetails model =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         pendingOrCompleted model session =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , loadingOrView model model.resultsResponse viewMetricsList
+                    , errorOrView model.resultsResponse <| viewMetricsList model
                     ]
             else
                 div []
@@ -402,7 +516,7 @@ viewSessionHeader : Model -> Html Msg
 viewSessionHeader model =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
         disabledOr request view =
@@ -609,7 +723,7 @@ viewResultsGraph model =
 
 viewResultsTable : Model -> Html Msg
 viewResultsTable model =
-    case model.sessionResponse of
+    case model.loadingResponse of
         Remote.Success sessionResponse ->
             if Data.Session.sessionIsCompleted sessionResponse then
                 if
