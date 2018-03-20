@@ -519,7 +519,7 @@ viewSetKey config model =
                     ]
                 , errorDisplay
                 ]
-            , div [ class "col-sm-6" ]
+            , div [ class "col-sm-6 col-sm-offset-2" ]
                 [ div [ class "alert alert-info" ]
                     [ explainer config "why_choose_key"
                     ]
