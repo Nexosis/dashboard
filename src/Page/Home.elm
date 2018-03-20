@@ -9,7 +9,7 @@ import Data.Response exposing (Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (attribute, class)
+import Html.Attributes exposing (attribute, class, href)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -34,6 +34,7 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
+    , apiManagerUrl : String
     }
 
 
@@ -46,6 +47,7 @@ init config quotas =
         Remote.Loading
         []
         quotas
+        config.apiManagerUrl
         => Cmd.batch
             [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
@@ -127,6 +129,7 @@ view model context =
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
+                , hr [] []
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (viewQuotas model.quotas)
@@ -145,7 +148,7 @@ viewQuotas quotas =
             div []
                 [ div [ class "row m0" ]
                     [ h4 [ class "mb15" ]
-                        [ text "Usage Stats" ]
+                        [ strong [] [ text "Usage Stats" ] ]
                     , viewQuota "DataSets" quotas.dataSets
                     , viewQuota "Sessions" quotas.sessions
                     , viewQuota "Predictions" quotas.predictions
@@ -206,13 +209,18 @@ viewSubscriptions model subscriptions =
         [ h4 [ class "mb15" ]
             [ strong
                 []
-                [ text "API Keys" ]
+                [ strong [] [ text "API Keys" ] ]
             ]
         , div
             []
             (subscriptions
                 |> List.map (viewSubscription model)
             )
+        , p [ class "mt15" ]
+            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developers") ]
+                [ i [ class "fa fa-key mr5" ] [ text "Manage keys" ]
+                ]
+            ]
         ]
 
 
