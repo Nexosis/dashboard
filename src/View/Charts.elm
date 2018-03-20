@@ -6,7 +6,6 @@ import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
-import Date
 import Date.Extra as Date
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
@@ -14,6 +13,7 @@ import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
 import Regex exposing (regex)
 import String.Extra as String exposing (replace)
+import Time.Date exposing (isValidDate)
 import VegaLite exposing (..)
 
 
@@ -23,28 +23,74 @@ transformTimestamp key dict =
         makeUtcIfNeeded currentString =
             let
                 lastChar =
-                    String.slice -1 0 currentString
+                    String.right 1 currentString
 
                 tzOffset =
-                    String.slice -6 0 currentString
+                    String.slice -6 -5 currentString
             in
             -- if the string ends with Z or has a timezone offset, leave it alone
-            if lastChar == "Z" || String.startsWith "+" tzOffset || String.startsWith "-" tzOffset then
+            if lastChar == "Z" || Regex.contains (regex "[+-]") tzOffset then
                 currentString
             else
                 currentString ++ "Z"
 
+        parseInt i =
+            Result.withDefault 0 (String.toInt i)
+
+        parseDateString value =
+            let
+                splitValue =
+                    value
+                        |> String.trim
+                        |> String.split " "
+
+                runParseDate datePart =
+                    datePart
+                        |> Regex.split Regex.All (regex "[-/]")
+                        |> List.map parseInt
+                        |> parseDate
+            in
+            case splitValue of
+                [ d, t ] ->
+                    runParseDate d
+
+                [ d ] ->
+                    runParseDate d
+
+                _ ->
+                    Nothing
+
+        parseDate parts =
+            case parts of
+                [ a, b, c ] ->
+                    -- first check (a,b,c) = (y,m,d) then check (a,b,c) = (m,d,y) to catch both yyyy-mm-dd and mm/dd/yyyy
+                    if isValidDate a b c then
+                        Just (Date.fromSpec (Date.calendarDate a (Date.numberToMonth b) c) Date.midnight Date.utc)
+                    else if isValidDate c a b then
+                        Just (Date.fromSpec (Date.calendarDate c (Date.numberToMonth a) b) Date.midnight Date.utc)
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
         value =
             case dict |> Dict.get key of
                 Just value ->
-                    Just
-                        (value
-                            |> String.replaceSlice "T" 10 11
-                            |> makeUtcIfNeeded
-                            |> Date.fromIsoString
-                            |> Result.withDefault (value |> Date.fromString |> Result.withDefault (0 |> Date.fromTime))
-                            |> Date.toUtcIsoString
-                        )
+                    let
+                        parsedIso =
+                            value
+                                |> String.replaceSlice "T" 10 11
+                                |> makeUtcIfNeeded
+                                |> Date.fromIsoString
+                    in
+                    case Result.toMaybe parsedIso of
+                        Just date ->
+                            Just (date |> Date.toUtcIsoString)
+
+                        Nothing ->
+                            parseDateString value
+                                |> Maybe.map (\v -> v |> Date.toUtcIsoString)
 
                 Nothing ->
                     Nothing
