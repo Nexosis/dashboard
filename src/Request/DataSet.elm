@@ -37,12 +37,13 @@ getRetrieveDetail config name =
         |> HttpBuilder.toRequest
 
 
-getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> Http.Request DataSetData
-getDataByDateRange config name dateRange =
+getDataByDateRange : Config -> DataSetName -> Maybe ( String, String ) -> List String -> Http.Request DataSetData
+getDataByDateRange config name dateRange include =
     let
         params =
             pageParams 0 1000
                 ++ dateParams dateRange
+                ++ includeParams include
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
@@ -106,6 +107,11 @@ dateParams dateRange =
 
         Nothing ->
             []
+
+
+includeParams : List String -> List ( String, String )
+includeParams includes =
+    includes |> List.map (\value -> ( "include", value ))
 
 
 updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()
