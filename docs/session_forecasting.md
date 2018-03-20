@@ -1,1 +1,1 @@
-Forecasting finds patterns in your time series data to predict what's next. **If you want to know the unknown, regression is a good choice.**
+Forecasting finds patterns in your time series data to predict what's next. **If you want to know how much or how many based on the past, forecasting will do the job.**
