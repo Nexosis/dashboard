@@ -285,7 +285,10 @@ verifyStartEndStep model =
 
 verifyMetadataStep : Model -> List FieldError
 verifyMetadataStep model =
-    List.concatMap (\f -> f model) [ verifyTimestampRole >> unwrapErrors ]
+    List.concatMap (\f -> f model)
+        [ verifyTimestampRole >> unwrapErrors
+        , verifyTarget >> unwrapErrors
+        ]
 
 
 verifyTimestampRole : Model -> Result (List FieldError) String
@@ -324,6 +327,14 @@ mergeMetadata : List Columns.ColumnMetadata -> List Columns.ColumnMetadata -> Li
 mergeMetadata left right =
     List.filter (\b -> List.member b.name (List.map (\a -> a.name) left)) right
         ++ List.filterNot (\b -> List.member b.name (List.map (\a -> a.name) right)) left
+
+
+verifyTarget : Model -> Result (List FieldError) String
+verifyTarget model =
+    if (model.selectedSessionType /= Just Anomalies) && model.target == Nothing then
+        Err [ MetadataField => "A target column must be selected either as a role in the metadata editor or in the target text box." ]
+    else
+        Ok ""
 
 
 configWizard : WizardConfig Step FieldError Msg Model SessionRequest
