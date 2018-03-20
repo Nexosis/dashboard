@@ -224,14 +224,14 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Table.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left per30" ]
+        , headAttributes = [ class "left per30 fixed", attribute "style" "width:200px" ]
         , headHtml = []
         }
 
 
 sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
-    Table.HtmlDetails [ class "left name" ]
+    Table.HtmlDetails [ class "left name fixed", attribute "style" "width:200px" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
 
 
