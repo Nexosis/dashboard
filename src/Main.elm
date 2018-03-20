@@ -3,6 +3,7 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
+import Data.Message as Message
 import Data.Metric exposing (Metric)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
@@ -307,11 +308,21 @@ updatePage page msg app =
                 quotaUpdatedMsg : Home.Msg
                 quotaUpdatedMsg =
                     Home.QuotasUpdated (getQuotas (Just response))
+
+                messagesToKeep =
+                    response.messages
+                        |> List.filter (\m -> m.severity == Message.Warning || m.severity == Message.Error)
+                        |> List.filterMap
+                            (\m ->
+                                if List.member m app.messages then
+                                    Nothing
+                                else
+                                    Just m
+                            )
+                        |> flip List.append app.messages
+                        |> List.take 5
             in
-            { app
-                | lastResponse = Just response
-                , messages = app.messages ++ response.messages
-            }
+            { app | messages = messagesToKeep }
                 => Cmd.batch [ Ports.prismHighlight (), Task.perform HomeMsg (Task.succeed quotaUpdatedMsg) ]
 
         ( ResponseReceived (Err err), _ ) ->
@@ -448,7 +459,7 @@ view model =
                                 |> layout Page.Other
 
                         Home subModel ->
-                            Home.view subModel app.context
+                            Home.view subModel app.context app.messages
                                 |> layout Page.Home
                                 |> Html.map HomeMsg
 
