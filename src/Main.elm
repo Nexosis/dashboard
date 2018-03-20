@@ -459,7 +459,7 @@ view model =
                                 |> layout Page.Other
 
                         Home subModel ->
-                            Home.view subModel app.context
+                            Home.view subModel app.context app.messages
                                 |> layout Page.Home
                                 |> Html.map HomeMsg
 
