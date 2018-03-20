@@ -3,7 +3,8 @@ import webpack from 'webpack';
 import WebpackMd5Hash from 'webpack-md5-hash'
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import UglifyJsPlugin from 'uglifyjs-webpack-plugin';
-import ExtractTextPlugin from 'extract-text-webpack-plugin';
+import MiniCssExtractPlugin from 'mini-css-extract-plugin';
+import OptimizeCssAssetsPlugin from 'optimize-css-assets-webpack-plugin';
 
 const GLOBALS = {
     'process.env.NODE_ENV': JSON.stringify('production'),
@@ -11,6 +12,7 @@ const GLOBALS = {
 };
 
 export default {
+    mode: 'production',
     cache: true,
     devtool: 'source-map',
     entry: path.resolve(__dirname, 'src/index.js'),
@@ -30,7 +32,9 @@ export default {
         new WebpackMd5Hash(),
         new webpack.DefinePlugin(GLOBALS),
 
-        new ExtractTextPlugin('[name].[contenthash].css'),
+        new MiniCssExtractPlugin({
+            filename: "[name].[chunkhash:8].css"
+        }),
 
         new HtmlWebpackPlugin({
             template: 'src/index.ejs',
@@ -50,10 +54,15 @@ export default {
             inject: true
         }),
 
-        new webpack.optimize.ModuleConcatenationPlugin(),
         new webpack.optimize.OccurrenceOrderPlugin(),
-        new UglifyJsPlugin({ sourceMap: true })
     ],
+    optimization: {
+        concatenateModules: true,
+        minimizer: [
+            new OptimizeCssAssetsPlugin(),
+            new UglifyJsPlugin({ sourceMap: true })
+        ]
+    },
     module: {
         rules: [
             {
@@ -68,46 +77,26 @@ export default {
             },
             {
                 test: /(\.css|\.scss|\.sass)$/,
-                use: ExtractTextPlugin.extract({
-                    use: [
-                        {
-                            loader: 'css-loader',
-                            options: {
-                                minimize: true,
-                                sourceMap: true
-                            }
-                        },
-                        {
-                            loader: 'postcss-loader',
-                            options: {
-                                plugins: () => [
-                                    require('autoprefixer')
-                                ],
-                                sourceMap: true
-                            }
-                        },
-                        {
-                            loader: 'sass-loader',
-                            options: {
-                                sourceMap: true
-                            }
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    "css-loader",
+                    { 
+                        loader: "postcss-loader", 
+                        options: { 
+                            plugins: () => [ require('autoprefixer')]
                         }
-                    ]
-                })
+                    },
+                    "sass-loader"
+                ]
             },
             {
+                type: 'javascript/auto',
                 test: /(config)\.json$/,
                 use: [
                     {
                         loader: 'file-loader',
                         options: { name: '[name].[ext]' }
                     }
-                ]
-            },
-            {
-                test: /(tooltips)\.json$/,
-                use: [
-                    { loader: 'json-loader' }
                 ]
             },
             {

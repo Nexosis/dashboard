@@ -1,12 +1,9 @@
 import Intercept from './js/intercept';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-json.min.js';
-import 'prismjs/themes/prism-okaidia.css';
 import 'balloon-css';
 import Elm from './Main.elm';
 import StackTrace from 'stacktrace-js';
 import '../config.json';
-import * as toolTips from '../tooltips.json';
+import toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../elm-datepicker.css'
@@ -101,7 +98,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             app.ports.prismHighlight.subscribe(function () {
                 requestAnimationFrame(() => {
-                    Prism.highlightAll();
+                    // Prism.highlightAll();
                 });
             });
 
