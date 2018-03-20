@@ -399,7 +399,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Add DataSet" ] ]
             ]
         , div [ class "row" ]
             [ case model.steps.current of

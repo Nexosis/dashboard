@@ -216,7 +216,7 @@ viewNameRow : Model -> Html Msg
 viewNameRow model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            [ h2 [ class "mt10" ] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
+            [ h2 [] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
             [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]

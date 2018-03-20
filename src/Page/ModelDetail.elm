@@ -155,7 +155,7 @@ modelName : Model -> Html Msg
 modelName model =
     case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
+            div [ class "col-sm-9" ] [ h2 [] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
         Remote.Loading ->
             text "Loading..."

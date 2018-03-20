@@ -125,7 +125,7 @@ view model context =
     div []
         [ div [ class "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
+            , div [ class "col-sm-6" ] [ h2 [] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , hr [] []

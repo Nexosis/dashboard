@@ -142,7 +142,7 @@ view model context =
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
             , div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ]
+                [ h2 []
                     ([ text "DataSets " ]
                         ++ helpIcon context.config.toolTips "Datasets"
                     )

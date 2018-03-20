@@ -696,7 +696,7 @@ viewMetricsList model results =
 viewSessionName : Model -> SessionData -> Html Msg
 viewSessionName model session =
     div [ class "col-sm-9" ]
-        [ h2 [ class "mt10" ] [ text session.name ]
+        [ h2 [] [ text session.name ]
         ]
 
 
