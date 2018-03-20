@@ -11,6 +11,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
+import Http
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
 import Ports
@@ -26,7 +27,7 @@ import View.Tooltip exposing (helpIconFromText)
 
 type alias Model =
     { modelId : String
-    , modelResponse : Remote.WebData ModelData
+    , loadingResponse : Remote.WebData ModelData
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
@@ -69,13 +70,13 @@ update msg model context =
         ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
+                    { model | loadingResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
+                    { model | loadingResponse = response } => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ModelPredictMsg subMsg ->
             let
@@ -152,7 +153,7 @@ renderPredict context model =
 
 modelName : Model -> Html Msg
 modelName model =
-    case model.modelResponse of
+    case model.loadingResponse of
         Remote.Success resp ->
             div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
@@ -165,7 +166,7 @@ modelName model =
 
 detailRow : Model -> Html Msg
 detailRow model =
-    case model.modelResponse of
+    case model.loadingResponse of
         Remote.Success resp ->
             div [ class "row" ]
                 [ div [ class "col-sm-12" ] [ h5 [ class "mt15 mb15" ] [ text "Details" ] ]

@@ -45,7 +45,7 @@ import Window
 
 type alias Model =
     { sessionId : String
-    , sessionResponse : Remote.WebData SessionData
+    , loadingResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
@@ -106,7 +106,7 @@ update msg model context =
                                     _ ->
                                         Ports.setPageTitle (sessionInfo.name ++ " Details")
                         in
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => Cmd.batch
                                 [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
@@ -115,19 +115,19 @@ update msg model context =
                                 , Ports.setPageTitle (sessionInfo.name ++ " Details")
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response } => Cmd.none
+                        { model | loadingResponse = response } => Cmd.none
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ResultsResponse response ->
-            case Remote.map2 (,) response model.sessionResponse of
+            case Remote.map2 (,) response model.loadingResponse of
                 Remote.Success ( results, session ) ->
                     let
                         includedColumns =
@@ -164,10 +164,10 @@ update msg model context =
                         => cmd
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | resultsResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | resultsResponse = response } => Cmd.none
 
         ShowDeleteDialog model ->
             { model | deleteDialogModel = Just (DeleteDialog.init "" model.sessionId) }
@@ -199,7 +199,7 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
+            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
                     let
                         renderGraph graph =
@@ -414,13 +414,13 @@ viewSessionDetails : Model -> Html Msg
 viewSessionDetails model =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         pendingOrCompleted model session =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , loadingOrView model model.resultsResponse viewMetricsList
+                    , errorOrView model.resultsResponse <| viewMetricsList model
                     ]
             else
                 div []
@@ -516,7 +516,7 @@ viewSessionHeader : Model -> Html Msg
 viewSessionHeader model =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
         disabledOr request view =
@@ -723,7 +723,7 @@ viewResultsGraph model =
 
 viewResultsTable : Model -> Html Msg
 viewResultsTable model =
-    case model.sessionResponse of
+    case model.loadingResponse of
         Remote.Success sessionResponse ->
             if Data.Session.sessionIsCompleted sessionResponse then
                 if

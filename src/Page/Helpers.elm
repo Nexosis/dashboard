@@ -10,6 +10,7 @@ import Markdown
 import RemoteData as Remote
 import String.Extra exposing (unquote)
 import String.Interpolate exposing (interpolate)
+import View.Error as ErrorView
 
 
 coloredStatusButton : String -> String -> Html a
@@ -73,6 +74,22 @@ loadingOrView request view =
 
         Remote.Loading ->
             div [ class "loading--line" ] []
+
+        _ ->
+            div [] []
+
+
+errorOrView : Remote.WebData a -> (a -> Html msg) -> Html msg
+errorOrView request view =
+    case request of
+        Remote.Success resp ->
+            view resp
+
+        Remote.Loading ->
+            div [ class "loading--line" ] []
+
+        Remote.Failure err ->
+            ErrorView.viewRemoteError request
 
         _ ->
             div [] []
