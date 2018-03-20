@@ -218,6 +218,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             app.ports.setPageTitle.subscribe(function (title) {
                 document.title = `${title} - Nexosis API`;
             });
+
+            app.ports.scrollIntoView.subscribe(function(elementId){
+                requestAnimationFrame(() => {
+                    let elem = document.getElementById(elementId);
+                    if(elem){
+                        elem.scrollIntoView(true);
+                    }
+                });
+            });
         });
     });
 });

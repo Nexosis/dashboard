@@ -53,7 +53,6 @@ type alias Model =
     , windowWidth : Int
     , currentPage : Int
     , csvDownload : Remote.WebData String
-    , metricList : List Metric
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
     }
 
@@ -69,7 +68,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers Nothing ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -378,7 +377,7 @@ view model context =
             [ Breadcrumb.detail AppRoutes.Sessions "Sessions"
             , viewSessionHeader model
             ]
-        , viewSessionDetails model
+        , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
         , maybeDisplayHR model --TODO: remove when anomalies have visualization
@@ -410,8 +409,8 @@ maybeDisplayHR model =
             hr [] []
 
 
-viewSessionDetails : Model -> Html Msg
-viewSessionDetails model =
+viewSessionDetails : Model -> ContextModel -> Html Msg
+viewSessionDetails model context =
     let
         loadingOr =
             loadingOrView model model.loadingResponse
@@ -420,7 +419,7 @@ viewSessionDetails model =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , errorOrView model.resultsResponse <| viewMetricsList model
+                    , errorOrView model.resultsResponse <| viewMetricsList context
                     ]
             else
                 div []
@@ -470,12 +469,16 @@ viewSessionInfo model session =
 
 viewMessages : Model -> SessionData -> Html Msg
 viewMessages model session =
+    let
+        expanded =
+            not <| Data.Session.sessionIsCompleted session
+    in
     div []
-        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "messages" ]
             [ strong [] [ text "Messages" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , makeCollapsible "messages" <| Messages.viewMessages session.messages
+        , makeCollapsible "messages" expanded <| Messages.viewMessages session.messages
         ]
 
 
@@ -490,13 +493,16 @@ viewStatusHistory model session =
                     [ statusDisplay status.status
                     ]
                 ]
+
+        expanded =
+            not <| Data.Session.sessionIsCompleted session
     in
     div []
-        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" "false", attribute "aria-controls" "status-log" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "status-log" ]
             [ strong [] [ text "Status log" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , makeCollapsible "status-log" <|
+        , makeCollapsible "status-log" expanded <|
             table [ class "table table-striped" ]
                 [ thead []
                     [ tr []
@@ -668,14 +674,14 @@ viewCompletedSession session =
         ]
 
 
-viewMetricsList : Model -> SessionResults -> Html Msg
-viewMetricsList model results =
+viewMetricsList : ContextModel -> SessionResults -> Html Msg
+viewMetricsList context results =
     let
         listMetric key value =
             li []
                 [ strong []
-                    ([ text (getMetricNameFromKey model.metricList key) ]
-                        ++ helpIconFromText (getMetricDescriptionFromKey model.metricList key)
+                    ([ text (getMetricNameFromKey context.metricExplainers key) ]
+                        ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers key)
                     )
                 , br []
                     []

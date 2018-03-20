@@ -7,9 +7,10 @@ If you have a small amount of data to use then you may paste it directly into th
     "Date" :{"role" : "timestamp"}
   },
   "data" :[
-  {
-    "Date": "2008-04-08 15:00:00+08:00",
-    "Count": 207
-  }
+    {
+      "Date": "2008-04-08 15:00:00+08:00",
+      "Count": 207
+    }
+  ]
 }
 ```
