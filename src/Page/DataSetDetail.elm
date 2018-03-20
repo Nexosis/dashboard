@@ -30,7 +30,7 @@ import View.Error as Error
 
 type alias Model =
     { dataSetName : DataSetName
-    , dataSetResponse : Remote.WebData DataSetData
+    , loadingResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
@@ -89,7 +89,7 @@ update msg model context =
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
             in
-            { model | dataSetResponse = resp, columnMetadataEditorModel = subModel }
+            { model | loadingResponse = resp, columnMetadataEditorModel = subModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ColumnMetadataEditorMsg subMsg ->
@@ -271,7 +271,7 @@ viewDetailsCol : Model -> Html Msg
 viewDetailsCol model =
     let
         ( size, shape, created, modified ) =
-            case model.dataSetResponse of
+            case model.loadingResponse of
                 Remote.Success resp ->
                     let
                         sizeDisplay =

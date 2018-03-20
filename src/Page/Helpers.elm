@@ -1,15 +1,18 @@
 module Page.Helpers exposing (..)
 
 import Data.Config exposing (Config)
+import Data.Message exposing (Message)
 import Data.Status exposing (..)
 import Dict
-import Html exposing (Html, div, li, span, text, ul)
-import Html.Attributes exposing (class, id, style)
+import Html exposing (Html, div, h5, i, li, span, text, ul)
+import Html.Attributes exposing (attribute, class, classList, id, style)
 import List
 import Markdown
 import RemoteData as Remote
 import String.Extra exposing (unquote)
 import String.Interpolate exposing (interpolate)
+import View.Error as ErrorView
+import View.Messages exposing (viewMessages)
 
 
 coloredStatusButton : String -> String -> Html a
@@ -35,11 +38,22 @@ explainerFormat config name inputList =
         |> Markdown.toHtml []
 
 
-makeCollapsible : String -> Html msg -> Html msg
-makeCollapsible elementId view =
-    ul [ id elementId, class "collapse", style [ ( "list-style-type", "none" ) ] ]
+makeCollapsible : String -> Bool -> Html msg -> Html msg
+makeCollapsible elementId expanded view =
+    ul [ id elementId, classList [ ( "collapse", True ), ( "in", expanded ) ], style [ ( "list-style-type", "none" ) ] ]
         [ li []
             [ view ]
+        ]
+
+
+expandedMessagesTable : String -> List Message -> Html msg
+expandedMessagesTable elementId messages =
+    div []
+        [ h5 [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" ("#" ++ elementId), attribute "aria-expanded" "true", attribute "aria-controls" elementId ]
+            [ text "Messages"
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , makeCollapsible elementId True <| viewMessages messages
         ]
 
 
@@ -73,6 +87,22 @@ loadingOrView request view =
 
         Remote.Loading ->
             div [ class "loading--line" ] []
+
+        _ ->
+            div [] []
+
+
+errorOrView : Remote.WebData a -> (a -> Html msg) -> Html msg
+errorOrView request view =
+    case request of
+        Remote.Success resp ->
+            view resp
+
+        Remote.Loading ->
+            div [ class "loading--line" ] []
+
+        Remote.Failure err ->
+            ErrorView.viewRemoteError request
 
         _ ->
             div [] []
