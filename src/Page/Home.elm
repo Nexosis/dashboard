@@ -9,7 +9,7 @@ import Data.Response exposing (Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (attribute, class, href)
+import Html.Attributes exposing (attribute, class, href, id)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -118,7 +118,7 @@ update msg model context =
 
 view : Model -> ContextModel -> Html Msg
 view model context =
-    div []
+    div [ id "page-header", class "row" ]
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
