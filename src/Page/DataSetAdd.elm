@@ -227,7 +227,7 @@ update msg model context =
                         |> Ziplist.find (\( _, name ) -> name == tabName)
                         |> Maybe.withDefault model.tabs
             in
-            { model | tabs = newTabs } => Cmd.none
+            { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
             model => Ports.uploadFileSelected "upload-dataset"
@@ -569,12 +569,12 @@ viewTabControl model =
 
 viewInactiveTab : ( Tab, String ) -> Html Msg
 viewInactiveTab ( _, tabText ) =
-    li [] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewActiveTab : ( Tab, String ) -> Html Msg
 viewActiveTab ( _, tabText ) =
-    li [ class "active" ] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [ class "active" ] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewTabContent : ContextModel -> Model -> Html Msg

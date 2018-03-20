@@ -259,8 +259,8 @@ viewTabControl : Model -> Html Msg
 viewTabControl model =
     let
         tabHeaders =
-            [ li [ classList [ ( "active", model.activeTab == UploadFile ) ] ] [ a [ onClick (ChangeTab UploadFile) ] [ text "Upload" ] ]
-            , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
+            [ li [ classList [ ( "active", model.activeTab == UploadFile ) ] ] [ a [ attribute "role" "button", onClick (ChangeTab UploadFile) ] [ text "Upload" ] ]
+            , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ attribute "role" "button", onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
             ]
     in
     ul [ class "nav nav-tabs", attribute "role" "tablist" ]
@@ -309,8 +309,7 @@ viewUploadTab context model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "how_upload_csv"
-                ]
+                [ explainer context.config "how_upload_csv" ]
             ]
         ]
 
