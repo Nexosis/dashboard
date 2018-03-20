@@ -1,4 +1,4 @@
-module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix, transformTimestamp)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
@@ -6,12 +6,50 @@ import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (SessionData, SessionResults)
+import Date
+import Date.Extra as Date
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
-import String.Extra exposing (replace)
+import Regex exposing (regex)
+import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
+
+
+transformTimestamp : String -> Dict String String -> Dict String String
+transformTimestamp key dict =
+    let
+        makeUtcIfNeeded currentString =
+            let
+                lastChar =
+                    String.slice -1 0 currentString
+
+                tzOffset =
+                    String.slice -6 0 currentString
+            in
+            -- if the string ends with Z or has a timezone offset, leave it alone
+            if lastChar == "Z" || String.startsWith "+" tzOffset || String.startsWith "-" tzOffset then
+                currentString
+            else
+                currentString ++ "Z"
+
+        value =
+            case dict |> Dict.get key of
+                Just value ->
+                    Just
+                        (value
+                            |> String.replaceSlice "T" 10 11
+                            |> makeUtcIfNeeded
+                            |> Date.fromIsoString
+                            |> Result.withDefault (value |> Date.fromString |> Result.withDefault (0 |> Date.fromTime))
+                            |> Date.toUtcIsoString
+                        )
+
+                Nothing ->
+                    Nothing
+    in
+    Dict.update key (\_ -> value) dict
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
@@ -38,7 +76,7 @@ forecastResults sessionResults session dataSet windowWidth =
                     List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
 
                 dataSetData =
-                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data |> List.map (\i -> transformTimestamp timestampCol.name i)
 
                 enc =
                     encoding
@@ -53,13 +91,16 @@ forecastResults sessionResults session dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
+
+                data =
+                    dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , data
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
@@ -335,16 +376,6 @@ resultsToRows result =
             |> List.map (\( k, v ) -> ( normalizeFieldName k, Str v ))
         )
         []
-
-
-resultIntervalToTimeUnit : Maybe Session.ResultInterval -> TimeUnit
-resultIntervalToTimeUnit resultInterval =
-    case resultInterval of
-        Just Session.Hour ->
-            Hours
-
-        _ ->
-            YearMonthDate
 
 
 mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
