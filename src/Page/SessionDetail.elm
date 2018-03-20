@@ -471,7 +471,7 @@ viewMessages : Model -> SessionData -> Html Msg
 viewMessages model session =
     let
         expanded =
-            not <| Data.Session.sessionIsCompleted session
+            session.status /= Status.Completed
     in
     div []
         [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "messages" ]
@@ -495,7 +495,7 @@ viewStatusHistory model session =
                 ]
 
         expanded =
-            not <| Data.Session.sessionIsCompleted session
+            session.status /= Status.Completed
     in
     div []
         [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "status-log" ]
