@@ -168,9 +168,8 @@ detailRow : Model -> Html Msg
 detailRow model =
     case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "row" ]
-                [ div [ class "col-sm-12" ] [ h5 [ class "mt15 mb15" ] [ text "Details" ] ]
-                , div [ class "col-sm-4" ]
+            div [ id "details", class "row" ]
+                [ div [ class "col-sm-4" ]
                     [ p []
                         [ strong [] [ text "Session Used: " ]
                         , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]
