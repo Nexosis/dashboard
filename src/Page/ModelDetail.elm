@@ -130,7 +130,6 @@ view model context =
                 []
             ]
         , detailRow model
-        , hr [] []
         , renderPredict context model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
