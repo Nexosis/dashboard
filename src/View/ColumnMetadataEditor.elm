@@ -297,9 +297,14 @@ filterColumnNames query columnMetadata =
 onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
 onKeyDown code maybeId =
     if code == 38 || code == 40 then
+        -- up & down arrows
         Maybe.map PreviewTarget maybeId
     else if code == 13 || code == 9 then
+        -- enter & tab
         Maybe.map SetTarget maybeId
+    else if code == 27 then
+        --escape
+        Just <| SetQuery ""
     else
         Nothing
 

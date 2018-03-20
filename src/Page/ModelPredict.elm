@@ -97,9 +97,6 @@ update msg model context =
 
         FileContentRead readResult ->
             let
-                d =
-                    Debug.log "" <| toString readResult
-
                 readStatus =
                     Json.Decode.decodeValue File.fileReadStatusDecoder readResult
                         |> Result.withDefault File.ReadError
