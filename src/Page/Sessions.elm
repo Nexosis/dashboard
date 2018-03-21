@@ -14,7 +14,6 @@ import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
 import StateStorage exposing (saveAppState)
-import Table
 import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
@@ -29,7 +28,7 @@ import View.Tooltip exposing (helpIcon)
 
 type alias Model =
     { sessionList : Remote.WebData SessionList
-    , tableState : Table.State
+    , tableState : Grid.State
     , pageSize : Int
     , currentPage : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
@@ -63,7 +62,7 @@ loadSessionList config pageNo pageSize =
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Table.initialSort "name") context.userPageSize 0 Nothing
+    Model Remote.Loading (Grid.initialSort "name") context.userPageSize 0 Nothing
         => loadSessionList context.config 0 context.userPageSize
 
 
@@ -73,7 +72,7 @@ init context =
 
 type Msg
     = SessionListResponse (Remote.WebData SessionList)
-    | SetTableState Table.State
+    | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
     | ShowDeleteDialog SessionData
@@ -169,7 +168,7 @@ view model context =
         ]
 
 
-viewSessionsGrid : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Msg
+viewSessionsGrid : Dict String String -> Grid.State -> Remote.WebData SessionList -> Html Msg
 viewSessionsGrid toolTips tableState sessionList =
     Grid.view .items (config toolTips) tableState sessionList
 
@@ -194,7 +193,7 @@ config toolTips =
         }
 
 
-viewSessionGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
+viewSessionGridReadonly : Dict String String -> Grid.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
 viewSessionGridReadonly toolTips tableState sessionList =
     Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
 
@@ -224,30 +223,30 @@ nameColumn =
     Grid.veryCustomColumn
         { name = "Name"
         , viewData = sessionNameCell
-        , sorter = Table.increasingOrDecreasingBy .name
+        , sorter = Grid.increasingOrDecreasingBy .name
         , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
 
-sessionNameCell : SessionData -> Table.HtmlDetails msg
+sessionNameCell : SessionData -> Grid.HtmlDetails msg
 sessionNameCell model =
-    Table.HtmlDetails [ class "left name fixed" ]
+    Grid.HtmlDetails [ class "left name fixed" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayName model.name ] ]
 
 
 statusColumn : Grid.Column SessionData msg
 statusColumn =
     let
-        --tableDetails : SessionData -> (SessionData -> Html SessionData) -> Table.HtmlDetails Msg
+        --tableDetails : SessionData -> (SessionData -> Html SessionData) -> Grid.HtmlDetails Msg
         tableDetails session =
-            Table.HtmlDetails []
+            Grid.HtmlDetails []
                 [ statusDisplay session.status ]
     in
     Grid.veryCustomColumn
         { name = "Status"
         , viewData = tableDetails
-        , sorter = Table.increasingOrDecreasingBy (\n -> toString n.status)
+        , sorter = Grid.increasingOrDecreasingBy (\n -> toString n.status)
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
@@ -258,15 +257,15 @@ dataSourceColumn =
     Grid.veryCustomColumn
         { name = "Source"
         , viewData = dataSourceCell
-        , sorter = Table.increasingOrDecreasingBy .dataSourceName
+        , sorter = Grid.increasingOrDecreasingBy .dataSourceName
         , headAttributes = [ class "left per25 fixed" ]
         , headHtml = []
         }
 
 
-dataSourceCell : SessionData -> Table.HtmlDetails msg
+dataSourceCell : SessionData -> Grid.HtmlDetails msg
 dataSourceCell model =
-    Table.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
+    Grid.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text <| formatDisplayName model.dataSourceName ]
         ]
 
@@ -276,15 +275,15 @@ typeColumn =
     Grid.veryCustomColumn
         { name = "Type"
         , viewData = typeCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
         , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
 
-typeCell : SessionData -> Table.HtmlDetails msg
+typeCell : SessionData -> Grid.HtmlDetails msg
 typeCell model =
-    Table.HtmlDetails []
+    Grid.HtmlDetails []
         [ text (toString model.predictionDomain)
         ]
 
@@ -294,15 +293,15 @@ createdColumn =
     Grid.veryCustomColumn
         { name = "Created"
         , viewData = createdCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateString a.requestedDate)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateString a.requestedDate)
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
 
 
-createdCell : SessionData -> Table.HtmlDetails msg
+createdCell : SessionData -> Grid.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails [ class "number" ]
+    Grid.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.requestedDate)
         ]
 
@@ -312,14 +311,14 @@ deleteColumn =
     Grid.veryCustomColumn
         { name = "Delete"
         , viewData = deleteButton
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per5" ]
         , headHtml = []
         }
 
 
-deleteButton : SessionData -> Table.HtmlDetails Msg
+deleteButton : SessionData -> Grid.HtmlDetails Msg
 deleteButton model =
-    Table.HtmlDetails []
+    Grid.HtmlDetails []
         [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

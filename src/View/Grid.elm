@@ -1,4 +1,27 @@
-module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, configCustom, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, toFixedTable, veryCustomColumn, view)
+module View.Grid
+    exposing
+        ( Column
+        , Config
+        , HtmlDetails
+        , ReadOnlyTableMsg(..)
+        , State
+        , config
+        , configCustom
+        , customNumberColumn
+        , customStringColumn
+        , customUnsortableColumn
+        , decreasingOrIncreasingBy
+        , floatColumn
+        , increasingOrDecreasingBy
+        , initialSort
+        , intColumn
+        , makeUnsortable
+        , stringColumn
+        , toFixedTable
+        , unsortable
+        , veryCustomColumn
+        , view
+        )
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -56,16 +79,16 @@ type Config data msg
 
 configCustom :
     { toId : data -> String
-    , toMsg : Table.State -> msg
+    , toMsg : State -> msg
     , columns : List (Column data msg)
-    , customizations : Table.Customizations data msg -> Table.Customizations data msg
+    , customizations : Customizations data msg -> Customizations data msg
     }
     -> Config data msg
 configCustom config =
     Config
         { toId = config.toId
         , toMsg = config.toMsg
-        , columns = config.columns
+        , columns = List.map (\(Column cData) -> cData) config.columns
         , customizations = config.customizations defaultCustomizations
         }
 
@@ -73,14 +96,14 @@ configCustom config =
 config :
     { toId : data -> String
     , toMsg : State -> msg
-    , columns : List (ColumnData data msg)
+    , columns : List (Column data msg)
     }
     -> Config data msg
 config config =
     Config
         { toId = config.toId
         , toMsg = config.toMsg
-        , columns = config.columns
+        , columns = List.map (\(Column cData) -> cData) config.columns
         , customizations = defaultCustomizations
         }
 
@@ -88,12 +111,17 @@ config config =
 customConfig :
     { toId : data -> String
     , toMsg : State -> msg
-    , columns : List (ColumnData data msg)
+    , columns : List (Column data msg)
     , customizations : Customizations data msg
     }
     -> Config data msg
-customConfig config =
-    Config config
+customConfig { toId, toMsg, columns, customizations } =
+    Config
+        { toId = toId
+        , toMsg = toMsg
+        , columns = List.map (\(Column cData) -> cData) columns
+        , customizations = customizations
+        }
 
 
 type alias Customizations data msg =
@@ -135,9 +163,11 @@ type alias Customizations data msg =
 --                 cust
 --     in
 --     customizations |> headCust |> tableAttributes
--- toFixedTable : Table.Customizations data msg -> Table.Customizations data msg
--- toFixedTable defaultCustomizations =
---     { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] } |> Debug.log "attrs"
+
+
+toFixedTable : Customizations data msg -> Customizations data msg
+toFixedTable defaultCustomizations =
+    { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] } |> Debug.log "attrs"
 
 
 toTableAttrs : List (Attribute msg)
@@ -245,15 +275,8 @@ veryCustomColumn column =
         }
 
 
-makeUnsortable :
-    { name : String
-    , viewData : data -> HtmlDetails msg
-    , sorter : Sorter data
-    , headAttributes : List (Attribute msg)
-    , headHtml : List (Html msg)
-    }
-    -> Column data msg
-makeUnsortable column =
+makeUnsortable : Column data msg -> Column data msg
+makeUnsortable (Column column) =
     Column
         { column
             | sorter = unsortable
@@ -420,7 +443,7 @@ type alias HtmlDetails msg =
 -}
 defaultCustomizations : Customizations data msg
 defaultCustomizations =
-    { tableAttrs = []
+    { tableAttrs = toTableAttrs
     , caption = Nothing
     , thead = simpleThead
     , tfoot = Nothing
