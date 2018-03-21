@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -125,7 +125,7 @@ view model context =
     div []
         [ div [ class "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
+            , div [ class "col-sm-6" ] [ h2 [] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , hr [] []
@@ -175,7 +175,7 @@ viewModelGridReadonly toolTips tableState modelList =
 
 configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
 configReadonly toolTips =
-    Grid.config
+    Grid.configCustom
         { toId = \a -> a.modelId
         , toMsg = Grid.Readonly
         , columns =
@@ -185,6 +185,7 @@ configReadonly toolTips =
             , createdColumn |> Grid.makeUnsortable
             , lastUsedColumn |> Grid.makeUnsortable
             ]
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -194,15 +195,15 @@ nameColumn =
         { name = "Name"
         , viewData = modelNameCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
-        , headAttributes = [ class "left per30" ]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
 
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
-    Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
+    Table.HtmlDetails [ class "left name fixed" ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (formatDisplayName <| modelOrDataSourceName model) ]
         ]
 
 
@@ -222,7 +223,7 @@ predictActionColumn =
         { name = ""
         , viewData = predictActionButton
         , sorter = Table.unsortable
-        , headAttributes = []
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -243,7 +244,7 @@ typeColumn =
         { name = "Type"
         , viewData = typeCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
-        , headAttributes = [ class "per10" ]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -305,5 +306,5 @@ deleteColumn =
 deleteButton : ModelData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn btn-link btn-danger" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

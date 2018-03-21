@@ -3,6 +3,7 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
+import Data.Message as Message
 import Data.Metric exposing (Metric)
 import Data.Response as Response
 import Feature exposing (Feature, isEnabled)
@@ -33,6 +34,7 @@ import Task
 import Time
 import Time.DateTime as DateTime
 import Util exposing ((=>))
+import View.Error as ErrorView
 import View.Page as Page
 
 
@@ -60,7 +62,12 @@ type alias App =
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     , context : ContextModel
+    , pageLoadFailed : Maybe ( Page, Http.Error )
     }
+
+
+type alias Loading a b =
+    { a | loadingResponse : Remote.WebData b }
 
 
 type Msg
@@ -79,6 +86,7 @@ type Msg
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
+    | PageLoadFailed Http.Error
     | MetricTextLoaded (Remote.WebData (List Metric))
 
 
@@ -198,6 +206,11 @@ setRoute route app =
                     { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
 
 
+extractError : { b | loadingError : Maybe Http.Error } -> Maybe Http.Error
+extractError { loadingError } =
+    loadingError
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
@@ -211,7 +224,7 @@ update msg model =
                                     { mbctx | config = initState.config }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -237,56 +250,79 @@ update msg model =
 updatePage : Page -> Msg -> App -> ( App, Cmd Msg )
 updatePage page msg app =
     let
-        toPage toModel toMsg subUpdate subMsg subModel =
-            let
-                ( newModel, newCmd ) =
-                    subUpdate subMsg subModel app.context
-            in
+        doUpdate subUpdate subMsg subModel =
+            subUpdate subMsg subModel app.context
+
+        toPage toModel toMsg ( newModel, newCmd ) =
             ( { app | page = toModel newModel }, Cmd.map toMsg newCmd )
+
+        resetError app =
+            { app | pageLoadFailed = Nothing }
+
+        toPageOrError toModel toMsg ( newModel, newCmd ) =
+            case newModel.loadingResponse of
+                Remote.Failure err ->
+                    ( app, Task.perform PageLoadFailed <| Task.succeed err )
+
+                _ ->
+                    toPage toModel toMsg ( newModel, newCmd )
     in
     case ( msg, page ) of
+        ( PageLoadFailed err, _ ) ->
+            ( { app | pageLoadFailed = Just <| ( page, err ) }, Cmd.none )
+
         -- Update for page transitions
         ( SetRoute route, _ ) ->
-            setRoute route app
+            setRoute route <| resetError app
 
         -- Update for page specific msgs
         ( HomeMsg subMsg, Home subModel ) ->
-            toPage Home HomeMsg Home.update subMsg subModel
+            toPage Home HomeMsg <| doUpdate Home.update subMsg subModel
 
         ( DataSetsMsg subMsg, DataSets subModel ) ->
-            toPage DataSets DataSetsMsg DataSets.update subMsg subModel
+            toPage DataSets DataSetsMsg <| doUpdate DataSets.update subMsg subModel
 
         ( DataSetDetailMsg subMsg, DataSetDetail subModel ) ->
-            toPage DataSetDetail DataSetDetailMsg DataSetDetail.update subMsg subModel
+            toPageOrError DataSetDetail DataSetDetailMsg <| doUpdate DataSetDetail.update subMsg subModel
 
         ( DataSetAddMsg subMsg, DataSetAdd subModel ) ->
-            toPage DataSetAdd DataSetAddMsg DataSetAdd.update subMsg subModel
+            toPage DataSetAdd DataSetAddMsg <| doUpdate DataSetAdd.update subMsg subModel
 
         ( ModelsMsg subMsg, Models subModel ) ->
-            toPage Models ModelsMsg Models.update subMsg subModel
+            toPage Models ModelsMsg <| doUpdate Models.update subMsg subModel
 
         ( ModelDetailMsg subMsg, ModelDetail subModel ) ->
-            toPage ModelDetail ModelDetailMsg ModelDetail.update subMsg subModel
+            toPageOrError ModelDetail ModelDetailMsg <| doUpdate ModelDetail.update subMsg subModel
 
         ( SessionsMsg subMsg, Sessions subModel ) ->
-            toPage Sessions SessionsMsg Sessions.update subMsg subModel
+            toPage Sessions SessionsMsg <| doUpdate Sessions.update subMsg subModel
 
         ( SessionDetailMsg subMsg, SessionDetail subModel ) ->
-            toPage SessionDetail SessionDetailMsg SessionDetail.update subMsg subModel
+            toPageOrError SessionDetail SessionDetailMsg <| doUpdate SessionDetail.update subMsg subModel
 
         ( SessionStartMsg subMsg, SessionStart subModel ) ->
-            toPage SessionStart SessionStartMsg SessionStart.update subMsg subModel
+            toPage SessionStart SessionStartMsg <| doUpdate SessionStart.update subMsg subModel
 
         ( ResponseReceived (Ok response), _ ) ->
             let
                 quotaUpdatedMsg : Home.Msg
                 quotaUpdatedMsg =
                     Home.QuotasUpdated (getQuotas (Just response))
+
+                messagesToKeep =
+                    response.messages
+                        |> List.filter (\m -> m.severity == Message.Warning || m.severity == Message.Error)
+                        |> List.filterMap
+                            (\m ->
+                                if List.member m app.messages then
+                                    Nothing
+                                else
+                                    Just m
+                            )
+                        |> flip List.append app.messages
+                        |> List.take 5
             in
-            { app
-                | lastResponse = Just response
-                , messages = app.messages ++ response.messages
-            }
+            { app | messages = messagesToKeep }
                 => Cmd.batch [ Ports.prismHighlight (), Task.perform HomeMsg (Task.succeed quotaUpdatedMsg) ]
 
         ( ResponseReceived (Err err), _ ) ->
@@ -403,64 +439,69 @@ view model =
                 layout =
                     Page.layoutShowingResponses app
             in
-            case app.page of
-                NotFound ->
-                    layout Page.Other NotFound.view
+            case app.pageLoadFailed of
+                Just ( page, err ) ->
+                    ErrorView.viewHttpError err |> Error.viewError |> layout Page.Other
 
-                Blank ->
-                    -- This is for the very initial page load, while we are loading
-                    -- data via HTTP. We could also render a spinner here.
-                    Html.text ""
-                        |> layout Page.Other
+                Nothing ->
+                    case app.page of
+                        NotFound ->
+                            layout Page.Other NotFound.view
 
-                Error subModel ->
-                    Error.view subModel
-                        |> layout Page.Other
+                        Blank ->
+                            -- This is for the very initial page load, while we are loading
+                            -- data via HTTP. We could also render a spinner here.
+                            Html.text ""
+                                |> layout Page.Other
 
-                Home subModel ->
-                    Home.view subModel app.context
-                        |> layout Page.Home
-                        |> Html.map HomeMsg
+                        Error subModel ->
+                            Error.view subModel
+                                |> layout Page.Other
 
-                DataSets subModel ->
-                    DataSets.view subModel app.context
-                        |> layout Page.DataSets
-                        |> Html.map DataSetsMsg
+                        Home subModel ->
+                            Home.view subModel app.context app.messages
+                                |> layout Page.Home
+                                |> Html.map HomeMsg
 
-                DataSetDetail subModel ->
-                    DataSetDetail.view subModel app.context
-                        |> layout Page.DataSetData
-                        |> Html.map DataSetDetailMsg
+                        DataSets subModel ->
+                            DataSets.view subModel app.context
+                                |> layout Page.DataSets
+                                |> Html.map DataSetsMsg
 
-                DataSetAdd subModel ->
-                    DataSetAdd.view subModel app.context
-                        |> layout Page.DataSetAdd
-                        |> Html.map DataSetAddMsg
+                        DataSetDetail subModel ->
+                            DataSetDetail.view subModel app.context
+                                |> layout Page.DataSetData
+                                |> Html.map DataSetDetailMsg
 
-                Sessions subModel ->
-                    Sessions.view subModel app.context
-                        |> layout Page.Sessions
-                        |> Html.map SessionsMsg
+                        DataSetAdd subModel ->
+                            DataSetAdd.view subModel app.context
+                                |> layout Page.DataSetAdd
+                                |> Html.map DataSetAddMsg
 
-                SessionDetail subModel ->
-                    SessionDetail.view subModel app.context
-                        |> layout Page.SessionDetail
-                        |> Html.map SessionDetailMsg
+                        Sessions subModel ->
+                            Sessions.view subModel app.context
+                                |> layout Page.Sessions
+                                |> Html.map SessionsMsg
 
-                SessionStart subModel ->
-                    SessionStart.view subModel app.context
-                        |> layout Page.SessionStart
-                        |> Html.map SessionStartMsg
+                        SessionDetail subModel ->
+                            SessionDetail.view subModel app.context
+                                |> layout Page.SessionDetail
+                                |> Html.map SessionDetailMsg
 
-                Models subModel ->
-                    Models.view subModel app.context
-                        |> layout Page.Models
-                        |> Html.map ModelsMsg
+                        SessionStart subModel ->
+                            SessionStart.view subModel app.context
+                                |> layout Page.SessionStart
+                                |> Html.map SessionStartMsg
 
-                ModelDetail subModel ->
-                    ModelDetail.view subModel app.context
-                        |> layout Page.ModelDetail
-                        |> Html.map ModelDetailMsg
+                        Models subModel ->
+                            Models.view subModel app.context
+                                |> layout Page.Models
+                                |> Html.map ModelsMsg
+
+                        ModelDetail subModel ->
+                            ModelDetail.view subModel app.context
+                                |> layout Page.ModelDetail
+                                |> Html.map ModelDetailMsg
 
 
 

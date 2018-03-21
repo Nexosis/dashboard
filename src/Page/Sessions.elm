@@ -15,7 +15,7 @@ import RemoteData as Remote
 import Request.Session exposing (get)
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -205,7 +205,7 @@ configSessionGridReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.configCustom
         { toId = \a -> a.name
         , toMsg = Grid.Readonly
         , columns =
@@ -215,6 +215,7 @@ configSessionGridReadonly toolTips =
             , col.sessionType |> Grid.makeUnsortable
             , col.created |> Grid.makeUnsortable
             ]
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -224,15 +225,15 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Table.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left per30" ]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
 
 sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
-    Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
+    Table.HtmlDetails [ class "left name fixed" ]
+        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayName model.name ] ]
 
 
 statusColumn : Grid.Column SessionData msg
@@ -258,15 +259,15 @@ dataSourceColumn =
         { name = "Source"
         , viewData = dataSourceCell
         , sorter = Table.increasingOrDecreasingBy .dataSourceName
-        , headAttributes = [ class "left per25" ]
+        , headAttributes = [ class "left per25 fixed" ]
         , headHtml = []
         }
 
 
 dataSourceCell : SessionData -> Table.HtmlDetails msg
 dataSourceCell model =
-    Table.HtmlDetails [ class "left" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text model.dataSourceName ]
+    Table.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text <| formatDisplayName model.dataSourceName ]
         ]
 
 
@@ -276,7 +277,7 @@ typeColumn =
         { name = "Type"
         , viewData = typeCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
-        , headAttributes = [ class "per10" ]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -320,5 +321,5 @@ deleteColumn =
 deleteButton : SessionData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog model), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

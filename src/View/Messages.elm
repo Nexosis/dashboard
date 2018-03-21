@@ -1,42 +1,30 @@
-module View.Messages exposing (viewMessages)
+module View.Messages exposing (messageSeverityDisplay, viewMessages)
 
 import Data.Message exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 
 
-viewMessages : List Message -> Html msg
+type alias DisplayMessage a =
+    { a
+        | severity : Severity
+        , message : String
+    }
+
+
+viewMessages : List (DisplayMessage a) -> Html msg
 viewMessages =
     viewMessagesInternal False
 
 
-viewMessagesInternal : Bool -> List Message -> Html msg
+viewMessagesInternal : Bool -> List (DisplayMessage a) -> Html msg
 viewMessagesInternal collapsed messages =
     let
-        labelType : Message -> String
-        labelType message =
-            case message.severity of
-                Debug ->
-                    "info"
-
-                Informational ->
-                    "info"
-
-                Warning ->
-                    "warning"
-
-                Error ->
-                    "danger"
-
-        messageEntry : Message -> Html msg
+        messageEntry : DisplayMessage a -> Html msg
         messageEntry message =
             tr []
-                [ td [ class "per10 left" ]
-                    [ span [ class ("label label-" ++ labelType message ++ " mr5") ]
-                        [ text (toString message.severity) ]
-                    ]
-                , td [ class "left" ]
-                    [ text message.message ]
+                [ td [ class "per10 left" ] [ messageSeverityDisplay message ]
+                , td [ class "left" ] [ text message.message ]
                 ]
 
         collapsedAttribute collapsed =
@@ -57,3 +45,25 @@ viewMessagesInternal collapsed messages =
         , tbody []
             (List.map messageEntry messages)
         ]
+
+
+messageSeverityDisplay : DisplayMessage a -> Html msg
+messageSeverityDisplay message =
+    let
+        labelType : DisplayMessage a -> String
+        labelType message =
+            case message.severity of
+                Debug ->
+                    "info"
+
+                Informational ->
+                    "info"
+
+                Warning ->
+                    "warning"
+
+                Error ->
+                    "danger"
+    in
+    span [ class ("label label-" ++ labelType message ++ " mr5") ]
+        [ text (toString message.severity) ]

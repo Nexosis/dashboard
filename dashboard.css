@@ -12,3 +12,15 @@ table.confusion-matrix td.header, table.confusion-matrix tr.footer {
 textarea {
     font-family: monospace
 }
+
+table.fixed {
+    table-layout: fixed;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+table.fixed tr td.fixed {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    
+  }

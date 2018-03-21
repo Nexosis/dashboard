@@ -30,7 +30,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
+import Util exposing ((=>), dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -45,7 +45,7 @@ import Window
 
 type alias Model =
     { sessionId : String
-    , sessionResponse : Remote.WebData SessionData
+    , loadingResponse : Remote.WebData SessionData
     , resultsResponse : Remote.WebData SessionResults
     , confusionMatrixResponse : Remote.WebData ConfusionMatrix
     , dataSetResponse : Remote.WebData DataSetData
@@ -53,7 +53,7 @@ type alias Model =
     , windowWidth : Int
     , currentPage : Int
     , csvDownload : Remote.WebData String
-    , metricList : List Metric
+    , predictionDomain : Maybe PredictionDomain.PredictionDomain
     }
 
 
@@ -68,7 +68,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked context.metricExplainers ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -103,30 +103,30 @@ update msg model context =
                                             |> Cmd.map ConfusionMatrixLoaded
 
                                     _ ->
-                                        Ports.setPageTitle (sessionInfo.name ++ " Details")
+                                        Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                         in
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => Cmd.batch
                                 [ Request.Session.results context.config model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
-                                , Ports.setPageTitle (sessionInfo.name ++ " Details")
+                                , Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
-                        { model | sessionResponse = response }
+                        { model | loadingResponse = response }
                             => delayAndRecheckSession context.config model.sessionId
                     else
-                        { model | sessionResponse = response } => Cmd.none
+                        { model | loadingResponse = response } => Cmd.none
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ResultsResponse response ->
-            case Remote.map2 (,) response model.sessionResponse of
+            case Remote.map2 (,) response model.loadingResponse of
                 Remote.Success ( results, session ) ->
                     let
                         includedColumns =
@@ -159,14 +159,14 @@ update msg model context =
                                 _ ->
                                     Cmd.none
                     in
-                    { model | resultsResponse = response }
+                    { model | resultsResponse = response, predictionDomain = Just session.predictionDomain }
                         => cmd
 
                 Remote.Failure err ->
-                    model => Log.logHttpError err
+                    { model | resultsResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | resultsResponse = response } => Cmd.none
 
         ShowDeleteDialog model ->
             { model | deleteDialogModel = Just (DeleteDialog.init "" model.sessionId) }
@@ -198,7 +198,7 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.sessionResponse response of
+            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
                     let
                         renderGraph graph =
@@ -377,10 +377,10 @@ view model context =
             [ Breadcrumb.detail AppRoutes.Sessions "Sessions"
             , viewSessionHeader model
             ]
-        , viewSessionDetails model
+        , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , hr [] []
+        , maybeDisplayHR model --TODO: remove when anomalies have visualization
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -391,17 +391,35 @@ view model context =
         ]
 
 
-viewSessionDetails : Model -> Html Msg
-viewSessionDetails model =
+
+--HACK: Until we have graphs for anomalies...
+
+
+maybeDisplayHR : Model -> Html Msg
+maybeDisplayHR model =
+    let
+        domain =
+            Maybe.withDefault PredictionDomain.Forecast model.predictionDomain
+    in
+    case domain of
+        PredictionDomain.Anomalies ->
+            span [] []
+
+        _ ->
+            hr [] []
+
+
+viewSessionDetails : Model -> ContextModel -> Html Msg
+viewSessionDetails model context =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         pendingOrCompleted model session =
             if session.status == Status.Completed then
                 div []
                     [ viewCompletedSession session
-                    , loadingOrView model model.resultsResponse viewMetricsList
+                    , errorOrView model.resultsResponse <| viewMetricsList context
                     ]
             else
                 div []
@@ -451,12 +469,16 @@ viewSessionInfo model session =
 
 viewMessages : Model -> SessionData -> Html Msg
 viewMessages model session =
+    let
+        expanded =
+            session.status /= Status.Completed
+    in
     div []
-        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" "false", attribute "aria-controls" "messages" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#messages", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "messages" ]
             [ strong [] [ text "Messages" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , makeCollapsible "messages" <| Messages.viewMessages session.messages
+        , makeCollapsible "messages" expanded <| Messages.viewMessages session.messages
         ]
 
 
@@ -471,13 +493,16 @@ viewStatusHistory model session =
                     [ statusDisplay status.status
                     ]
                 ]
+
+        expanded =
+            session.status /= Status.Completed
     in
     div []
-        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" "false", attribute "aria-controls" "status-log" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "status-log" ]
             [ strong [] [ text "Status log" ]
             , i [ class "fa fa-angle-down" ] []
             ]
-        , makeCollapsible "status-log" <|
+        , makeCollapsible "status-log" expanded <|
             table [ class "table table-striped" ]
                 [ thead []
                     [ tr []
@@ -497,7 +522,7 @@ viewSessionHeader : Model -> Html Msg
 viewSessionHeader model =
     let
         loadingOr =
-            loadingOrView model model.sessionResponse
+            loadingOrView model model.loadingResponse
 
         disabledOr : Remote.WebData a -> (Maybe a -> Bool -> Html Msg) -> Html Msg
         disabledOr request view =
@@ -579,7 +604,7 @@ modelLink session =
                 [ strong []
                     [ text "Model: " ]
                 , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
-                    [ text session.name ]
+                    [ text <| formatDisplayName session.name ]
                 ]
 
 
@@ -608,7 +633,7 @@ viewCompletedSession session =
                     p []
                         [ strong []
                             [ text "Target Column: " ]
-                        , text col
+                        , text <| formatDisplayName col
                         ]
 
                 Nothing ->
@@ -621,7 +646,7 @@ viewCompletedSession session =
                     Nothing
 
                 Just c ->
-                    Just c.name
+                    Just <| formatDisplayName c.name
 
         algorithmName : Maybe Algorithm -> String
         algorithmName algo =
@@ -638,7 +663,7 @@ viewCompletedSession session =
             [ strong []
                 [ text "Source: " ]
             , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
-                [ text session.dataSourceName ]
+                [ text <| formatDisplayName session.dataSourceName ]
             ]
         , viewTargetColumn (targetColumn session)
         , p []
@@ -649,14 +674,14 @@ viewCompletedSession session =
         ]
 
 
-viewMetricsList : Model -> SessionResults -> Html Msg
-viewMetricsList model results =
+viewMetricsList : ContextModel -> SessionResults -> Html Msg
+viewMetricsList context results =
     let
         listMetric key value =
             li []
                 [ strong []
-                    ([ text (getMetricNameFromKey model.metricList key) ]
-                        ++ helpIconFromText (getMetricDescriptionFromKey model.metricList key)
+                    ([ text (getMetricNameFromKey context.metricExplainers key) ]
+                        ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers key)
                     )
                 , br []
                     []
@@ -677,7 +702,7 @@ viewMetricsList model results =
 viewSessionName : Model -> SessionData -> Html Msg
 viewSessionName model session =
     div [ class "col-sm-9" ]
-        [ h2 [ class "mt10" ] [ text session.name ]
+        [ h2 [] [ text <| formatDisplayName session.name ]
         ]
 
 
@@ -704,7 +729,7 @@ viewResultsGraph model =
 
 viewResultsTable : Model -> Html Msg
 viewResultsTable model =
-    case model.sessionResponse of
+    case model.loadingResponse of
         Remote.Success sessionResponse ->
             if Data.Session.sessionIsCompleted sessionResponse then
                 if
@@ -758,8 +783,8 @@ viewModelTrainingResults model sessionData =
                     , table [ class "table table-striped" ]
                         [ thead []
                             [ tr []
-                                [ th [ class "left" ] [ text <| target.name ++ " - Actual" ]
-                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                [ th [ class "left" ] [ text <| formatDisplayName target.name ++ " - Actual" ]
+                                , th [ class "left" ] [ text <| formatDisplayName target.name ++ " - Predicted" ]
                                 ]
                             ]
                         , tbody [] (List.map renderRow (filterToPage pagedData))

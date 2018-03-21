@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.DataSet
 import StateStorage
 import Table exposing (defaultCustomizations)
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -142,7 +142,7 @@ view model context =
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
             , div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ]
+                [ h2 []
                     ([ text "DataSets " ]
                         ++ helpIcon context.config.toolTips "Datasets"
                     )
@@ -190,7 +190,7 @@ configReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.configCustom
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = Grid.Readonly
         , columns =
@@ -201,6 +201,7 @@ configReadonly toolTips =
             , col.created |> Grid.makeUnsortable
             , col.modified |> Grid.makeUnsortable
             ]
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -231,15 +232,15 @@ nameColumn =
         { name = "Name"
         , viewData = dataSetNameCell
         , sorter = Table.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
-        , headAttributes = [ class "left per30" ]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
 
 dataSetNameCell : DataSet -> Table.HtmlDetails msg
 dataSetNameCell dataSet =
-    Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+    Table.HtmlDetails [ class "left name fixed" ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayName <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
 actionsColumn : Grid.Column DataSet msg
@@ -248,7 +249,7 @@ actionsColumn =
         { name = ""
         , viewData = dataSetActionButton
         , sorter = Table.unsortable
-        , headAttributes = []
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -275,7 +276,7 @@ deleteColumn =
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
 dataSetDeleteButton dataSet =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 

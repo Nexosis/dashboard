@@ -9,16 +9,15 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
-import Http
 import Json.Decode exposing (succeed)
-import Page.Helpers exposing (explainer)
-import Ports exposing (fileContentRead, fileSaved, requestSaveFile, uploadFileSelected)
+import Page.Helpers exposing (expandedMessagesTable, explainer)
+import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (predict, predictRaw)
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, isJust, spinner)
+import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf)
-import View.Messages as Messages
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 
 
@@ -30,7 +29,6 @@ type alias Model =
     , fileName : String
     , fileUploadErrorOccurred : Bool
     , dataInput : Maybe String
-    , canProceedWithPrediction : Bool
     , uploadResponse : Remote.WebData Data.Model.PredictionResult
     , downloadResponse : Remote.WebData String
     , showDownloadTypeSelector : Bool
@@ -49,7 +47,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing False Remote.NotAsked Remote.NotAsked False 0
+    Model modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -75,31 +73,13 @@ update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
     case msg of
         ChangeTab tab ->
-            -- if we are switching to `Upload`, it's not available, if switching to `PasteIn`, it is available if content is available
-            let
-                canProceed =
-                    case tab of
-                        UploadFile ->
-                            False
-
-                        PasteIn ->
-                            case model.dataInput of
-                                Just _ ->
-                                    True
-
-                                Nothing ->
-                                    False
-            in
-            { model | activeTab = tab, canProceedWithPrediction = canProceed } => Cmd.none
+            { model | activeTab = tab } => prismHighlight ()
 
         FileSelected ->
             model => Ports.uploadFileSelected "upload-dataset"
 
         FileContentRead readResult ->
             let
-                d =
-                    Debug.log "" <| toString readResult
-
                 readStatus =
                     Json.Decode.decodeValue File.fileReadStatusDecoder readResult
                         |> Result.withDefault File.ReadError
@@ -114,7 +94,6 @@ update msg model context =
                                         , inputType = DataFormat.Json
                                         , fileName = fileName
                                         , fileUploadErrorOccurred = False
-                                        , canProceedWithPrediction = True
                                     }
 
                                 DataFormat.Csv ->
@@ -123,7 +102,6 @@ update msg model context =
                                         , inputType = DataFormat.Csv
                                         , fileName = fileName
                                         , fileUploadErrorOccurred = False
-                                        , canProceedWithPrediction = True
                                     }
 
                                 DataFormat.Other ->
@@ -152,7 +130,7 @@ update msg model context =
                     else
                         DataFormat.Csv
             in
-            { model | dataInput = value, inputType = inputType, canProceedWithPrediction = not (String.isEmpty content) } => Cmd.none
+            { model | dataInput = value, inputType = inputType } => Cmd.none
 
         PredictionStarted ->
             let
@@ -164,7 +142,7 @@ update msg model context =
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
-            { model | canProceedWithPrediction = False, uploadResponse = Remote.Loading } => predictRequest
+            { model | uploadResponse = Remote.Loading } => predictRequest
 
         ToggleFileTypeSelector ->
             { model | showDownloadTypeSelector = not model.showDownloadTypeSelector } => Cmd.none
@@ -179,12 +157,13 @@ update msg model context =
                         |> Remote.sendRequest
                         |> Cmd.map DownloadResponse
             in
-            { model | canProceedWithPrediction = False, downloadResponse = Remote.Loading, outputType = downloadType, showDownloadTypeSelector = False } => predictRequest
+            { model | downloadResponse = Remote.Loading, outputType = downloadType, showDownloadTypeSelector = False } => predictRequest
 
         PredictResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | uploadResponse = result, canProceedWithPrediction = True } => Cmd.none
+                    { model | uploadResponse = result }
+                        => scrollIntoView "results"
 
                 Remote.Failure err ->
                     { model | uploadResponse = result } => Log.logHttpError err
@@ -195,10 +174,10 @@ update msg model context =
         DownloadResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | downloadResponse = result, canProceedWithPrediction = True } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToContentType model.outputType }
+                    { model | downloadResponse = result } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToContentType model.outputType }
 
                 Remote.Failure err ->
-                    { model | downloadResponse = result, canProceedWithPrediction = True } => Log.logHttpError err
+                    { model | downloadResponse = result } => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -239,41 +218,32 @@ view model context =
 
                 Remote.Success _ ->
                     text "Predict again"
+
+        canProceedWithPrediction =
+            not (Remote.isLoading model.downloadResponse || Remote.isLoading model.uploadResponse)
+                && (model.dataInput |> Maybe.map (\d -> not <| String.isEmpty d) |> Maybe.withDefault False)
+
+        predictButton =
+            div [ class "mt5 right" ] [ button [ class "btn btn-danger", disabled <| not canProceedWithPrediction, onClick PredictionStarted ] [ buttonText ] ]
     in
     div [ class "row" ]
-        [ div [ class "col-sm-12" ] (predictInput context model)
-        , div [ class "col-sm-12" ]
-            [ button [ class "btn btn-danger", disabled <| not model.canProceedWithPrediction || Remote.isLoading model.downloadResponse || Remote.isLoading model.uploadResponse, onClick PredictionStarted ]
-                [ buttonText ]
-            , showTable model
-            ]
+        [ div [ class "col-sm-12" ] (viewPredictInput context model predictButton)
+        , div [ class "col-sm-12" ] [ viewRemoteError model.uploadResponse ]
+        , div [ class "col-sm-9" ] []
+        , div [ class "col-sm-3" ] [ predictButton ]
+        , div [ id "results", class "col-sm-12" ] [ showTable model ]
         ]
 
 
-predictInput : ContextModel -> Model -> List (Html Msg)
-predictInput context model =
-    case model.uploadResponse of
-        Remote.NotAsked ->
-            viewPredictInput context model
-
-        Remote.Success _ ->
-            viewPredictInput context model
-
-        Remote.Failure err ->
-            viewPredictFailure model err
-
-        _ ->
-            [ div [] [] ]
-
-
-viewPredictInput : ContextModel -> Model -> List (Html Msg)
-viewPredictInput context model =
+viewPredictInput : ContextModel -> Model -> Html Msg -> List (Html Msg)
+viewPredictInput context model predictButton =
     [ div [ id "predict" ]
         [ div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ h3 []
-                    [ text "Run a prediction" ]
-                , h4 []
+            [ div [ class "col-sm-9" ]
+                [ h3 [] [ text "Run a prediction" ] ]
+            , div [ class "col-sm-3" ] [ predictButton ]
+            , div [ class "col-sm-12" ]
+                [ h4 []
                     [ text "Choose your prediction file" ]
                 ]
             , div [ class "col-sm-12" ]
@@ -289,8 +259,8 @@ viewTabControl : Model -> Html Msg
 viewTabControl model =
     let
         tabHeaders =
-            [ li [ classList [ ( "active", model.activeTab == UploadFile ) ] ] [ a [ onClick (ChangeTab UploadFile) ] [ text "Upload" ] ]
-            , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
+            [ li [ classList [ ( "active", model.activeTab == UploadFile ) ] ] [ a [ attribute "role" "button", onClick (ChangeTab UploadFile) ] [ text "Upload" ] ]
+            , li [ classList [ ( "active", model.activeTab == PasteIn ) ] ] [ a [ attribute "role" "button", onClick (ChangeTab PasteIn) ] [ text "Paste Data" ] ]
             ]
     in
     ul [ class "nav nav-tabs", attribute "role" "tablist" ]
@@ -339,8 +309,7 @@ viewUploadTab context model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "how_upload_csv"
-                ]
+                [ explainer context.config "how_upload_csv" ]
             ]
         ]
 
@@ -373,48 +342,6 @@ viewPasteData context model =
         ]
 
 
-viewPredictFailure : Model -> Http.Error -> List (Html Msg)
-viewPredictFailure model error =
-    let
-        severity =
-            case error of
-                Http.Timeout ->
-                    "alert-warning"
-
-                Http.NetworkError ->
-                    "alert-warning"
-
-                _ ->
-                    "alert-danger"
-    in
-    [ div [ class ("alert " ++ severity) ]
-        [ h5 [ class "mt15 mb15 center" ]
-            [ text "Error in request" ]
-        , div [ class "mt10 center" ]
-            [ text (createErrorMessage error) ]
-        ]
-    ]
-
-
-createErrorMessage : Http.Error -> String
-createErrorMessage httpError =
-    case httpError of
-        Http.BadUrl message ->
-            message
-
-        Http.Timeout ->
-            "Server is taking too long to respond. Please try again later."
-
-        Http.NetworkError ->
-            "It appears you don't have an Internet connection right now."
-
-        Http.BadStatus response ->
-            response.status.message
-
-        Http.BadPayload message response ->
-            message
-
-
 showTable : Model -> Html Msg
 showTable model =
     let
@@ -423,13 +350,11 @@ showTable model =
     in
     case model.uploadResponse of
         Remote.Success successResponse ->
-            div [ id "results" ]
+            div []
                 [ div [ class "row" ]
                     [ hr [] []
                     , div [ class "col-sm-6" ]
-                        [ h5 [ class "mt15 mb15" ]
-                            [ Messages.viewMessages successResponse.messages ]
-                        ]
+                        [ expandedMessagesTable "predictMessages" successResponse.messages ]
                     , div [ class "col-sm-6 center" ]
                         [ div [ class "alert alert-danger" ]
                             [ h5 [ class "mt15 mb15 center" ]
@@ -519,7 +444,7 @@ toTableRow item =
 
 toTableHeaderItem : String -> Html Msg
 toTableHeaderItem value =
-    th [] [ text value ]
+    th [] [ text <| formatDisplayName value ]
 
 
 toTableData : String -> Html Msg

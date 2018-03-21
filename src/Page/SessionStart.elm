@@ -31,7 +31,7 @@ import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
 import Time.TimeZones exposing (fromName, utc)
 import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
-import Util exposing ((=>), dateToUtcDateTime, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+import Util exposing ((=>), dateToUtcDateTime, formatDisplayName, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -157,6 +157,7 @@ type Field
     | StartDateField
     | SessionTypeField
     | MetadataField
+    | TimeSeriesField
 
 
 validateModel : Model -> Result (List FieldError) SessionRequest
@@ -230,9 +231,40 @@ keepContainsAnomalies { containsAnomalies, selectedSessionType } =
             Ok Nothing
 
 
-verifySessionType : Model -> Result (List FieldError) PredictionDomain
+verifySessionType : Model -> List FieldError
 verifySessionType model =
+    List.concatMap (\f -> f model)
+        [ verifySessionTypeSelected >> unwrapErrors
+        , verifyHasDate >> unwrapErrors
+        ]
+
+
+verifySessionTypeSelected : Model -> Result (List FieldError) PredictionDomain
+verifySessionTypeSelected model =
     Maybe.Verify.isJust (SessionTypeField => "A Session type must be selected.") model.selectedSessionType
+
+
+verifyHasDate : Model -> Result (List FieldError) String
+verifyHasDate model =
+    let
+        ( min, max ) =
+            getMinMaxValueFromCandidate model
+
+        isTimeSeries =
+            case model.selectedSessionType of
+                Just Forecast ->
+                    True
+
+                Just Impact ->
+                    True
+
+                _ ->
+                    False
+    in
+    if isTimeSeries && max == "" then
+        Err [ SessionTypeField => "The selected session type requires time-series data, but this dataset does not have a date field from which to provide a time-series forecast. Please select a dataset which has time-series information, or select a different type of session to build." ]
+    else
+        Ok ""
 
 
 validateForecast : Validator FieldError Model ForecastSessionRequest
@@ -262,7 +294,7 @@ validateModelRequest =
         |> Verify.keep .sessionName
         |> Verify.keep .dataSetName
         |> Verify.keep .sessionColumnMetadata
-        |> Verify.custom verifySessionType
+        |> Verify.custom verifySessionTypeSelected
         |> Verify.custom keepBalance
         |> Verify.custom keepContainsAnomalies
 
@@ -270,7 +302,7 @@ validateModelRequest =
 perStepValidations : List ( Step, Model -> List FieldError )
 perStepValidations =
     [ ( StartEndDates, verifyStartEndStep )
-    , ( SessionType, verifySessionType >> unwrapErrors )
+    , ( SessionType, verifySessionType )
     , ( ColumnMetadata, verifyMetadataStep )
     ]
 
@@ -285,7 +317,10 @@ verifyStartEndStep model =
 
 verifyMetadataStep : Model -> List FieldError
 verifyMetadataStep model =
-    List.concatMap (\f -> f model) [ verifyTimestampRole >> unwrapErrors ]
+    List.concatMap (\f -> f model)
+        [ verifyTimestampRole >> unwrapErrors
+        , verifyTarget >> unwrapErrors
+        ]
 
 
 verifyTimestampRole : Model -> Result (List FieldError) String
@@ -324,6 +359,14 @@ mergeMetadata : List Columns.ColumnMetadata -> List Columns.ColumnMetadata -> Li
 mergeMetadata left right =
     List.filter (\b -> List.member b.name (List.map (\a -> a.name) left)) right
         ++ List.filterNot (\b -> List.member b.name (List.map (\a -> a.name) right)) left
+
+
+verifyTarget : Model -> Result (List FieldError) String
+verifyTarget model =
+    if model.columnEditorModel.showTarget && model.target == Nothing then
+        Err [ MetadataField => "A target column must be selected either as a role in the metadata editor or in the target text box." ]
+    else
+        Ok ""
 
 
 configWizard : WizardConfig Step FieldError Msg Model SessionRequest
@@ -381,7 +424,7 @@ update msg model context =
                 startingDate =
                     if sessionType == Forecast && model.startDate == Nothing then
                         maxDate
-                    else if sessionType == Impact && model.startDate == maxDate then
+                    else if sessionType == Impact then
                         Nothing
                     else
                         model.startDate
@@ -602,7 +645,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Start a session" ] ]
             ]
         , div [ class "row mb20" ]
             ([ viewProgress configWizardSummary model.steps |> Html.map never ]
@@ -719,7 +762,8 @@ sessionTypeToString sessionType =
 viewSessionType : ContextModel -> Model -> Html Msg
 viewSessionType context model =
     div [ class "col-sm-12" ]
-        [ div [ class "form-group" ]
+        [ div [ class "row" ] [ div [ class "col-sm-6" ] [ viewFieldError model.errors SessionTypeField ] ]
+        , div [ class "form-group" ]
             [ sessionTypePanel
                 "https://nexosis.com/assets/img/features/classification.png"
                 (explainer context.config "session_classification")
@@ -790,15 +834,8 @@ sessionTypePanel imageUrl bodyHtml currentSelection sessionType =
 
 viewStartEndDates : ContextModel -> Model -> Html Msg
 viewStartEndDates context model =
-    let
-        ( min, max ) =
-            getMinMaxValueFromCandidate model
-    in
     div [ class "col-sm-12" ]
-        [ div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
-                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
-            ]
+        [ viewStartEndDateExplainer context model
         , div [ class "form-group col-sm-3 clearfix-left" ]
             [ label [] [ text "Result Interval" ]
             , fromSelected [ Session.Hour, Session.Day, Session.Week, Session.Month, Session.Year ] IntervalChanged model.resultInterval
@@ -822,6 +859,23 @@ viewStartEndDates context model =
                 ]
             ]
         ]
+
+
+viewStartEndDateExplainer : ContextModel -> Model -> Html Msg
+viewStartEndDateExplainer context model =
+    let
+        ( min, max ) =
+            getMinMaxValueFromCandidate model
+    in
+    if model.startDate == Nothing then
+        div [ class "help col-sm-6 pull-right" ]
+            [ viewFieldError model.errors TimeSeriesField
+            ]
+    else
+        div [ class "help col-sm-6 pull-right" ]
+            [ div [ class "alert alert-info" ]
+                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
+            ]
 
 
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
@@ -1001,7 +1055,7 @@ viewStartSession model =
 
         properties =
             [ ( "Session Name", model.sessionName, EditStep NameSession )
-            , ( "DataSet Name", Just <| dataSetNameToString model.dataSetName, Locked )
+            , ( "DataSet Name", Just <| formatDisplayName <| dataSetNameToString model.dataSetName, Locked )
             , ( "Session Type", Maybe.map sessionTypeToString model.selectedSessionType, EditStep SessionType )
             , ( "Contains Anomalies", maybeContainsAnomalies, EditStep ContainsAnomalies )
             , ( "Set Balance", maybeSetBalance, EditStep SetBalance )

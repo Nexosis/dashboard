@@ -1,7 +1,7 @@
 ##### Why should I balance my test set?
 Balancing your data ensures that your test set has data from every label. **Your test set is balanced by default.**
 
-[TODO : Learn More ]()
+[Learn More](http://docs.nexosis.com/guides/quick-start-guide-classification#a-note-on-balance)
 
 <div class="row well m15 p15">
     <div class="col-sm-6">

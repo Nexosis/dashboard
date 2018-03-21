@@ -227,7 +227,7 @@ update msg model context =
                         |> Ziplist.find (\( _, name ) -> name == tabName)
                         |> Maybe.withDefault model.tabs
             in
-            { model | tabs = newTabs } => Cmd.none
+            { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
             model => Ports.uploadFileSelected "upload-dataset"
@@ -399,7 +399,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Add DataSet" ] ]
             ]
         , div [ class "row" ]
             [ case model.steps.current of
@@ -411,7 +411,7 @@ view model context =
             ]
         , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-4" ]
+            [ div [ class "col-sm-12 right" ]
                 [ viewButtons configWizard
                     model
                     model.steps
@@ -519,7 +519,7 @@ viewSetKey config model =
                     ]
                 , errorDisplay
                 ]
-            , div [ class "col-sm-6" ]
+            , div [ class "col-sm-6 col-sm-offset-2" ]
                 [ div [ class "alert alert-info" ]
                     [ explainer config "why_choose_key"
                     ]
@@ -569,12 +569,12 @@ viewTabControl model =
 
 viewInactiveTab : ( Tab, String ) -> Html Msg
 viewInactiveTab ( _, tabText ) =
-    li [] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewActiveTab : ( Tab, String ) -> Html Msg
 viewActiveTab ( _, tabText ) =
-    li [ class "active" ] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [ class "active" ] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewTabContent : ContextModel -> Model -> Html Msg
