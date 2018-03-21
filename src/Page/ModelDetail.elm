@@ -11,7 +11,6 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Http
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
 import Ports

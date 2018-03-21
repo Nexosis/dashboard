@@ -4,7 +4,7 @@ import Autocomplete
 import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
@@ -634,7 +634,7 @@ statsDisplay columnStats =
                     , strong [] [ text "Max: " ]
                     , styledNumber <| stats.max
                     , br [] []
-                    , strong [] [ text "Standard Deviation: " ]
+                    , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
                     , strong [ class "text-danger" ] [ text "Errors: " ]
