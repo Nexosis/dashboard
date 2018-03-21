@@ -130,12 +130,12 @@ view model context messages =
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model)) ]
+                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
                 , hr [] []
-            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewQuotas model.quotas) ]
-            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewRecentMessages messages) ]
+                , viewSidePanel (viewQuotas model.quotas)
+                ]
+            , hr [] []
+            , viewSidePanel (viewRecentMessages messages)
             ]
         ]
 

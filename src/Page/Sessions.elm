@@ -23,6 +23,7 @@ import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
 
+
 ---- MODEL ----
 
 
@@ -193,7 +194,6 @@ config toolTips =
         }
 
 
-
 viewSessionGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
 viewSessionGridReadonly toolTips tableState sessionList =
     Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
@@ -225,7 +225,7 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Table.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left fixed"]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
@@ -277,7 +277,7 @@ typeColumn =
         { name = "Type"
         , viewData = typeCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
-        , headAttributes = [ class "per10" ]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
