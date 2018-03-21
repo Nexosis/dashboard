@@ -277,19 +277,22 @@ makeUnsortable (Column column) =
 headerCell : ( ColumnHeadConfig msg, String, Status, Attribute msg ) -> Html msg
 headerCell ( headerConfig, name, status, onClick ) =
     let
+        heading =
+            if headerConfig.headHtml /= [] then
+                headerConfig.headHtml
+            else
+                [ Html.text name ]
+
         content =
             case status of
                 Unsortable ->
-                    [ Html.text name ] ++ headerConfig.headHtml
+                    heading
 
                 Reversible Nothing ->
-                    [ Html.text name ]
-                        ++ headerConfig.headHtml
-                        ++ [ mediumGray "sort" ]
+                    heading ++ [ mediumGray "sort" ]
 
                 Reversible (Just isReversed) ->
-                    [ Html.text name ]
-                        ++ headerConfig.headHtml
+                    heading
                         ++ [ darkGray
                                 (if isReversed == Ascending then
                                     "sort-up"

@@ -41,8 +41,8 @@ defaultColumns tooltips =
         actionsColumn
         sizeColumn
         (shapeColumn tooltips)
-        (Grid.customNumberColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
-        (Grid.customNumberColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
+        (Grid.customNumberColumn "dateCreated" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [ text "Created" ])
+        (Grid.customNumberColumn "lastModified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [ text "Modified" ])
 
 
 type alias Model =
@@ -241,7 +241,7 @@ nameColumn =
         , viewData = dataSetNameCell
         , sorter = Grid.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
         , headAttributes = [ class "left fixed" ]
-        , headHtml = []
+        , headHtml = [ text "Name" ]
         }
 
 
@@ -289,11 +289,11 @@ dataSetDeleteButton dataSet =
 sizeColumn : Grid.Column DataSet msg
 sizeColumn =
     Grid.veryCustomColumn
-        { name = "Size"
+        { name = "dataSetSize"
         , viewData = sizeCell
         , sorter = Grid.increasingOrDecreasingBy (\a -> toString a.dataSetSize)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Size" ]
         }
 
 
@@ -309,7 +309,7 @@ shapeColumn tooltips =
         , viewData = shapeCell
         , sorter = Grid.unsortable
         , headAttributes = [ class "per15" ]
-        , headHtml = helpIcon tooltips "Shape"
+        , headHtml = text "Shape" :: helpIcon tooltips "Shape"
         }
 
 
