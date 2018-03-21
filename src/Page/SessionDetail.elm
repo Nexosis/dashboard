@@ -702,7 +702,7 @@ viewMetricsList context results =
 viewSessionName : Model -> SessionData -> Html Msg
 viewSessionName model session =
     div [ class "col-sm-9" ]
-        [ h2 [ class "mt10" ] [ text <| formatDisplayName session.name ]
+        [ h2 [] [ text <| formatDisplayName session.name ]
         ]
 
 

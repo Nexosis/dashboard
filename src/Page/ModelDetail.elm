@@ -127,7 +127,6 @@ view model context =
             , div [ class "col-sm-3" ] []
             ]
         , detailRow model context
-        , hr [] []
         , renderPredict context model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
@@ -152,7 +151,7 @@ modelName : Model -> Html Msg
 modelName model =
     case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
+            div [ class "col-sm-9" ] [ h2 [] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
         Remote.Loading ->
             text "Loading..."
@@ -165,9 +164,8 @@ detailRow : Model -> ContextModel -> Html Msg
 detailRow model context =
     case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "row" ]
-                [ div [ class "col-sm-12" ] [ h5 [ class "mt15 mb15" ] [ text "Details" ] ]
-                , div [ class "col-sm-4" ]
+            div [ id "details", class "row" ]
+                [ div [ class "col-sm-4" ]
                     [ p []
                         [ strong [] [ text "Session Used: " ]
                         , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]

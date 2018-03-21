@@ -277,7 +277,7 @@ typeColumn =
         { name = "Type"
         , viewData = typeCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
-        , headAttributes = [ class "per10" ]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -321,5 +321,5 @@ deleteColumn =
 deleteButton : SessionData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog model), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

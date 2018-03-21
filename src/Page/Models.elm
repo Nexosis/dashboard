@@ -125,7 +125,7 @@ view model context =
     div []
         [ div [ class "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
+            , div [ class "col-sm-6" ] [ h2 [] ([ text "Models " ] ++ helpIcon context.config.toolTips "Models") ]
             , div [ class "col-sm-6 right" ] []
             ]
         , hr [] []
@@ -306,5 +306,5 @@ deleteColumn =
 deleteButton : ModelData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ button [ onClick (ShowDeleteDialog model), alt "Delete", class "btn btn-link btn-danger" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

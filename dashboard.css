@@ -22,5 +22,5 @@ table.fixed {
 table.fixed tr td.fixed {
     text-overflow: ellipsis;
     overflow: hidden;
-    white-space: nowrap;
+    
   }

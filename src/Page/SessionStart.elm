@@ -645,7 +645,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Start a session" ] ]
             ]
         , div [ class "row mb20" ]
             ([ viewProgress configWizardSummary model.steps |> Html.map never ]

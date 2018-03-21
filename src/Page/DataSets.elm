@@ -142,7 +142,7 @@ view model context =
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
             , div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ]
+                [ h2 []
                     ([ text "DataSets " ]
                         ++ helpIcon context.config.toolTips "Datasets"
                     )
@@ -276,7 +276,7 @@ deleteColumn =
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
 dataSetDeleteButton dataSet =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 

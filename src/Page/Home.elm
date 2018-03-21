@@ -9,7 +9,7 @@ import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (attribute, class, id)
+import Html.Attributes exposing (attribute, class, href, id)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -36,6 +36,7 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
+    , apiManagerUrl : String
     }
 
 
@@ -48,6 +49,7 @@ init config quotas =
         Remote.Loading
         []
         quotas
+        config.apiManagerUrl
         => Cmd.batch
             [ Request.DataSet.get config 0 5
                 |> Remote.sendRequest
@@ -118,7 +120,7 @@ update msg model context =
 
 view : Model -> ContextModel -> List GlobalMessage -> Html Msg
 view model context messages =
-    div []
+    div [ id "page-header", class "row" ]
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
@@ -128,11 +130,12 @@ view model context messages =
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model)) ]
-            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewQuotas model.quotas) ]
-            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewRecentMessages messages) ]
+                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
+                , hr [] []
+                , viewSidePanel (viewQuotas model.quotas)
+                ]
+            , hr [] []
+            , viewSidePanel (viewRecentMessages messages)
             ]
         ]
 
@@ -147,7 +150,7 @@ viewQuotas quotas =
             div []
                 [ div [ class "row m0" ]
                     [ h4 [ class "mb15" ]
-                        [ text "Usage Stats" ]
+                        [ strong [] [ text "Usage Stats" ] ]
                     , viewQuota "DataSets" quotas.dataSets
                     , viewQuota "Sessions" quotas.sessions
                     , viewQuota "Predictions" quotas.predictions
@@ -245,13 +248,18 @@ viewSubscriptions model subscriptions =
         [ h4 [ class "mb15" ]
             [ strong
                 []
-                [ text "API Keys" ]
+                [ strong [] [ text "API Keys" ] ]
             ]
         , div
             []
             (subscriptions
                 |> List.map (viewSubscription model)
             )
+        , p [ class "mt15" ]
+            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developers") ]
+                [ i [ class "fa fa-key mr5" ] [ text "Manage keys" ]
+                ]
+            ]
         ]
 
 
