@@ -23,11 +23,11 @@ get config page pageSize =
         |> HttpBuilder.toRequest
 
 
-getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
-getRetrieveDetail config name =
+getRetrieveDetail : Config -> DataSetName -> Int -> Int -> Http.Request DataSetData
+getRetrieveDetail config name pgNum pgSize =
     let
         params =
-            pageParams 0 1
+            pageParams pgNum pgSize
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get

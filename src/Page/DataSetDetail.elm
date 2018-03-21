@@ -14,7 +14,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
-import Page.DataSetData as DataSetData exposing (view)
+import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import Ports
 import RemoteData as Remote
 import Request.DataSet
@@ -39,6 +39,7 @@ type alias Model =
     , sessionLinks : SessionLinks
     , updateResponse : Remote.WebData ()
     , tabs : Ziplist ( Tab, String )
+    , dataSetDataModel : DataSetData.Model
     }
 
 
@@ -52,21 +53,25 @@ type Tab
     | DataSetDataTab
 
 
-init : Config -> DataSetName -> ( Model, Cmd Msg )
-init config dataSetName =
+init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
+init context dataSetName =
     let
         loadData =
-            Request.DataSet.getRetrieveDetail config dataSetName
+            Request.DataSet.getRetrieveDetail context.config dataSetName 0 1
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init dataSetName True
+
+        ( dataSetModel, dsDataInitCmd ) =
+            DataSetData.init context dataSetName
     in
-    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked initTabs
+    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked initTabs dataSetModel
         ! [ loadData
-          , loadRelatedSessions config dataSetName
+          , loadRelatedSessions context.config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
+          , Cmd.map DataSetDataMsg dsDataInitCmd
           ]
 
 
@@ -97,6 +102,7 @@ type Msg
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
     | ChangeTab String
+    | DataSetDataMsg DataSetData.Msg
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -104,10 +110,16 @@ update msg model context =
     case msg of
         DataSetDataResponse resp ->
             let
+                x =
+                    Debug.log "DataSetResponse" msg
+
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
+
+                ( dataSetModel, dsDataInitCmd ) =
+                    DataSetData.dataUpdated context model.dataSetDataModel resp
             in
-            { model | loadingResponse = resp, columnMetadataEditorModel = subModel }
+            { model | loadingResponse = resp, columnMetadataEditorModel = subModel, dataSetDataModel = dataSetModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ColumnMetadataEditorMsg subMsg ->
@@ -204,6 +216,17 @@ update msg model context =
                         |> Maybe.withDefault model.tabs
             in
             { model | tabs = newTabs } => Ports.prismHighlight ()
+
+        DataSetDataMsg subMsg ->
+            let
+                x =
+                    Debug.log "DataSetDataMsg-DataSetDetail" subMsg
+
+                ( newModel, cmd ) =
+                    DataSetData.update subMsg model.dataSetDataModel context
+            in
+            { model | dataSetDataModel = newModel }
+                => Cmd.map DataSetDataMsg cmd
 
 
 subscriptions : Model -> Sub Msg
@@ -382,7 +405,7 @@ viewTabContent context model =
                     ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
 
                 ( DataSetDataTab, _ ) ->
-                    DataSetData.view context
+                    DataSetData.view context model.dataSetDataModel |> Html.map DataSetDataMsg
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]

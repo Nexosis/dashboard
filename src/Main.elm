@@ -159,7 +159,7 @@ setRoute route app =
                 Just ( AppRoutes.DataSetDetail name, title ) ->
                     let
                         ( pageModel, initCmd ) =
-                            DataSetDetail.init app.context.config name
+                            DataSetDetail.init app.context name
                     in
                     { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title ]
 
