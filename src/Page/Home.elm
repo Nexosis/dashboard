@@ -5,7 +5,7 @@ import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
-import Data.Response exposing (Quota, Quotas, Response)
+import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
@@ -22,6 +22,8 @@ import Request.Session
 import Request.Subscription
 import Table
 import Util exposing ((=>))
+import View.Extra exposing (viewIfElements)
+import View.Messages exposing (messageSeverityDisplay)
 
 
 ---- MODEL ----
@@ -116,8 +118,8 @@ update msg model context =
 -- VIEW --
 
 
-view : Model -> ContextModel -> Html Msg
-view model context =
+view : Model -> ContextModel -> List GlobalMessage -> Html Msg
+view model context messages =
     div [ id "page-header", class "row" ]
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
@@ -128,12 +130,12 @@ view model context =
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
+                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model)) ]
                 , hr [] []
-                ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewQuotas model.quotas)
-                ]
+                [ viewSidePanel (viewQuotas model.quotas) ]
+            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
+                [ viewSidePanel (viewRecentMessages messages) ]
             ]
         ]
 
@@ -192,6 +194,43 @@ viewQuota name quota =
             ]
         , hr [] []
         ]
+
+
+viewRecentMessages : List GlobalMessage -> Html Msg
+viewRecentMessages messages =
+    viewIfElements
+        (\() ->
+            div [ id "api-messages", class "row m0" ]
+                (h4 [ class "mb15" ]
+                    [ strong [] [ text "Recent API Messages" ]
+                    ]
+                    :: List.map viewMessage messages
+                )
+        )
+        messages
+
+
+viewMessage : GlobalMessage -> Html Msg
+viewMessage message =
+    let
+        messageDisplay =
+            div [ class "message-group" ]
+                [ p [ class "api-code" ] [ messageSeverityDisplay message ]
+                , p [ class "message" ] [ text message.message ]
+
+                -- todo - Messages don't have timestamps, but, if we create an endpoint to gather all messages,
+                -- that will probably change.
+                -- , p [ class "date" ]
+                --     [ i [ class "fa fa-calendar-o" ]
+                --         [ text "date"
+                --         ]
+                --     ]
+                ]
+    in
+    message.routeToResource
+        |> Maybe.map
+            (\route -> a [ AppRoutes.href route ] [ messageDisplay ])
+        |> Maybe.withDefault messageDisplay
 
 
 viewSidePanel : Html Msg -> Html Msg
@@ -287,7 +326,7 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-6 p10" ]
+                [ div [ class "col-sm-6 pleft0" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
                 , div [ class "col-sm-6 pt5 pr0 right" ]
