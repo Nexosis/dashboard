@@ -4,7 +4,7 @@ import Autocomplete
 import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
@@ -17,7 +17,7 @@ import Request.Log exposing (logHttpError)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), commaFormatInteger, formatFloatToString, styledNumber)
+import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid
@@ -550,7 +550,7 @@ nameColumn =
 columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
 columnNameCell column =
     Table.HtmlDetails [ class "name" ]
-        [ text column.name ]
+        [ text <| formatDisplayName column.name ]
 
 
 typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
@@ -639,7 +639,7 @@ statsDisplay columnStats =
                     , strong [] [ text "Max: " ]
                     , styledNumber <| stats.max
                     , br [] []
-                    , strong [] [ text "Standard Deviation: " ]
+                    , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
                     , strong [ class "text-danger" ] [ text "Errors: " ]

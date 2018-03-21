@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -173,7 +173,6 @@ viewModelGridReadonly toolTips tableState modelList =
     Grid.view .items (configReadonly toolTips) tableState modelList
 
 
-
 configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
 configReadonly toolTips =
     Grid.configCustom
@@ -186,7 +185,7 @@ configReadonly toolTips =
             , createdColumn |> Grid.makeUnsortable
             , lastUsedColumn |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable    
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -204,7 +203,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name fixed" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (formatDisplayName <| modelOrDataSourceName model) ]
         ]
 
 
@@ -224,7 +223,7 @@ predictActionColumn =
         { name = ""
         , viewData = predictActionButton
         , sorter = Table.unsortable
-        , headAttributes = [class "per15"]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 

@@ -11,14 +11,13 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Http
 import List.Extra exposing (find)
 import Page.ModelPredict as ModelPredict
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
-import Util exposing ((=>), formatFloatToString, styledNumber)
+import Util exposing ((=>), formatDisplayName, formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
@@ -175,11 +174,11 @@ detailRow model context =
                         ]
                     , p []
                         [ strong [] [ text "Source: " ]
-                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text resp.dataSourceName ]
+                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text <| formatDisplayName resp.dataSourceName ]
                         ]
                     , p []
                         [ strong [] [ text "Target Column: " ]
-                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
+                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
                         ]
                     ]
                 , div [ class "col-sm-4" ] [ metricsList context resp.algorithm.name resp.metrics ]

@@ -1,10 +1,11 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Date exposing (Date, Month)
 import Html
 import Html.Attributes
 import Process
+import String.Extra exposing (ellipsis)
 import Task
 import Time
 import Time.DateTime as DateTime exposing (DateTime, zero)
@@ -230,3 +231,8 @@ monthToInt value =
 
         Date.Dec ->
             12
+
+
+formatDisplayName : String -> String
+formatDisplayName input =
+    ellipsis 35 input

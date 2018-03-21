@@ -17,7 +17,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.CopyableText exposing (copyableText)
@@ -216,7 +216,7 @@ viewNameRow : Model -> Html Msg
 viewNameRow model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            [ h2 [ class "mt10" ] [ text (DataSet.dataSetNameToString model.dataSetName) ] ]
+            [ h2 [ class "mt10" ] [ text (formatDisplayName <| DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
             [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
