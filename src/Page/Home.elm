@@ -55,7 +55,7 @@ init config quotas =
             [ Request.DataSet.get config 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-            , Request.Session.get config 0 5
+            , Request.Session.get config 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map SessionListResponse
             , Request.Model.get config 0 5

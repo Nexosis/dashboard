@@ -54,17 +54,21 @@ type alias SessionColumns msg =
     }
 
 
-loadSessionList : Config -> Int -> Int -> Cmd Msg
-loadSessionList config pageNo pageSize =
-    Request.Session.get config pageNo pageSize
+loadSessionList : Config -> Int -> Int -> SortParameters -> Cmd Msg
+loadSessionList config pageNo pageSize sortParams =
+    Request.Session.get config pageNo pageSize sortParams
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
 
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Grid.initialSort "name" Ascending) context.userPageSize 0 Nothing
-        => loadSessionList context.config 0 context.userPageSize
+    let
+        initialSort =
+            Grid.initialSort "requestedDate" Descending
+    in
+    Model Remote.Loading initialSort context.userPageSize 0 Nothing
+        => loadSessionList context.config 0 context.userPageSize initialSort
 
 
 
@@ -87,12 +91,12 @@ update msg model context =
             { model | sessionList = resp } => Cmd.none
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
+            { model | tableState = newState, sessionList = Remote.Loading }
+                => loadSessionList context.config model.currentPage model.pageSize newState
 
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading, currentPage = pgNum }
-                => loadSessionList context.config pgNum model.pageSize
+                => loadSessionList context.config pgNum model.pageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -101,7 +105,7 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadSessionList context.config 0 pageSize
+                    [ loadSessionList context.config 0 pageSize model.tableState
                     , StateStorage.saveAppState { context | userPageSize = pageSize }
                     ]
 
@@ -126,7 +130,7 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadSessionList context.config model.currentPage model.pageSize
+                            loadSessionList context.config model.currentPage model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -180,7 +184,7 @@ config toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.remoteConfig
         { toId = \a -> a.sessionId
         , toMsg = SetTableState
         , columns =
@@ -256,11 +260,11 @@ statusColumn =
 dataSourceColumn : Grid.Column SessionData msg
 dataSourceColumn =
     Grid.veryCustomColumn
-        { name = "Source"
+        { name = "dataSourceName"
         , viewData = dataSourceCell
         , sorter = Grid.increasingOrDecreasingBy .dataSourceName
         , headAttributes = [ class "left per25 fixed" ]
-        , headHtml = []
+        , headHtml = [ text "Source" ]
         }
 
 
@@ -292,11 +296,11 @@ typeCell model =
 createdColumn : Grid.Column SessionData msg
 createdColumn =
     Grid.veryCustomColumn
-        { name = "Created"
+        { name = "requestedDate"
         , viewData = createdCell
         , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateString a.requestedDate)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Created" ]
         }
 
 
