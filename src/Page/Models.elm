@@ -34,17 +34,21 @@ type alias Model =
     }
 
 
-loadModelList : Config -> Int -> Int -> Cmd Msg
-loadModelList config page pageSize =
-    Request.Model.get config page pageSize
+loadModelList : Config -> Int -> Int -> SortParameters -> Cmd Msg
+loadModelList config page pageSize sorting =
+    Request.Model.get config page pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map ModelListResponse
 
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Grid.initialSort "createdDate" Ascending) 0 context.userPageSize Nothing
-        => loadModelList context.config 0 context.userPageSize
+    let
+        initSort =
+            Grid.initialSort "createdDate" Ascending
+    in
+    Model Remote.Loading initSort 0 context.userPageSize Nothing
+        => loadModelList context.config 0 context.userPageSize initSort
 
 
 
@@ -67,8 +71,8 @@ update msg model context =
             { model | modelList = resp } => Cmd.none
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
+            { model | tableState = newState, modelList = Remote.Loading }
+                => loadModelList context.config model.currentPage model.pageSize newState
 
         ShowDeleteDialog modelData ->
             let
@@ -95,14 +99,14 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadModelList context.config model.currentPage model.pageSize
+                            loadModelList context.config model.currentPage model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList context.config pgNum model.pageSize
+                => loadModelList context.config pgNum model.pageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -111,7 +115,7 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadModelList context.config 0 pageSize
+                    [ loadModelList context.config 0 pageSize model.tableState
                     , StateStorage.saveAppState { context | userPageSize = pageSize }
                     ]
 
@@ -154,7 +158,7 @@ view model context =
 
 config : Dict String String -> Grid.Config ModelData Msg
 config toolTips =
-    Grid.config
+    Grid.remoteConfig
         { toId = \a -> a.modelId
         , toMsg = SetTableState
         , columns =
@@ -192,11 +196,11 @@ configReadonly toolTips =
 nameColumn : Grid.Column ModelData msg
 nameColumn =
     Grid.veryCustomColumn
-        { name = "Name"
+        { name = "modelName"
         , viewData = modelNameCell
         , sorter = Grid.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
         , headAttributes = [ class "left fixed" ]
-        , headHtml = []
+        , headHtml = [ text "Name" ]
         }
 
 
@@ -259,11 +263,11 @@ typeCell model =
 createdColumn : Grid.Column ModelData msg
 createdColumn =
     Grid.veryCustomColumn
-        { name = "Created"
+        { name = "createdDate"
         , viewData = createdCell
         , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateString a.createdDate)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Created" ]
         }
 
 
@@ -277,19 +281,18 @@ createdCell model =
 lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
     Grid.veryCustomColumn
-        { name = "Last used"
+        { name = "lastUsedDate"
         , viewData = lastUsedCell
         , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Last used" ]
         }
 
 
 lastUsedCell : ModelData -> Grid.HtmlDetails msg
 lastUsedCell model =
     Grid.HtmlDetails [ class "number" ]
-        [ text (toShortDateStringOrEmpty model.lastUsedDate)
-        ]
+        [ text (toShortDateStringOrEmpty model.lastUsedDate) ]
 
 
 deleteColumn : Grid.Column ModelData Msg
