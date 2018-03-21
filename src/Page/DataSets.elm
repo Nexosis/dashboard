@@ -11,6 +11,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
@@ -53,17 +54,21 @@ type alias Model =
     }
 
 
-loadDataSetList : ContextModel -> Int -> Int -> Cmd Msg
-loadDataSetList context pageNum pageSize =
-    Request.DataSet.get context.config pageNum pageSize
+loadDataSetList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
+loadDataSetList context pageNum pageSize sorting =
+    Request.DataSet.get context.config pageNum pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading 0 context.userPageSize (Grid.initialSort "dataSetName") Nothing
-        => loadDataSetList context 0 context.userPageSize
+    let
+        initialSorting =
+            Grid.initialSort "" Ascending
+    in
+    Model Remote.Loading 0 context.userPageSize initialSorting Nothing
+        => loadDataSetList context 0 context.userPageSize initialSorting
 
 
 
@@ -86,12 +91,16 @@ update msg model context =
             { model | dataSetList = resp } => Cmd.none
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
+            let
+                sortedRequest =
+                    loadDataSetList context 0 context.userPageSize newState
+            in
+            { model | tableState = newState, dataSetList = Remote.Loading }
+                => sortedRequest
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList context pgNum context.userPageSize
+                => loadDataSetList context pgNum context.userPageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -100,7 +109,7 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadDataSetList context 0 pageSize
+                    [ loadDataSetList context 0 pageSize model.tableState
                     , StateStorage.saveAppState { context | userPageSize = pageSize }
                     ]
 
@@ -125,7 +134,7 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList context model.currentPage context.userPageSize
+                            loadDataSetList context model.currentPage context.userPageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -210,7 +219,7 @@ config toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.remoteConfig
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
         , columns =
@@ -228,7 +237,7 @@ config toolTips =
 nameColumn : Grid.Column DataSet msg
 nameColumn =
     Grid.veryCustomColumn
-        { name = "Name"
+        { name = "dataSetName"
         , viewData = dataSetNameCell
         , sorter = Grid.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
         , headAttributes = [ class "left fixed" ]

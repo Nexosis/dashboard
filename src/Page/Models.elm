@@ -11,6 +11,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
@@ -42,7 +43,7 @@ loadModelList config page pageSize =
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Grid.initialSort "createdDate") 0 context.userPageSize Nothing
+    Model Remote.Loading (Grid.initialSort "createdDate" Ascending) 0 context.userPageSize Nothing
         => loadModelList context.config 0 context.userPageSize
 
 

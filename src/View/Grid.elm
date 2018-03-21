@@ -14,8 +14,11 @@ module View.Grid
         , floatColumn
         , increasingOrDecreasingBy
         , initialSort
+        , initialUnsorted
         , intColumn
         , makeUnsortable
+        , remoteConfig
+        , remoteConfigCustom
         , stringColumn
         , toFixedTable
         , unsortable
@@ -30,21 +33,26 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy2, lazy3)
 import Http
 import Json.Decode as Json
-import List.Extra as ListX
 import RemoteData as Remote
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 
 
 type ReadOnlyTableMsg
     = Readonly State
 
 
-type State
-    = State String Bool
+type alias State =
+    SortParameters
 
 
-initialSort : String -> State
-initialSort header =
-    State header False
+initialSort : String -> SortDirection -> State
+initialSort header direction =
+    { sortName = header, direction = direction }
+
+
+initialUnsorted : SortParameters
+initialUnsorted =
+    { sortName = "", direction = Ascending }
 
 
 {-| Describes how to turn `data` into a column in your table.
@@ -74,6 +82,7 @@ type Config data msg
         , toMsg : State -> msg
         , columns : List (ColumnData data msg)
         , customizations : Customizations data msg
+        , isRemote : Bool
         }
 
 
@@ -90,6 +99,24 @@ configCustom config =
         , toMsg = config.toMsg
         , columns = List.map (\(Column cData) -> cData) config.columns
         , customizations = config.customizations defaultCustomizations
+        , isRemote = False
+        }
+
+
+remoteConfigCustom :
+    { toId : data -> String
+    , toMsg : State -> msg
+    , columns : List (Column data msg)
+    , customizations : Customizations data msg -> Customizations data msg
+    }
+    -> Config data msg
+remoteConfigCustom config =
+    Config
+        { toId = config.toId
+        , toMsg = config.toMsg
+        , columns = List.map (\(Column cData) -> cData) config.columns
+        , customizations = config.customizations defaultCustomizations
+        , isRemote = True
         }
 
 
@@ -105,22 +132,23 @@ config config =
         , toMsg = config.toMsg
         , columns = List.map (\(Column cData) -> cData) config.columns
         , customizations = defaultCustomizations
+        , isRemote = False
         }
 
 
-customConfig :
+remoteConfig :
     { toId : data -> String
     , toMsg : State -> msg
     , columns : List (Column data msg)
-    , customizations : Customizations data msg
     }
     -> Config data msg
-customConfig { toId, toMsg, columns, customizations } =
+remoteConfig config =
     Config
-        { toId = toId
-        , toMsg = toMsg
-        , columns = List.map (\(Column cData) -> cData) columns
-        , customizations = customizations
+        { toId = config.toId
+        , toMsg = config.toMsg
+        , columns = List.map (\(Column cData) -> cData) config.columns
+        , customizations = defaultCustomizations
+        , isRemote = True
         }
 
 
@@ -134,51 +162,14 @@ type alias Customizations data msg =
     }
 
 
-
--- mapConfig : Config data msg -> Config data msg
--- mapConfig (Config { toId, toMsg, columns, customizations }) =
---     let
---         customs =
---             addColumnCustomizations customizations columns
---         tableConfig =
---             { toId = toId
---             , toMsg = toMsg
---             , columns = List.map mapColumns columns
---             , customizations = customs
---             }
---     in
---     customConfig tableConfig
--- addColumnCustomizations : Customizations data msg -> List (ColumnHeadConfig a msg) -> Customizations data msg
--- addColumnCustomizations customizations columnCustomizations =
---     let
---         headCust cust =
---             if cust.thead == defaultCustomizations.thead then
---                 { cust | thead = toTableHeadAttrs columnCustomizations }
---             else
---                 cust
---         tableAttributes cust =
---             if cust.tableAttrs == defaultCustomizations.tableAttrs then
---                 { cust | tableAttrs = toTableAttrs }
---             else
---                 cust
---     in
---     customizations |> headCust |> tableAttributes
-
-
 toFixedTable : Customizations data msg -> Customizations data msg
 toFixedTable defaultCustomizations =
-    { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] } |> Debug.log "attrs"
+    { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] }
 
 
 toTableAttrs : List (Attribute msg)
 toTableAttrs =
     [ id "dataset-details", class "table table-striped" ]
-
-
-
--- mapColumns : Column data msg -> Column data msg
--- mapColumns { name, viewData, sorter } =
---     veryCustomColumn { name = name, viewData = viewData, sorter = sorter }
 
 
 customStringColumn : String -> (data -> String) -> List (Attribute msg) -> List (Html msg) -> Column data msg
@@ -283,18 +274,6 @@ makeUnsortable (Column column) =
         }
 
 
-
--- toTableHeadAttrs : List (ColumnHeadConfig a msg) -> List ( String, Status, Attribute msg ) -> HtmlDetails msg
--- toTableHeadAttrs headerConfig headers =
---     let
---         thList =
---             headers
---                 |> ListX.zip headerConfig
---                 |> List.map headerCell
---     in
---     HtmlDetails [] thList
-
-
 headerCell : ( ColumnHeadConfig msg, String, Status, Attribute msg ) -> Html msg
 headerCell ( headerConfig, name, status, onClick ) =
     let
@@ -302,15 +281,6 @@ headerCell ( headerConfig, name, status, onClick ) =
             case status of
                 Unsortable ->
                     [ Html.text name ] ++ headerConfig.headHtml
-
-                Sortable selected ->
-                    [ Html.text name ]
-                        ++ headerConfig.headHtml
-                        ++ [ if selected then
-                                darkGray "sort-down"
-                             else
-                                mediumGray "sort-down"
-                           ]
 
                 Reversible Nothing ->
                     [ Html.text name ]
@@ -321,7 +291,7 @@ headerCell ( headerConfig, name, status, onClick ) =
                     [ Html.text name ]
                         ++ headerConfig.headHtml
                         ++ [ darkGray
-                                (if isReversed then
+                                (if isReversed == Ascending then
                                     "sort-up"
                                  else
                                     "sort-down"
@@ -344,8 +314,6 @@ darkGray icon =
 view : (response -> List data) -> Config data msg -> State -> Remote.WebData response -> Html.Html msg
 view toData config state response =
     let
-        -- tableConfig =
-        --     mapConfig config
         (Config { toId, toMsg, columns, customizations }) =
             config
     in
@@ -356,7 +324,7 @@ view toData config state response =
                     successResponse |> toData
             in
             div []
-                [ viewOld config state items ]
+                [ viewTable config state items ]
 
         Remote.Failure err ->
             let
@@ -374,7 +342,7 @@ view toData config state response =
                     tr [] [ td [ colspan columnCount ] [ text (niceErrorMessage err) ] ]
             in
             div []
-                [ viewOld config state []
+                [ viewTable config state []
                 , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
                         [ tr []
@@ -404,7 +372,7 @@ view toData config state response =
                     List.repeat 10 (tr [] loadingTds)
             in
             div []
-                [ viewOld config state []
+                [ viewTable config state []
                 , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
                         [ tr []
@@ -480,8 +448,7 @@ This information lets you do custom header decorations for each scenario.
 -}
 type Status
     = Unsortable
-    | Sortable Bool
-    | Reversible (Maybe Bool)
+    | Reversible (Maybe SortDirection)
 
 
 
@@ -528,11 +495,14 @@ customColumn { name, viewData, sorter } =
 -- VIEW
 
 
-viewOld : Config data msg -> State -> List data -> Html msg
-viewOld (Config { toId, toMsg, columns, customizations }) state data =
+viewTable : Config data msg -> State -> List data -> Html msg
+viewTable (Config { toId, toMsg, columns, customizations, isRemote }) state data =
     let
         sortedData =
-            sort state columns data
+            if isRemote then
+                data
+            else
+                sort state columns data
 
         theadDetails =
             customizations.thead (List.map (toHeaderInfo state toMsg) columns)
@@ -562,39 +532,41 @@ viewOld (Config { toId, toMsg, columns, customizations }) state data =
 
 
 toHeaderInfo : State -> (State -> msg) -> ColumnData data msg -> ( ColumnHeadConfig msg, String, Status, Attribute msg )
-toHeaderInfo (State sortName isReversed) toMsg { name, sorter, headAttributes, headHtml } =
+toHeaderInfo { sortName, direction } toMsg { name, sorter, headAttributes, headHtml } =
     let
         columnHeadConfig =
             { headAttributes = headAttributes, headHtml = headHtml }
     in
     case sorter of
         None ->
-            ( columnHeadConfig, name, Unsortable, onClick sortName isReversed toMsg )
-
-        Increasing _ ->
-            ( columnHeadConfig, name, Sortable (name == sortName), onClick name False toMsg )
-
-        Decreasing _ ->
-            ( columnHeadConfig, name, Sortable (name == sortName), onClick name False toMsg )
+            ( columnHeadConfig, name, Unsortable, onClick sortName direction toMsg )
 
         IncOrDec _ ->
             if name == sortName then
-                ( columnHeadConfig, name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
+                ( columnHeadConfig, name, Reversible (Just direction), onClick name (flipDirection direction) toMsg )
             else
-                ( columnHeadConfig, name, Reversible Nothing, onClick name False toMsg )
+                ( columnHeadConfig, name, Reversible Nothing, onClick name Ascending toMsg )
 
         DecOrInc _ ->
             if name == sortName then
-                ( columnHeadConfig, name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
+                ( columnHeadConfig, name, Reversible (Just direction), onClick name (flipDirection direction) toMsg )
             else
-                ( columnHeadConfig, name, Reversible Nothing, onClick name False toMsg )
+                ( columnHeadConfig, name, Reversible Nothing, onClick name Descending toMsg )
 
 
-onClick : String -> Bool -> (State -> msg) -> Attribute msg
-onClick name isReversed toMsg =
+flipDirection : SortDirection -> SortDirection
+flipDirection direction =
+    if direction == Ascending then
+        Descending
+    else
+        Ascending
+
+
+onClick : String -> SortDirection -> (State -> msg) -> Attribute msg
+onClick name direction toMsg =
     E.on "click" <|
         Json.map toMsg <|
-            Json.map2 State (Json.succeed name) (Json.succeed isReversed)
+            Json.map2 SortParameters (Json.succeed name) (Json.succeed direction)
 
 
 viewRow : (data -> String) -> List (ColumnData data msg) -> (data -> List (Attribute msg)) -> data -> ( String, Html msg )
@@ -623,35 +595,29 @@ viewCell data { viewData } =
 
 
 sort : State -> List (ColumnData data msg) -> List data -> List data
-sort (State selectedColumn isReversed) columnData data =
-    case findSorter selectedColumn columnData of
+sort { sortName, direction } columnData data =
+    case findSorter sortName columnData of
         Nothing ->
             data
 
         Just sorter ->
-            applySorter isReversed sorter data
+            applySorter direction sorter data
 
 
-applySorter : Bool -> Sorter data -> List data -> List data
-applySorter isReversed sorter data =
+applySorter : SortDirection -> Sorter data -> List data -> List data
+applySorter direction sorter data =
     case sorter of
         None ->
             data
 
-        Increasing sort ->
-            sort data
-
-        Decreasing sort ->
-            List.reverse (sort data)
-
         IncOrDec sort ->
-            if isReversed then
+            if direction == Ascending then
                 List.reverse (sort data)
             else
                 sort data
 
         DecOrInc sort ->
-            if isReversed then
+            if direction == Descending then
                 sort data
             else
                 List.reverse (sort data)
@@ -678,8 +644,6 @@ findSorter selectedColumn columnData =
 -}
 type Sorter data
     = None
-    | Increasing (List data -> List data)
-    | Decreasing (List data -> List data)
     | IncOrDec (List data -> List data)
     | DecOrInc (List data -> List data)
 
@@ -691,33 +655,6 @@ sort based on that column.
 unsortable : Sorter data
 unsortable =
     None
-
-
-{-| Create a sorter that can only display the data in increasing order. If we
-want a table of people, sorted alphabetically by name, we would say this:
-
-    sorter : Sorter { a | name : comparable }
-    sorter =
-      increasingBy .name
-
--}
-increasingBy : (data -> comparable) -> Sorter data
-increasingBy toComparable =
-    Increasing (List.sortBy toComparable)
-
-
-{-| Create a sorter that can only display the data in decreasing order. If we
-want a table of countries, sorted by population from highest to lowest, we
-would say this:
-
-    sorter : Sorter { a | population : comparable }
-    sorter =
-      decreasingBy .population
-
--}
-decreasingBy : (data -> comparable) -> Sorter data
-decreasingBy toComparable =
-    Decreasing (List.sortBy toComparable)
 
 
 {-| Sometimes you want to be able to sort data in increasing _or_ decreasing

@@ -6,14 +6,16 @@ import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, Data
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
 import Json.Encode as Encode
+import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)
 import Set
 
 
-get : Config -> Int -> Int -> Http.Request DataSetList
-get config page pageSize =
+get : Config -> Int -> Int -> SortParameters -> Http.Request DataSetList
+get config page pageSize sorting =
     let
         params =
             pageParams page pageSize
+                ++ sortParams sorting
     in
     (config.baseUrl ++ "/data")
         |> HttpBuilder.get

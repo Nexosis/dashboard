@@ -14,6 +14,7 @@ import Html.Events exposing (onFocus, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
@@ -71,7 +72,7 @@ type Msg
 
 init : DataSetName -> Bool -> ( Model, Cmd Msg )
 init dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName") Dict.empty Autocomplete.empty "" Nothing False showTarget
+    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Autocomplete.empty "" Nothing False showTarget
         => Cmd.none
 
 

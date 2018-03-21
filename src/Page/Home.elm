@@ -19,6 +19,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Model
 import Request.Session
+import Request.Sorting as Sorting
 import Request.Subscription
 import Util exposing ((=>))
 import View.Extra exposing (viewIfElements)
@@ -51,7 +52,7 @@ init config quotas =
         quotas
         config.apiManagerUrl
         => Cmd.batch
-            [ Request.DataSet.get config 0 5
+            [ Request.DataSet.get config 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
             , Request.Session.get config 0 5
@@ -296,17 +297,17 @@ viewApiKey model subscription =
 
 modelListView : ContextModel -> Model -> Html Msg
 modelListView context model =
-    viewModelGridReadonly context.config.toolTips (Grid.initialSort "createdDate") model.modelList |> Html.map (\_ -> None)
+    viewModelGridReadonly context.config.toolTips Grid.initialUnsorted model.modelList |> Html.map (\_ -> None)
 
 
 dataSetListView : ContextModel -> Model -> Html Msg
 dataSetListView context model =
-    viewDataSetGridReadonly context.config.toolTips (Grid.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
+    viewDataSetGridReadonly context.config.toolTips Grid.initialUnsorted model.dataSetList |> Html.map (\_ -> None)
 
 
 sessionListView : ContextModel -> Model -> Html Msg
 sessionListView context model =
-    viewSessionGridReadonly context.config.toolTips (Grid.initialSort "name") model.sessionList |> Html.map (\_ -> None)
+    viewSessionGridReadonly context.config.toolTips Grid.initialUnsorted model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg

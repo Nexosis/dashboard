@@ -13,6 +13,7 @@ import Html.Events exposing (..)
 import Page.Helpers exposing (..)
 import RemoteData as Remote
 import Request.Session exposing (get)
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
@@ -62,7 +63,7 @@ loadSessionList config pageNo pageSize =
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Grid.initialSort "name") context.userPageSize 0 Nothing
+    Model Remote.Loading (Grid.initialSort "name" Ascending) context.userPageSize 0 Nothing
         => loadSessionList context.config 0 context.userPageSize
 
 
