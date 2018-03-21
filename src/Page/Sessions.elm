@@ -15,13 +15,14 @@ import RemoteData as Remote
 import Request.Session exposing (get)
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
 import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
+
 
 ---- MODEL ----
 
@@ -193,7 +194,6 @@ config toolTips =
         }
 
 
-
 viewSessionGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
 viewSessionGridReadonly toolTips tableState sessionList =
     Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
@@ -225,7 +225,7 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Table.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left fixed"]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
@@ -233,7 +233,7 @@ nameColumn =
 sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
     Table.HtmlDetails [ class "left name fixed" ]
-        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
+        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayName model.name ] ]
 
 
 statusColumn : Grid.Column SessionData msg
@@ -267,7 +267,7 @@ dataSourceColumn =
 dataSourceCell : SessionData -> Table.HtmlDetails msg
 dataSourceCell model =
     Table.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text model.dataSourceName ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text <| formatDisplayName model.dataSourceName ]
         ]
 
 

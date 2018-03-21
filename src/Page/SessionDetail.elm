@@ -30,7 +30,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), dateToUtcDateTime, delayTask, formatFloatToString, spinner, styledNumber)
+import Util exposing ((=>), dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -103,7 +103,7 @@ update msg model context =
                                             |> Cmd.map ConfusionMatrixLoaded
 
                                     _ ->
-                                        Ports.setPageTitle (sessionInfo.name ++ " Details")
+                                        Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                         in
                         { model | loadingResponse = response }
                             => Cmd.batch
@@ -111,7 +111,7 @@ update msg model context =
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
-                                , Ports.setPageTitle (sessionInfo.name ++ " Details")
+                                , Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                                 ]
                     else if not <| Data.Session.sessionIsCompleted sessionInfo then
                         { model | loadingResponse = response }
@@ -604,7 +604,7 @@ modelLink session =
                 [ strong []
                     [ text "Model: " ]
                 , a [ AppRoutes.href (AppRoutes.ModelDetail modelId) ]
-                    [ text session.name ]
+                    [ text <| formatDisplayName session.name ]
                 ]
 
 
@@ -633,7 +633,7 @@ viewCompletedSession session =
                     p []
                         [ strong []
                             [ text "Target Column: " ]
-                        , text col
+                        , text <| formatDisplayName col
                         ]
 
                 Nothing ->
@@ -646,7 +646,7 @@ viewCompletedSession session =
                     Nothing
 
                 Just c ->
-                    Just c.name
+                    Just <| formatDisplayName c.name
 
         algorithmName : Maybe Algorithm -> String
         algorithmName algo =
@@ -663,7 +663,7 @@ viewCompletedSession session =
             [ strong []
                 [ text "Source: " ]
             , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
-                [ text session.dataSourceName ]
+                [ text <| formatDisplayName session.dataSourceName ]
             ]
         , viewTargetColumn (targetColumn session)
         , p []
@@ -702,7 +702,7 @@ viewMetricsList context results =
 viewSessionName : Model -> SessionData -> Html Msg
 viewSessionName model session =
     div [ class "col-sm-9" ]
-        [ h2 [ class "mt10" ] [ text session.name ]
+        [ h2 [ class "mt10" ] [ text <| formatDisplayName session.name ]
         ]
 
 
@@ -783,8 +783,8 @@ viewModelTrainingResults model sessionData =
                     , table [ class "table table-striped" ]
                         [ thead []
                             [ tr []
-                                [ th [ class "left" ] [ text <| target.name ++ " - Actual" ]
-                                , th [ class "left" ] [ text <| target.name ++ " - Predicted" ]
+                                [ th [ class "left" ] [ text <| formatDisplayName target.name ++ " - Actual" ]
+                                , th [ class "left" ] [ text <| formatDisplayName target.name ++ " - Predicted" ]
                                 ]
                             ]
                         , tbody [] (List.map renderRow (filterToPage pagedData))
