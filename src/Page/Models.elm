@@ -173,7 +173,6 @@ viewModelGridReadonly toolTips tableState modelList =
     Grid.view .items (configReadonly toolTips) tableState modelList
 
 
-
 configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
 configReadonly toolTips =
     Grid.configCustom
@@ -186,7 +185,7 @@ configReadonly toolTips =
             , createdColumn |> Grid.makeUnsortable
             , lastUsedColumn |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable    
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -224,7 +223,7 @@ predictActionColumn =
         { name = ""
         , viewData = predictActionButton
         , sorter = Table.unsortable
-        , headAttributes = [class "per15"]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -307,5 +306,5 @@ deleteColumn =
 deleteButton : ModelData -> Table.HtmlDetails Msg
 deleteButton model =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog model), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]

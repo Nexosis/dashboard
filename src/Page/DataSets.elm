@@ -201,9 +201,8 @@ configReadonly toolTips =
             , col.created |> Grid.makeUnsortable
             , col.modified |> Grid.makeUnsortable
             ]
-            , customizations = Grid.toFixedTable
+        , customizations = Grid.toFixedTable
         }
-
 
 
 config : Dict String String -> Grid.Config DataSet Msg
@@ -250,7 +249,7 @@ actionsColumn =
         { name = ""
         , viewData = dataSetActionButton
         , sorter = Table.unsortable
-        , headAttributes = [class "per15"]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
@@ -277,7 +276,7 @@ deleteColumn =
 dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
 dataSetDeleteButton dataSet =
     Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 
