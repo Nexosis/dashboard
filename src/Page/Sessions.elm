@@ -23,7 +23,6 @@ import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
 
-
 ---- MODEL ----
 
 
@@ -194,6 +193,7 @@ config toolTips =
         }
 
 
+
 viewSessionGridReadonly : Dict String String -> Table.State -> Remote.WebData SessionList -> Html Grid.ReadOnlyTableMsg
 viewSessionGridReadonly toolTips tableState sessionList =
     Grid.view .items (configSessionGridReadonly toolTips) tableState sessionList
@@ -205,7 +205,7 @@ configSessionGridReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.configCustom
         { toId = \a -> a.name
         , toMsg = Grid.Readonly
         , columns =
@@ -215,6 +215,7 @@ configSessionGridReadonly toolTips =
             , col.sessionType |> Grid.makeUnsortable
             , col.created |> Grid.makeUnsortable
             ]
+        , customizations = Grid.toFixedTable
         }
 
 
@@ -224,14 +225,14 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Table.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left per30 fixed", attribute "style" "width:200px" ]
+        , headAttributes = [ class "left fixed"]
         , headHtml = []
         }
 
 
 sessionNameCell : SessionData -> Table.HtmlDetails msg
 sessionNameCell model =
-    Table.HtmlDetails [ class "left name fixed", attribute "style" "width:200px" ]
+    Table.HtmlDetails [ class "left name fixed" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text model.name ] ]
 
 
@@ -258,14 +259,14 @@ dataSourceColumn =
         { name = "Source"
         , viewData = dataSourceCell
         , sorter = Table.increasingOrDecreasingBy .dataSourceName
-        , headAttributes = [ class "left per25" ]
+        , headAttributes = [ class "left per25 fixed" ]
         , headHtml = []
         }
 
 
 dataSourceCell : SessionData -> Table.HtmlDetails msg
 dataSourceCell model =
-    Table.HtmlDetails [ class "left" ]
+    Table.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text model.dataSourceName ]
         ]
 
