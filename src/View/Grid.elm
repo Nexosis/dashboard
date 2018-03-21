@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, configCustom, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view, toFixedTable)
+module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, configCustom, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, toFixedTable, veryCustomColumn, view)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -39,10 +39,9 @@ type alias ColumnData data msg =
     }
 
 
-type alias ColumnHeadConfig a msg =
-    { a
-        | headAttributes : List (Attribute msg)
-        , headHtml : List (Html msg)
+type alias ColumnHeadConfig msg =
+    { headAttributes : List (Attribute msg)
+    , headHtml : List (Html msg)
     }
 
 
@@ -50,7 +49,7 @@ type Config data msg
     = Config
         { toId : data -> String
         , toMsg : State -> msg
-        , columns : List (Column data msg)
+        , columns : List (ColumnData data msg)
         , customizations : Customizations data msg
         }
 
@@ -74,7 +73,7 @@ configCustom config =
 config :
     { toId : data -> String
     , toMsg : State -> msg
-    , columns : List (Column data msg)
+    , columns : List (ColumnData data msg)
     }
     -> Config data msg
 config config =
@@ -89,7 +88,7 @@ config config =
 customConfig :
     { toId : data -> String
     , toMsg : State -> msg
-    , columns : List (Column data msg)
+    , columns : List (ColumnData data msg)
     , customizations : Customizations data msg
     }
     -> Config data msg
@@ -100,7 +99,7 @@ customConfig config =
 type alias Customizations data msg =
     { tableAttrs : List (Attribute msg)
     , caption : Maybe (HtmlDetails msg)
-    , thead : List ( String, Status, Attribute msg ) -> HtmlDetails msg
+    , thead : List ( ColumnHeadConfig msg, String, Status, Attribute msg ) -> HtmlDetails msg
     , tfoot : Maybe (HtmlDetails msg)
     , tbodyAttrs : List (Attribute msg)
     , rowAttrs : data -> List (Attribute msg)
@@ -121,28 +120,24 @@ type alias Customizations data msg =
 --             }
 --     in
 --     customConfig tableConfig
-
-
-addColumnCustomizations : Customizations data msg -> List (ColumnHeadConfig a msg) -> Customizations data msg
-addColumnCustomizations customizations columnCustomizations =
-    let
-        headCust cust =
-            if cust.thead == defaultCustomizations.thead then
-                { cust | thead = toTableHeadAttrs columnCustomizations }
-            else
-                cust
-
-        tableAttributes cust =
-            if cust.tableAttrs == defaultCustomizations.tableAttrs then
-                { cust | tableAttrs = toTableAttrs }
-            else
-                cust
-    in
-    customizations |> headCust |> tableAttributes
-
-toFixedTable : Table.Customizations data msg -> Table.Customizations data msg
-toFixedTable defaultCustomizations =
-    {defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ]} |> Debug.log "attrs"
+-- addColumnCustomizations : Customizations data msg -> List (ColumnHeadConfig a msg) -> Customizations data msg
+-- addColumnCustomizations customizations columnCustomizations =
+--     let
+--         headCust cust =
+--             if cust.thead == defaultCustomizations.thead then
+--                 { cust | thead = toTableHeadAttrs columnCustomizations }
+--             else
+--                 cust
+--         tableAttributes cust =
+--             if cust.tableAttrs == defaultCustomizations.tableAttrs then
+--                 { cust | tableAttrs = toTableAttrs }
+--             else
+--                 cust
+--     in
+--     customizations |> headCust |> tableAttributes
+-- toFixedTable : Table.Customizations data msg -> Table.Customizations data msg
+-- toFixedTable defaultCustomizations =
+--     { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] } |> Debug.log "attrs"
 
 
 toTableAttrs : List (Attribute msg)
@@ -265,19 +260,20 @@ makeUnsortable column =
         }
 
 
-toTableHeadAttrs : List (ColumnHeadConfig a msg) -> List ( String, Status, Attribute msg ) -> HtmlDetails msg
-toTableHeadAttrs headerConfig headers =
-    let
-        thList =
-            headers
-                |> ListX.zip headerConfig
-                |> List.map headerCell
-    in
-    HtmlDetails [] thList
+
+-- toTableHeadAttrs : List (ColumnHeadConfig a msg) -> List ( String, Status, Attribute msg ) -> HtmlDetails msg
+-- toTableHeadAttrs headerConfig headers =
+--     let
+--         thList =
+--             headers
+--                 |> ListX.zip headerConfig
+--                 |> List.map headerCell
+--     in
+--     HtmlDetails [] thList
 
 
-headerCell : ( ColumnHeadConfig a msg, ( String, Status, Attribute msg ) ) -> Html msg
-headerCell ( headerConfig, ( name, status, onClick ) ) =
+headerCell : ( ColumnHeadConfig msg, String, Status, Attribute msg ) -> Html msg
+headerCell ( headerConfig, name, status, onClick ) =
     let
         content =
             case status of
@@ -433,7 +429,7 @@ defaultCustomizations =
     }
 
 
-simpleThead : List ( String, Status, Attribute msg ) -> HtmlDetails msg
+simpleThead : List ( ColumnHeadConfig msg, String, Status, Attribute msg ) -> HtmlDetails msg
 simpleThead headers =
     HtmlDetails [] (List.map headerCell headers)
 
@@ -542,29 +538,33 @@ viewOld (Config { toId, toMsg, columns, customizations }) state data =
                 Html.caption attributes children :: thead :: withFoot
 
 
-toHeaderInfo : State -> (State -> msg) -> ColumnData data msg -> ( String, Status, Attribute msg )
-toHeaderInfo (State sortName isReversed) toMsg { name, sorter } =
+toHeaderInfo : State -> (State -> msg) -> ColumnData data msg -> ( ColumnHeadConfig msg, String, Status, Attribute msg )
+toHeaderInfo (State sortName isReversed) toMsg { name, sorter, headAttributes, headHtml } =
+    let
+        columnHeadConfig =
+            { headAttributes = headAttributes, headHtml = headHtml }
+    in
     case sorter of
         None ->
-            ( name, Unsortable, onClick sortName isReversed toMsg )
+            ( columnHeadConfig, name, Unsortable, onClick sortName isReversed toMsg )
 
         Increasing _ ->
-            ( name, Sortable (name == sortName), onClick name False toMsg )
+            ( columnHeadConfig, name, Sortable (name == sortName), onClick name False toMsg )
 
         Decreasing _ ->
-            ( name, Sortable (name == sortName), onClick name False toMsg )
+            ( columnHeadConfig, name, Sortable (name == sortName), onClick name False toMsg )
 
         IncOrDec _ ->
             if name == sortName then
-                ( name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
+                ( columnHeadConfig, name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
             else
-                ( name, Reversible Nothing, onClick name False toMsg )
+                ( columnHeadConfig, name, Reversible Nothing, onClick name False toMsg )
 
         DecOrInc _ ->
             if name == sortName then
-                ( name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
+                ( columnHeadConfig, name, Reversible (Just isReversed), onClick name (not isReversed) toMsg )
             else
-                ( name, Reversible Nothing, onClick name False toMsg )
+                ( columnHeadConfig, name, Reversible Nothing, onClick name False toMsg )
 
 
 onClick : String -> Bool -> (State -> msg) -> Attribute msg
