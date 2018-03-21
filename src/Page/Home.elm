@@ -318,7 +318,7 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-6 p10" ]
+                [ div [ class "col-sm-6 pleft0" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
                 , div [ class "col-sm-6 pt5 pr0 right" ]

@@ -1,4 +1,4 @@
-module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view)
+module View.Grid exposing (Column, Config, ReadOnlyTableMsg(..), config, configCustom, customNumberColumn, customStringColumn, customUnsortableColumn, floatColumn, intColumn, makeUnsortable, stringColumn, veryCustomColumn, view, toFixedTable)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -34,6 +34,22 @@ type Config data msg
         , toMsg : Table.State -> msg
         , columns : List (Column data msg)
         , customizations : Customizations data msg
+        }
+
+
+configCustom :
+    { toId : data -> String
+    , toMsg : Table.State -> msg
+    , columns : List (Column data msg)
+    , customizations : Table.Customizations data msg -> Table.Customizations data msg
+    }
+    -> Config data msg
+configCustom config =
+    Config
+        { toId = config.toId
+        , toMsg = config.toMsg
+        , columns = config.columns
+        , customizations = config.customizations defaultCustomizations
         }
 
 
@@ -81,10 +97,24 @@ mapConfig (Config { toId, toMsg, columns, customizations }) =
 
 addColumnCustomizations : Customizations data msg -> List (ColumnHeadConfig a msg) -> Customizations data msg
 addColumnCustomizations customizations columnCustomizations =
-    if customizations.thead == defaultCustomizations.thead then
-        { customizations | thead = toTableHeadAttrs columnCustomizations, tableAttrs = toTableAttrs }
-    else
-        customizations
+    let
+        headCust cust =
+            if cust.thead == defaultCustomizations.thead then
+                { cust | thead = toTableHeadAttrs columnCustomizations }
+            else
+                cust
+
+        tableAttributes cust =
+            if cust.tableAttrs == defaultCustomizations.tableAttrs then
+                { cust | tableAttrs = toTableAttrs }
+            else
+                cust
+    in
+    customizations |> headCust |> tableAttributes
+
+toFixedTable : Table.Customizations data msg -> Table.Customizations data msg
+toFixedTable defaultCustomizations =
+    {defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ]} |> Debug.log "attrs"
 
 
 toTableAttrs : List (Attribute msg)
