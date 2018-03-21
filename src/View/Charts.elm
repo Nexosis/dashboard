@@ -5,12 +5,12 @@ import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
-import Data.Session as Session exposing (SessionData, SessionResults)
+import Data.Session as Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
-import String.Extra exposing (replace)
+import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
 
 
@@ -42,7 +42,7 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName
@@ -53,13 +53,16 @@ forecastResults sessionResults session dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
+
+                data =
+                    dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , data
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
@@ -88,7 +91,7 @@ impactResults sessionResults session dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -163,6 +166,16 @@ impactResults sessionResults session dataSet windowWidth =
         _ ->
             toVegaLite
                 []
+
+
+axisLabelFormat : SessionData -> String
+axisLabelFormat session =
+    case session.resultInterval of
+        Just Hour ->
+            "%x %X"
+
+        _ ->
+            "%x"
 
 
 regressionResults : SessionResults -> SessionData -> Int -> Spec
@@ -335,16 +348,6 @@ resultsToRows result =
             |> List.map (\( k, v ) -> ( normalizeFieldName k, Str v ))
         )
         []
-
-
-resultIntervalToTimeUnit : Maybe Session.ResultInterval -> TimeUnit
-resultIntervalToTimeUnit resultInterval =
-    case resultInterval of
-        Just Session.Hour ->
-            Hours
-
-        _ ->
-            YearMonthDate
 
 
 mapAggregation : AggregationStrategy.AggregationStrategy -> Operation

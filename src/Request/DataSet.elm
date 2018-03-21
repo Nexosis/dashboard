@@ -44,6 +44,7 @@ getDataByDateRange config name dateRange include =
             pageParams 0 1000
                 ++ dateParams dateRange
                 ++ includeParams include
+                ++ [ ( "formatDates", "true" ) ]
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
