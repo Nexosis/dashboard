@@ -267,10 +267,6 @@ verifyHasDate model =
         Ok ""
 
 
-
---model.selectedSessionType
-
-
 validateForecast : Validator FieldError Model ForecastSessionRequest
 validateForecast =
     Verify.ok ForecastSessionRequest
