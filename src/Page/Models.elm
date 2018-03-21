@@ -173,9 +173,10 @@ viewModelGridReadonly toolTips tableState modelList =
     Grid.view .items (configReadonly toolTips) tableState modelList
 
 
+
 configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
 configReadonly toolTips =
-    Grid.config
+    Grid.configCustom
         { toId = \a -> a.modelId
         , toMsg = Grid.Readonly
         , columns =
@@ -185,6 +186,7 @@ configReadonly toolTips =
             , createdColumn |> Grid.makeUnsortable
             , lastUsedColumn |> Grid.makeUnsortable
             ]
+        , customizations = Grid.toFixedTable    
         }
 
 
@@ -194,14 +196,14 @@ nameColumn =
         { name = "Name"
         , viewData = modelNameCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
-        , headAttributes = [ class "left per30" ]
+        , headAttributes = [ class "left fixed" ]
         , headHtml = []
         }
 
 
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
-    Table.HtmlDetails [ class "left name" ]
+    Table.HtmlDetails [ class "left name fixed" ]
         [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
         ]
 
@@ -222,7 +224,7 @@ predictActionColumn =
         { name = ""
         , viewData = predictActionButton
         , sorter = Table.unsortable
-        , headAttributes = []
+        , headAttributes = [class "per15"]
         , headHtml = []
         }
 
@@ -243,7 +245,7 @@ typeColumn =
         { name = "Type"
         , viewData = typeCell
         , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
-        , headAttributes = [ class "per10" ]
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
