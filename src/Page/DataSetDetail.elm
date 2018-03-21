@@ -8,11 +8,14 @@ import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, 
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
+import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Page.DataSetData as DataSetData exposing (view)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -35,12 +38,18 @@ type alias Model =
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionLinks : SessionLinks
     , updateResponse : Remote.WebData ()
+    , tabs : Ziplist ( Tab, String )
     }
 
 
 type alias SessionLinks =
     { links : List Link
     }
+
+
+type Tab
+    = MetadataTab
+    | DataSetDataTab
 
 
 init : Config -> DataSetName -> ( Model, Cmd Msg )
@@ -54,11 +63,19 @@ init config dataSetName =
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init dataSetName True
     in
-    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
+    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked initTabs
         ! [ loadData
           , loadRelatedSessions config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
           ]
+
+
+initTabs : Ziplist ( Tab, String )
+initTabs =
+    Ziplist.create []
+        ( MetadataTab, "View metadata" )
+        [ ( DataSetDataTab, "View data" )
+        ]
 
 
 loadRelatedSessions : Config -> DataSetName -> Cmd Msg
@@ -79,6 +96,7 @@ type Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
+    | ChangeTab String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -178,6 +196,15 @@ update msg model context =
                 _ ->
                     model => Cmd.none
 
+        ChangeTab tabName ->
+            let
+                newTabs =
+                    model.tabs
+                        |> Ziplist.find (\( _, name ) -> name == tabName)
+                        |> Maybe.withDefault model.tabs
+            in
+            { model | tabs = newTabs } => Ports.prismHighlight ()
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -200,7 +227,8 @@ view model context =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
-                , ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+                , viewTabControl model
+                , viewTabContent context model
                 ]
             ]
         , DeleteDialog.view model.deleteDialogModel
@@ -320,4 +348,43 @@ viewDetailsCol model =
             [ strong [] [ text "Modified: " ]
             , modified
             ]
+        ]
+
+
+viewTabControl : Model -> Html Msg
+viewTabControl model =
+    let
+        tabHeaders =
+            (model.tabs.previous |> List.map viewInactiveTab)
+                ++ [ viewActiveTab model.tabs.current ]
+                ++ (model.tabs.next |> List.map viewInactiveTab)
+    in
+    ul [ class "nav nav-tabs", attribute "role" "tablist" ]
+        tabHeaders
+
+
+viewInactiveTab : ( Tab, String ) -> Html Msg
+viewInactiveTab ( _, tabText ) =
+    li [] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
+
+
+viewActiveTab : ( Tab, String ) -> Html Msg
+viewActiveTab ( _, tabText ) =
+    li [ class "active" ] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
+
+
+viewTabContent : ContextModel -> Model -> Html Msg
+viewTabContent context model =
+    let
+        content =
+            case model.tabs.current of
+                ( MetadataTab, _ ) ->
+                    ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+
+                ( DataSetDataTab, _ ) ->
+                    DataSetData.view context
+    in
+    div [ class "tab-content" ]
+        [ div [ class "tab-pane active" ]
+            [ content ]
         ]
