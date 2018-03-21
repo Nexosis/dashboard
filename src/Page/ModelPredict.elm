@@ -15,7 +15,7 @@ import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFi
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (predict, predictRaw)
-import Util exposing ((=>), isJust, spinner)
+import Util exposing ((=>), formatDisplayName, isJust, spinner)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf)
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
@@ -444,7 +444,7 @@ toTableRow item =
 
 toTableHeaderItem : String -> Html Msg
 toTableHeaderItem value =
-    th [] [ text value ]
+    th [] [ text <| formatDisplayName value ]
 
 
 toTableData : String -> Html Msg

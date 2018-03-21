@@ -3,7 +3,7 @@ module Page.Home exposing (Model, Msg(..), init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Data.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
 import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)

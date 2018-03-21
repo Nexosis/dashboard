@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import StateStorage exposing (saveAppState)
 import Table
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -203,7 +203,7 @@ nameColumn =
 modelNameCell : ModelData -> Table.HtmlDetails msg
 modelNameCell model =
     Table.HtmlDetails [ class "left name fixed" ]
-        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (modelOrDataSourceName model) ]
+        [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (formatDisplayName <| modelOrDataSourceName model) ]
         ]
 
 
