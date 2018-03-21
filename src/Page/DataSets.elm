@@ -257,8 +257,6 @@ actionsColumn =
 dataSetActionButton : DataSet -> Table.HtmlDetails msg
 dataSetActionButton dataSet =
     Table.HtmlDetails [ class "action" ]
-        --todo - make action buttons to something
-        --todo - Change the button text and color based on the status
         [ a [ AppRoutes.href (AppRoutes.SessionStart dataSet.dataSetName) ] [ button [ class "btn btn-danger btn-sm" ] [ text "Start Session" ] ] ]
 
 
