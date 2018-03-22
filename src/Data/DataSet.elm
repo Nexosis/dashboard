@@ -178,7 +178,7 @@ decodeDataSetData =
 decodeData : Decoder Data
 decodeData =
     list <|
-        dict string
+        dict (Decode.oneOf [ string, succeed "" ])
 
 
 decodeDataSetStats : Decoder DataSetStats

@@ -71,7 +71,7 @@ decodeResponse baseUrl =
                             route =
                                 AppRoutes.fromApiUrl baseUrl url
                         in
-                        field "response" (nestedMessagesDecoder route)
+                        field "response" (oneOf [ nestedMessagesDecoder route, succeed [] ])
                     )
             )
         |> required "quotas" decodeQuotas
