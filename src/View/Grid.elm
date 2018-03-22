@@ -26,6 +26,9 @@ module View.Grid
         , view
         )
 
+-- This module source was copied from https://github.com/evancz/elm-sortable-table and modified to not sort if specified,
+-- as well as using different defaults.
+
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events as E
