@@ -227,7 +227,7 @@ view model context =
             [ Breadcrumb.detail AppRoutes.DataSets "Datasets"
             , viewNameRow model
             ]
-        , viewDetailsRow model
+        , viewDetailsRow context model
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
@@ -268,12 +268,12 @@ viewError model =
             span [] []
 
 
-viewDetailsRow : Model -> Html Msg
-viewDetailsRow model =
+viewDetailsRow : ContextModel -> Model -> Html Msg
+viewDetailsRow context model =
     div [ id "details", class "row" ]
         [ viewDetailsCol model
         , viewRelatedCol model
-        , viewRolesCol model
+        , viewRolesCol context model
         ]
 
 
@@ -311,10 +311,10 @@ sessionLinkItem session =
     li [] [ a [ detailRef ] [ text session.name ] ]
 
 
-viewRolesCol : Model -> Html Msg
-viewRolesCol model =
+viewRolesCol : ContextModel -> Model -> Html Msg
+viewRolesCol context model =
     div [ class "col-sm-5" ]
-        [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
+        [ ColumnMetadataEditor.viewTargetAndKeyColumns context model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
         ]
 

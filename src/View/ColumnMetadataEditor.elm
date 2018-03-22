@@ -411,8 +411,8 @@ view context model =
         ]
 
 
-viewTargetAndKeyColumns : Model -> Html Msg
-viewTargetAndKeyColumns model =
+viewTargetAndKeyColumns : ContextModel -> Model -> Html Msg
+viewTargetAndKeyColumns context model =
     let
         ( keyFormGroup, targetFormGroup ) =
             case model.columnMetadata of
@@ -424,7 +424,7 @@ viewTargetAndKeyColumns model =
                                 |> Maybe.map (viewKeyFormGroup << Tuple.second)
                                 |> Maybe.withDefault (div [] [])
                     in
-                    ( keyGroup, viewTargetFormGroup model )
+                    ( keyGroup, viewTargetFormGroup context model )
 
                 Remote.Loading ->
                     ( viewLoadingFormGroup, viewLoadingFormGroup )
@@ -462,15 +462,15 @@ viewKeyFormGroup key =
         ]
 
 
-viewTargetFormGroup : Model -> Html Msg
-viewTargetFormGroup model =
+viewTargetFormGroup : ContextModel -> Model -> Html Msg
+viewTargetFormGroup context model =
     if model.showTarget then
         let
             queryText =
                 Maybe.withDefault model.targetQuery model.previewTarget
         in
         div [ class "form-group" ]
-            [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+            [ label [ class "control-label col-sm-3 mr0 pr0" ] (text "Target" :: helpIcon context.config.toolTips "Target")
             , div [ class "col-sm-8" ]
                 [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
                 , viewIf

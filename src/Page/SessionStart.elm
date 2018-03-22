@@ -1003,7 +1003,7 @@ viewColumnMetadata context model =
                 ]
             ]
         , div [ class "form-group col-sm-6" ]
-            [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnEditorModel
+            [ ColumnMetadataEditor.viewTargetAndKeyColumns context model.columnEditorModel
                 |> Html.map ColumnMetadataEditorMsg
             ]
         , hr [] []
