@@ -18,6 +18,7 @@ import Request.Log exposing (logHttpError)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
+import String.Extra as String
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
 import View.Charts exposing (distributionHistogram)
@@ -122,7 +123,7 @@ updateCharts statsResponse =
         Remote.Success s ->
             s.columns
                 |> Dict.toList
-                |> List.map (\( k, v ) -> ( "histogram_" ++ k, distributionHistogram v.distribution ))
+                |> List.map (\( k, v ) -> ( "histogram_" ++ k |> String.classify, distributionHistogram v.distribution ))
                 |> combineSpecs
                 |> Ports.drawVegaChart
 
@@ -701,4 +702,4 @@ histogramColumn =
 histogram : ColumnMetadata -> Grid.HtmlDetails Msg
 histogram column =
     Grid.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.name) ] [] ]
+        [ div [ id ("histogram_" ++ column.name |> String.classify) ] [] ]

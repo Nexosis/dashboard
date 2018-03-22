@@ -80,7 +80,7 @@ forecastResults sessionResults session dataSet windowWidth =
                 enc =
                     encoding
                         << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
-                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
