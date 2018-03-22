@@ -109,9 +109,6 @@ update msg model context =
     case msg of
         DataSetDataResponse resp ->
             let
-                x =
-                    Debug.log "DataSetResponse" msg
-
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
 
@@ -221,9 +218,6 @@ update msg model context =
 
         DataSetDataMsg subMsg ->
             let
-                x =
-                    Debug.log "DataSetDataMsg-DataSetDetail" subMsg
-
                 ( newModel, cmd ) =
                     DataSetData.update subMsg model.dataSetDataModel context
             in

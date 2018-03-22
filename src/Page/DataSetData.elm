@@ -74,9 +74,6 @@ update msg model context =
             let
                 newCmd =
                     loadData context { model | loadingResponse = Remote.Loading, currentPage = pgNum }
-
-                y =
-                    Debug.log "Changing page" newCmd
             in
             { model | loadingResponse = Remote.Loading, currentPage = pgNum } => newCmd
 
@@ -97,10 +94,6 @@ update msg model context =
 
 view : ContextModel -> Model -> Html Msg
 view context model =
-    let
-        x =
-            Debug.log "View Model" model
-    in
     div [ id "viewDataset" ]
         [ div [ class "row mb25" ]
             [ div [ class "col-sm-3 pl0" ] []
