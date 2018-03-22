@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -247,7 +247,7 @@ nameColumn =
 dataSetNameCell : DataSet -> Grid.HtmlDetails msg
 dataSetNameCell dataSet =
     Grid.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayName <| dataSetNameToString dataSet.dataSetName) ] ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayNameWithWidth 50 <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
 actionsColumn : Grid.Column DataSet msg
