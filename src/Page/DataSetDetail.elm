@@ -57,21 +57,20 @@ init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
 init context dataSetName =
     let
         loadData =
-            Request.DataSet.getRetrieveDetail context.config dataSetName 0 1
+            Request.DataSet.getRetrieveDetail context.config dataSetName 0 context.userPageSize
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init dataSetName True
 
-        ( dataSetModel, dsDataInitCmd ) =
+        ( dataSetModel, _ ) =
             DataSetData.init context dataSetName
     in
     Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked initTabs dataSetModel
         ! [ loadData
           , loadRelatedSessions context.config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
-          , Cmd.map DataSetDataMsg dsDataInitCmd
           ]
 
 
@@ -115,9 +114,15 @@ update msg model context =
 
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
+
+                ( dsModel, dsCmd ) =
+                    DataSetData.dataUpdated context model.dataSetDataModel resp
             in
-            { model | loadingResponse = resp, columnMetadataEditorModel = subModel }
-                => Cmd.map ColumnMetadataEditorMsg cmd
+            { model | loadingResponse = resp, columnMetadataEditorModel = subModel, dataSetDataModel = dsModel }
+                => Cmd.batch
+                    [ Cmd.map ColumnMetadataEditorMsg cmd
+                    , Cmd.map DataSetDataMsg dsCmd
+                    ]
 
         ColumnMetadataEditorMsg subMsg ->
             let
