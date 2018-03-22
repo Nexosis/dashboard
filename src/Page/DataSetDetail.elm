@@ -15,7 +15,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
 import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
-import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -36,7 +35,7 @@ type alias Model =
     , loadingResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
     , deleteDialogModel : Maybe DeleteDialog.Model
-    , sessionLinks : SessionLinks
+    , sessionResponse : Remote.WebData SessionList
     , updateResponse : Remote.WebData ()
     , tabs : Ziplist ( Tab, String )
     , dataSetDataModel : DataSetData.Model
@@ -67,7 +66,7 @@ init context dataSetName =
         ( dataSetModel, _ ) =
             DataSetData.init context dataSetName
     in
-    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked initTabs dataSetModel
+    Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked Remote.NotAsked initTabs dataSetModel
         ! [ loadData
           , loadRelatedSessions context.config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -166,21 +165,7 @@ update msg model context =
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         SessionDataListResponse listResp ->
-            case listResp of
-                Remote.Success sessionList ->
-                    let
-                        subList =
-                            List.map (\s -> s.links) sessionList.items
-                                |> List.concat
-                                |> List.filter (\l -> l.rel == "self")
-                    in
-                    { model | sessionLinks = SessionLinks subList } => Cmd.none
-
-                Remote.Failure err ->
-                    model => logHttpError err
-
-                _ ->
-                    model => Cmd.none
+            { model | sessionResponse = listResp } => Cmd.none
 
         MetadataUpdated response ->
             let
@@ -286,31 +271,51 @@ viewError model =
 viewDetailsRow : Model -> Html Msg
 viewDetailsRow model =
     div [ id "details", class "row" ]
-        [ viewRolesCol model
-        , viewDetailsCol model
-        , viewUrlAndDeleteCol model
+        [ viewDetailsCol model
+        , viewRelatedCol model
+        , viewRolesCol model
         ]
+
+
+viewRelatedCol : Model -> Html Msg
+viewRelatedCol model =
+    div [ class "col-sm-3" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#related", attribute "aria-expanded" "true", attribute "aria-controls" "related" ]
+            [ strong [] [ text "Related Sessions" ]
+            , i [ class "fa fa-angle-down ml5" ] []
+            ]
+        , ul [ id "related", class "collapse in", attribute "aria-expanded" "true" ]
+            (getRelatedSessions model)
+        ]
+
+
+getRelatedSessions : Model -> List (Html Msg)
+getRelatedSessions model =
+    case model.sessionResponse of
+        Remote.Success sessionList ->
+            if List.isEmpty sessionList.items then
+                [ li [] [ text "No related sessions..." ] ]
+            else
+                List.map sessionLinkItem sessionList.items
+
+        _ ->
+            [ li [] [ text "There was a problem accessing sessions..." ] ]
+
+
+sessionLinkItem : SessionData -> Html Msg
+sessionLinkItem session =
+    let
+        detailRef =
+            AppRoutes.href (AppRoutes.SessionDetail session.sessionId)
+    in
+    li [] [ a [ detailRef ] [ text session.name ] ]
 
 
 viewRolesCol : Model -> Html Msg
 viewRolesCol model =
-    div [ class "col-sm-4" ]
+    div [ class "col-sm-5" ]
         [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
-        ]
-
-
-viewUrlAndDeleteCol : Model -> Html Msg
-viewUrlAndDeleteCol model =
-    div [ class "col-sm-4" ]
-        [ p []
-            [ strong [] [ text "API Endpoint URL:" ]
-            , br [] []
-            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
-            ]
-        , p []
-            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
-            ]
         ]
 
 
@@ -366,6 +371,14 @@ viewDetailsCol model =
         , p []
             [ strong [] [ text "Modified: " ]
             , modified
+            ]
+        , p []
+            [ strong [] [ text "API Endpoint URL:" ]
+            , br [] []
+            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
+            ]
+        , p []
+            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
             ]
         ]
 
