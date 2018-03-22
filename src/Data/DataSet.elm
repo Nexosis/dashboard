@@ -69,6 +69,7 @@ type alias DataSet =
 
 type alias ColumnStats =
     { distinctCount : Int
+    , distribution : List DistributionShape
     , errorCount : Int
     , lastCalculated : ZonedDateTime
     , max : String
@@ -92,6 +93,11 @@ type alias DataSetStats =
     { dataSetName : String
     , columns : ColumnStatsDict
     }
+
+
+type DistributionShape
+    = Counts String Int
+    | Ranges String String Int
 
 
 type alias Data =
@@ -172,7 +178,7 @@ decodeDataSetData =
 decodeData : Decoder Data
 decodeData =
     list <|
-        dict string
+        dict (Decode.oneOf [ string, succeed "" ])
 
 
 decodeDataSetStats : Decoder DataSetStats
@@ -191,6 +197,7 @@ decodeColumnStats : Decoder ColumnStats
 decodeColumnStats =
     decode ColumnStats
         |> optional "distinctCount" int 0
+        |> optional "distribution" distributionDecoder []
         |> optional "errorCount" int 0
         |> required "lastCalculated" dateDecoder
         |> optional "max" variableDecoder ""
@@ -214,3 +221,40 @@ variableDecoder =
         , dateDecoder |> Decode.andThen (\d -> succeed (Time.ZonedDateTime.toISO8601 d))
         , Decode.string
         ]
+
+
+distributionDecoder : Decoder (List DistributionShape)
+distributionDecoder =
+    list decodeDistributionItem
+
+
+decodeDistributionItem : Decoder DistributionShape
+decodeDistributionItem =
+    Decode.oneOf
+        [ decodeRange
+        , decodeCount
+        ]
+
+
+numberOrStringDecoder : Decoder String
+numberOrStringDecoder =
+    Decode.oneOf
+        [ Decode.int |> Decode.andThen (\i -> toString i |> succeed)
+        , Decode.float |> Decode.andThen (\f -> toString f |> succeed)
+        , Decode.string
+        ]
+
+
+decodeCount : Decoder DistributionShape
+decodeCount =
+    decode Counts
+        |> required "value" numberOrStringDecoder
+        |> required "count" int
+
+
+decodeRange : Decoder DistributionShape
+decodeRange =
+    decode Ranges
+        |> required "min" numberOrStringDecoder
+        |> required "max" numberOrStringDecoder
+        |> required "count" int

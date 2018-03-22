@@ -184,11 +184,16 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
                     }
+                    
+                    let responseText = '';
+                    if (xhr.response){
+                        responseText = JSON.stringify(JSON.parse(xhr.response), null, 2);
+                    }
 
                     let xhrInfo = {
                         status: xhr.status,
                         statusText: xhr.statusText,
-                        response: JSON.stringify(JSON.parse(xhr.response), null, 2),
+                        response: responseText, 
                         method: xhr.method,
                         url: xhr.url,
                         quotas: quotas,
