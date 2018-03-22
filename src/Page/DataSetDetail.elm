@@ -280,7 +280,7 @@ viewDetailsRow model =
 viewRelatedCol : Model -> Html Msg
 viewRelatedCol model =
     div [ class "col-sm-3" ]
-        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", href "#related", attribute "aria-expanded" "true", attribute "aria-controls" "related" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#related", attribute "aria-expanded" "true", attribute "aria-controls" "related" ]
             [ strong [] [ text "Related Sessions" ]
             , i [ class "fa fa-angle-down ml5" ] []
             ]
