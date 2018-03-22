@@ -29,7 +29,7 @@ import Util exposing ((=>), delayTask, spinner, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
-import View.Extra exposing (viewIf, viewIfElements)
+import View.Extra exposing (viewIf, viewIfElements, viewJust)
 import View.Wizard as Wizard exposing (WizardConfig, viewButtons)
 
 
@@ -48,7 +48,7 @@ type alias FileUploadEntry =
     { fileContent : String
     , fileName : String
     , fileUploadType : DataFormat.DataFormat
-    , fileUploadErrorOccurred : Bool
+    , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     }
 
 
@@ -76,7 +76,7 @@ initFileUploadTab =
     { fileContent = ""
     , fileName = ""
     , fileUploadType = DataFormat.Other
-    , fileUploadErrorOccurred = False
+    , fileUploadErrorOccurred = Nothing
     }
 
 
@@ -364,7 +364,7 @@ updateTabContents model msg =
                     let
                         readStatus =
                             Json.Decode.decodeValue File.fileReadStatusDecoder readResult
-                                |> Result.withDefault File.ReadError
+                                |> Result.withDefault (File.ReadError File.UnknownError)
 
                         m =
                             case readStatus of
@@ -374,21 +374,21 @@ updateTabContents model msg =
                                             { fileContent = content
                                             , fileName = fileName
                                             , fileUploadType = DataFormat.Json
-                                            , fileUploadErrorOccurred = False
+                                            , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Csv ->
                                             { fileContent = content
                                             , fileName = fileName
                                             , fileUploadType = DataFormat.Csv
-                                            , fileUploadErrorOccurred = False
+                                            , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Other ->
-                                            { fileUploadEntry | fileUploadErrorOccurred = True }
+                                            { fileUploadEntry | fileUploadErrorOccurred = Just File.UnsupportedFileType }
 
-                                File.ReadError ->
-                                    { fileUploadEntry | fileUploadErrorOccurred = True }
+                                File.ReadError readError ->
+                                    { fileUploadEntry | fileUploadErrorOccurred = Just readError }
                     in
                     ( FileUploadTab m, id )
 
@@ -637,7 +637,19 @@ viewUploadTab config tabModel model =
                     []
                 , label [ for "upload-dataset" ] [ text uploadButtonText ]
                 , viewFieldError model.errors FileSelectionField
-                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]) tabModel.fileUploadErrorOccurred
+                , viewJust
+                    (\errorType ->
+                        case errorType of
+                            File.FileTooLarge ->
+                                div [ class "alert alert-danger" ] [ text "Files uploaded through the browser must be less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+
+                            File.UnsupportedFileType ->
+                                div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
+
+                            File.UnknownError ->
+                                div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+                    )
+                    tabModel.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]

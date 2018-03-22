@@ -126,7 +126,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 var file = node.files[0];
                 if (file !== undefined) {
                     if(file.size > 1000000) {
-                        app.ports.fileContentRead.send({ status : 'ReadFail'});
+                        app.ports.fileContentRead.send({ status : 'FileTooLarge'});
                     } else {
 
                         var reader = new FileReader();
@@ -145,12 +145,12 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                                 app.ports.fileContentRead.send(portData);
                             }
                             catch (e) {
-                                app.ports.fileContentRead.send({ status: 'ReadFail' });
+                                app.ports.fileContentRead.send({ status: 'UnknownError' });
                             }
                         });
 
                         reader.onerror = (function (event) {
-                            app.ports.fileContentRead.send({ status: 'ReadFail' });
+                            app.ports.fileContentRead.send({ status: 'UnknownError' });
                         });
 
                         reader.readAsText(file);

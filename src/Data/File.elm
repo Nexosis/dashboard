@@ -1,10 +1,16 @@
-module Data.File exposing (FileReadStatus(..), fileReadStatusDecoder)
+module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), fileReadStatusDecoder)
 
 import Json.Decode
 
 
+type FileUploadErrorType
+    = FileTooLarge
+    | UnsupportedFileType
+    | UnknownError
+
+
 type FileReadStatus
-    = ReadError
+    = ReadError FileUploadErrorType
     | Success String String
 
 
@@ -20,6 +26,9 @@ fileReadStatusDecoder =
                             (Json.Decode.field "filename" Json.Decode.string)
                             (Json.Decode.field "contents" Json.Decode.string)
 
+                    "FileTooLarge" ->
+                        Json.Decode.succeed (ReadError FileTooLarge)
+
                     _ ->
-                        Json.Decode.succeed ReadError
+                        Json.Decode.succeed (ReadError UnknownError)
             )
