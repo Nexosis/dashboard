@@ -209,7 +209,7 @@ configSessionGridReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.configCustom
+    Grid.config
         { toId = \a -> a.name
         , toMsg = Grid.Readonly
         , columns =
@@ -219,7 +219,6 @@ configSessionGridReadonly toolTips =
             , col.sessionType |> Grid.makeUnsortable
             , col.created |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable
         }
 
 
@@ -229,14 +228,14 @@ nameColumn =
         { name = "Name"
         , viewData = sessionNameCell
         , sorter = Grid.increasingOrDecreasingBy .name
-        , headAttributes = [ class "left fixed" ]
+        , headAttributes = [ class "left" ]
         , headHtml = []
         }
 
 
 sessionNameCell : SessionData -> Grid.HtmlDetails msg
 sessionNameCell model =
-    Grid.HtmlDetails [ class "left name fixed" ]
+    Grid.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayName model.name ] ]
 
 
@@ -263,14 +262,14 @@ dataSourceColumn =
         { name = "dataSourceName"
         , viewData = dataSourceCell
         , sorter = Grid.increasingOrDecreasingBy .dataSourceName
-        , headAttributes = [ class "left per25 fixed" ]
+        , headAttributes = [ class "left per25" ]
         , headHtml = [ text "Source" ]
         }
 
 
 dataSourceCell : SessionData -> Grid.HtmlDetails msg
 dataSourceCell model =
-    Grid.HtmlDetails [ class "left fixed", attribute "style" "width:200px" ]
+    Grid.HtmlDetails [ class "left", attribute "style" "width:200px" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text <| formatDisplayName model.dataSourceName ]
         ]
 

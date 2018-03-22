@@ -179,7 +179,7 @@ viewModelGridReadonly toolTips tableState modelList =
 
 configReadonly : Dict String String -> Grid.Config ModelData Grid.ReadOnlyTableMsg
 configReadonly toolTips =
-    Grid.configCustom
+    Grid.config
         { toId = \a -> a.modelId
         , toMsg = Grid.Readonly
         , columns =
@@ -189,7 +189,6 @@ configReadonly toolTips =
             , createdColumn |> Grid.makeUnsortable
             , lastUsedColumn |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable
         }
 
 
@@ -199,14 +198,14 @@ nameColumn =
         { name = "modelName"
         , viewData = modelNameCell
         , sorter = Grid.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
-        , headAttributes = [ class "left fixed" ]
+        , headAttributes = [ class "left" ]
         , headHtml = [ text "Name" ]
         }
 
 
 modelNameCell : ModelData -> Grid.HtmlDetails msg
 modelNameCell model =
-    Grid.HtmlDetails [ class "left name fixed" ]
+    Grid.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (formatDisplayName <| modelOrDataSourceName model) ]
         ]
 

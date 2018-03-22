@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Date exposing (Date, Month)
@@ -234,5 +234,10 @@ monthToInt value =
 
 
 formatDisplayName : String -> String
-formatDisplayName input =
-    ellipsis 35 input
+formatDisplayName =
+    formatDisplayNameWithWidth 35
+
+
+formatDisplayNameWithWidth : Int -> String -> String
+formatDisplayNameWithWidth len input =
+    ellipsis len input

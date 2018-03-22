@@ -198,7 +198,7 @@ configReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.configCustom
+    Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = Grid.Readonly
         , columns =
@@ -209,7 +209,6 @@ configReadonly toolTips =
             , col.created |> Grid.makeUnsortable
             , col.modified |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable
         }
 
 
@@ -240,14 +239,14 @@ nameColumn =
         { name = "dataSetName"
         , viewData = dataSetNameCell
         , sorter = Grid.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
-        , headAttributes = [ class "left fixed" ]
+        , headAttributes = [ class "left" ]
         , headHtml = [ text "Name" ]
         }
 
 
 dataSetNameCell : DataSet -> Grid.HtmlDetails msg
 dataSetNameCell dataSet =
-    Grid.HtmlDetails [ class "left name fixed" ]
+    Grid.HtmlDetails [ class "left name" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayName <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
