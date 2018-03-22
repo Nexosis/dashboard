@@ -214,7 +214,7 @@ update msg model context =
                         |> Ziplist.find (\( _, name ) -> name == tabName)
                         |> Maybe.withDefault model.tabs
             in
-            { model | tabs = newTabs } => Ports.prismHighlight ()
+            { model | tabs = newTabs } => Cmd.none
 
         DataSetDataMsg subMsg ->
             let
