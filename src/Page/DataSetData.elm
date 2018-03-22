@@ -9,8 +9,8 @@ import Html.Attributes exposing (..)
 import List
 import RemoteData as Remote
 import Request.DataSet
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Table
 import Util exposing ((=>), styledNumber)
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -21,15 +21,16 @@ type Msg
     = DataLoaded (Remote.WebData DataSetData)
     | ChangePage Int
     | ChangePageSize Int
-    | TableChanged Table.State
+    | TableChanged Grid.State
 
 
 type alias Model =
     { dataSetName : DataSetName
-    , tableState : Table.State
+    , tableState : Grid.State
     , currentPage : Int
     , pageSize : Int
     , loadingResponse : Remote.WebData DataSetData
+    , columns : List ColumnMetadata
     }
 
 
@@ -42,7 +43,11 @@ loadData context model =
 
 init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
 init context dataSetName =
-    Model dataSetName (Table.initialSort "createdDate") 0 context.userPageSize Remote.NotAsked => Cmd.none
+    let
+        model =
+            Model dataSetName (Grid.initialSort "" Descending) 0 context.userPageSize Remote.Loading []
+    in
+    model => loadData context model
 
 
 dataUpdated : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
@@ -52,13 +57,18 @@ dataUpdated context model resp =
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
-    let
-        x =
-            Debug.log "Update DataSetData" msg
-    in
     case msg of
         DataLoaded resp ->
-            { model | loadingResponse = resp } => Cmd.none
+            let
+                columns =
+                    case resp of
+                        Remote.Success dataSet ->
+                            dataSet.columns
+
+                        _ ->
+                            model.columns
+            in
+            { model | loadingResponse = resp, columns = columns } => Cmd.none
 
         ChangePage pgNum ->
             let
@@ -91,28 +101,28 @@ view context model =
         x =
             Debug.log "View Model" model
     in
-    div [ class "row mb25" ]
-        [ div [ class "col-sm-6" ]
-            [ Pager.view model.loadingResponse ChangePage ]
-        , div [ class "col-sm-2 col-sm-offset-1 right" ]
-            [ PageSize.view ChangePageSize context.userPageSize ]
-        , div []
-            [ viewDataGrid model
-            , hr [] []
-            , div [ class "center" ]
+    div [ id "viewDataset" ]
+        [ div [ class "row mb25" ]
+            [ div [ class "col-sm-3 pl0" ] []
+            , div [ class "col-sm-6" ]
                 [ Pager.view model.loadingResponse ChangePage ]
+            , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                [ PageSize.view ChangePageSize context.userPageSize ]
+            ]
+        , div [ class "row mb25" ]
+            [ div [ class "col-sm-12 p0" ]
+                [ div [ class "table-responsive" ] [ viewDataGrid model ]
+                , hr [] []
+                , div [ class "center" ]
+                    [ Pager.view model.loadingResponse ChangePage ]
+                ]
             ]
         ]
 
 
 viewDataGrid : Model -> Html Msg
 viewDataGrid model =
-    case model.loadingResponse of
-        Remote.Success dataSet ->
-            Grid.view .data (config dataSet.columns) model.tableState model.loadingResponse
-
-        _ ->
-            text ""
+    Grid.view .data (config model.columns) model.tableState model.loadingResponse
 
 
 config : List ColumnMetadata -> Grid.Config (Dict.Dict String String) Msg

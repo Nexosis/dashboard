@@ -115,11 +115,8 @@ update msg model context =
 
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
-
-                ( dataSetModel, dsDataInitCmd ) =
-                    DataSetData.dataUpdated context model.dataSetDataModel resp
             in
-            { model | loadingResponse = resp, columnMetadataEditorModel = subModel, dataSetDataModel = dataSetModel }
+            { model | loadingResponse = resp, columnMetadataEditorModel = subModel }
                 => Cmd.map ColumnMetadataEditorMsg cmd
 
         ColumnMetadataEditorMsg subMsg ->
@@ -267,7 +264,7 @@ viewNameRow : Model -> Html Msg
 viewNameRow model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            [ h2 [ ] [ text (formatDisplayName <| DataSet.dataSetNameToString model.dataSetName) ] ]
+            [ h2 [] [ text (formatDisplayName <| DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
             [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
