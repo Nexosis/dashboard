@@ -21,12 +21,12 @@ import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
 import Request.DataSet exposing (PutUploadRequest, put)
-import Request.Import exposing (PostUrlRequest)
+import Request.Import exposing (PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
 import Util exposing ((=>), delayTask, spinner, unwrapErrors)
-import Verify exposing (Validator)
+import Verify exposing (Validator, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
 import View.Extra exposing (viewIf, viewIfElements)
@@ -56,6 +56,15 @@ type alias UrlImportEntry =
     { importUrl : String }
 
 
+type alias S3ImportEntry =
+    { bucket : String
+    , path : String
+    , region : Maybe String
+    , accessKeyId : Maybe String
+    , secretAccessKey : Maybe String
+    }
+
+
 type Step
     = ChooseUploadType
     | SetKey
@@ -64,11 +73,13 @@ type Step
 type Tab
     = FileUploadTab FileUploadEntry
     | UrlImportTab UrlImportEntry
+    | S3ImportTab S3ImportEntry
 
 
 type AddDataSetRequest
     = PutUpload PutUploadRequest
     | ImportUrl PostUrlRequest
+    | ImportS3 PostS3Request
 
 
 initFileUploadTab : FileUploadEntry
@@ -80,16 +91,22 @@ initFileUploadTab =
     }
 
 
-initImportTab : UrlImportEntry
-initImportTab =
+initImportUrlTab : UrlImportEntry
+initImportUrlTab =
     { importUrl = "" }
+
+
+initImportS3Tab : S3ImportEntry
+initImportS3Tab =
+    { path = "", bucket = "", region = Nothing, accessKeyId = Nothing, secretAccessKey = Nothing }
 
 
 initTabs : Ziplist ( Tab, String )
 initTabs =
     Ziplist.create []
         ( FileUploadTab <| initFileUploadTab, "Upload" )
-        [ ( UrlImportTab <| initImportTab, "Import from URL" )
+        [ ( UrlImportTab <| initImportUrlTab, "Import from URL" )
+        , ( S3ImportTab <| initImportS3Tab, "Import from AWS S3" )
         ]
 
 
@@ -118,6 +135,11 @@ type Field
     = DataSetNameField
     | UrlField
     | FileSelectionField
+    | PathField
+    | BucketField
+    | RegionField
+    | AccessTokenIdField
+    | SecretAccessKeyField
 
 
 type alias FieldError =
@@ -135,6 +157,10 @@ validateModel model =
             validateUrlImportModel model urlImportEntry
                 |> Result.map ImportUrl
 
+        ( S3ImportTab s3ImportEntry, _ ) ->
+            validateS3ImportModel model s3ImportEntry
+                |> Result.map ImportS3
+
 
 validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
 validateFileUploadModel model =
@@ -149,6 +175,17 @@ validateUrlImportModel model =
     Verify.ok PostUrlRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.verify .importUrl (verifyRegex urlRegex (UrlField => "Enter a valid url."))
+
+
+validateS3ImportModel : Model -> Validator FieldError S3ImportEntry PostS3Request
+validateS3ImportModel model =
+    Verify.ok PostS3Request
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .bucket (notBlank (BucketField => "Bucket required."))
+        |> Verify.verify .path (notBlank (PathField => "Path required."))
+        |> Verify.keep .region
+        |> Verify.keep .accessKeyId
+        |> Verify.keep .secretAccessKey
 
 
 verifyFileType : error -> Validator error DataFormat.DataFormat String
@@ -212,6 +249,11 @@ type Msg
 type TabMsg
     = FileContentRead Json.Decode.Value
     | ImportUrlInputChange String
+    | S3PathChange String
+    | S3BucketChange String
+    | S3RegionChange String
+    | S3AccessKeyIdChange String
+    | S3SecretAccessKeyChange String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -253,6 +295,15 @@ update msg model context =
                     let
                         importRequest =
                             Request.Import.postUrl context.config request
+                                |> Remote.sendRequest
+                                |> Cmd.map ImportResponse
+                    in
+                    { model | importResponse = Remote.Loading } => importRequest
+
+                ImportS3 request ->
+                    let
+                        importRequest =
+                            Request.Import.postS3 context.config request
                                 |> Remote.sendRequest
                                 |> Cmd.map ImportResponse
                     in
@@ -376,6 +427,26 @@ updateTabContents model msg =
                             { urlTab | importUrl = urlEntry }
                     in
                     ( UrlImportTab urlImportModel, id )
+
+                ( ( S3ImportTab s3Tab, id ), changeMsg ) ->
+                    case changeMsg of
+                        S3PathChange path ->
+                            ( S3ImportTab { s3Tab | path = path }, id )
+
+                        S3BucketChange bucket ->
+                            ( S3ImportTab { s3Tab | bucket = bucket }, id )
+
+                        S3RegionChange region ->
+                            ( S3ImportTab { s3Tab | region = Just <| region }, id )
+
+                        S3AccessKeyIdChange accessKeyId ->
+                            ( S3ImportTab { s3Tab | accessKeyId = Just <| accessKeyId }, id )
+
+                        S3SecretAccessKeyChange secret ->
+                            ( S3ImportTab { s3Tab | secretAccessKey = Just <| secret }, id )
+
+                        _ ->
+                            ( S3ImportTab s3Tab, id )
 
                 ( _, _ ) ->
                     model.tabs.current
@@ -541,6 +612,14 @@ viewEntryReview model =
 
                 ( UrlImportTab urlImport, _ ) ->
                     [ ( "Url", urlImport.importUrl ) ]
+
+                ( S3ImportTab s3Import, _ ) ->
+                    [ ( "Path", s3Import.path )
+                    , ( "Bucket", s3Import.bucket )
+                    , ( "Region", Maybe.withDefault "" s3Import.region )
+                    , ( "Access Key Id", Maybe.withDefault "" s3Import.accessKeyId )
+                    , ( "Secret Access Key", Maybe.withDefault "" s3Import.secretAccessKey )
+                    ]
     in
     dataSetName
         :: properties
@@ -587,6 +666,9 @@ viewTabContent context model =
 
                 ( UrlImportTab urlImportEntry, _ ) ->
                     viewImportUrlTab context.config urlImportEntry model
+
+                ( S3ImportTab s3ImportEntry, _ ) ->
+                    viewImportS3Tab context.config s3ImportEntry model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -639,6 +721,44 @@ viewImportUrlTab config tabModel model =
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
                 [ explainer config "how_upload_url"
+                ]
+            ]
+        ]
+
+
+viewImportS3Tab : Config -> S3ImportEntry -> Model -> Html Msg
+viewImportS3Tab config tabModel model =
+    div [ class "row" ]
+        [ div [ class "col-sm-6" ]
+            [ div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Bucket Name" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3BucketChange c), value tabModel.bucket, onBlur InputBlur ] []
+                , viewFieldError model.errors BucketField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "File Path" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3PathChange c), value tabModel.path, onBlur InputBlur ] []
+                , viewFieldError model.errors PathField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "AWS Region" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3RegionChange c), value <| Maybe.withDefault "" tabModel.region, onBlur InputBlur ] []
+                , viewFieldError model.errors RegionField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Access Key Id" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3AccessKeyIdChange c), value <| Maybe.withDefault "" tabModel.accessKeyId, onBlur InputBlur ] []
+                , viewFieldError model.errors AccessTokenIdField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Secret Access Key" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3SecretAccessKeyChange c), value <| Maybe.withDefault "" tabModel.secretAccessKey, onBlur InputBlur ] []
+                , viewFieldError model.errors SecretAccessKeyField
+                ]
+            ]
+        , div [ class "col-sm-6" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer config "how_upload_s3"
                 ]
             ]
         ]
