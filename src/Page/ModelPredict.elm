@@ -17,7 +17,7 @@ import Request.Log as Log
 import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), formatDisplayName, isJust, spinner)
 import View.Error exposing (viewRemoteError)
-import View.Extra exposing (viewIf)
+import View.Extra exposing (viewIf, viewJust)
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 
 
@@ -27,7 +27,7 @@ type alias Model =
     , inputType : DataFormat.DataFormat
     , outputType : DataFormat.DataFormat
     , fileName : String
-    , fileUploadErrorOccurred : Bool
+    , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     , dataInput : Maybe String
     , uploadResponse : Remote.WebData Data.Model.PredictionResult
     , downloadResponse : Remote.WebData String
@@ -47,7 +47,7 @@ type alias PredictionResultListing =
 
 init : Config -> String -> Model
 init config modelId =
-    Model modelId UploadFile DataFormat.Json DataFormat.Json "" False Nothing Remote.NotAsked Remote.NotAsked False 0
+    Model modelId UploadFile DataFormat.Json DataFormat.Json "" Nothing Nothing Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -82,7 +82,7 @@ update msg model context =
             let
                 readStatus =
                     Json.Decode.decodeValue File.fileReadStatusDecoder readResult
-                        |> Result.withDefault File.ReadError
+                        |> Result.withDefault (File.ReadError File.UnsupportedFileType)
 
                 m =
                     case readStatus of
@@ -93,7 +93,7 @@ update msg model context =
                                         | dataInput = Just content
                                         , inputType = DataFormat.Json
                                         , fileName = fileName
-                                        , fileUploadErrorOccurred = False
+                                        , fileUploadErrorOccurred = Nothing
                                     }
 
                                 DataFormat.Csv ->
@@ -101,14 +101,14 @@ update msg model context =
                                         | dataInput = Just content
                                         , inputType = DataFormat.Csv
                                         , fileName = fileName
-                                        , fileUploadErrorOccurred = False
+                                        , fileUploadErrorOccurred = Nothing
                                     }
 
                                 DataFormat.Other ->
-                                    { model | fileUploadErrorOccurred = True }
+                                    { model | fileUploadErrorOccurred = Just File.UnsupportedFileType }
 
-                        File.ReadError ->
-                            { model | fileUploadErrorOccurred = True }
+                        File.ReadError error ->
+                            { model | fileUploadErrorOccurred = Just error }
             in
             m => Cmd.none
 
@@ -304,7 +304,19 @@ viewUploadTab context model =
                     ]
                     []
                 , label [ for "upload-dataset" ] [ text uploadButtonText ]
-                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) model.fileUploadErrorOccurred
+                , viewJust
+                    (\readError ->
+                        case readError of
+                            File.FileTooLarge ->
+                                div [ class "alert alert-danger" ] [ text "Files uploaded through the browser must be less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+
+                            File.UnsupportedFileType ->
+                                div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
+
+                            File.UnknownError ->
+                                div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+                    )
+                    model.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]
