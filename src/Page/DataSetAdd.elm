@@ -20,7 +20,7 @@ import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (PutUploadRequest, put)
+import Request.DataSet exposing (PutUploadRequest, createDataSetWithKey, put)
 import Request.Import exposing (PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
@@ -250,9 +250,23 @@ update msg model context =
             case createRequest of
                 PutUpload request ->
                     let
-                        putRequest =
+                        setKeyRequest =
+                            case model.key of
+                                Just key ->
+                                    createDataSetWithKey context.config request.name key
+                                        |> Http.toTask
+
+                                Nothing ->
+                                    Task.succeed ()
+
+                        putDataRequest =
                             put context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        putRequest =
+                            setKeyRequest
+                                |> Task.andThen (always putDataRequest)
+                                |> Remote.asCmd
                                 |> Cmd.map UploadDataSetResponse
                     in
                     { model | uploadResponse = Remote.Loading } => putRequest

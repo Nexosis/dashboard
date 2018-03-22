@@ -1,4 +1,4 @@
-module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -143,3 +143,25 @@ encodeMetadataPutDataRequest request =
 uriEncodeDataSetName : DataSetName -> String
 uriEncodeDataSetName name =
     Http.encodeUri <| dataSetNameToString name
+
+
+createDataSetWithKey : Config -> String -> String -> Http.Request ()
+createDataSetWithKey config dataSetName keyName =
+    let
+        keyBody =
+            Encode.object [ ( "columns", encodeKeyColumnMetadata keyName ) ]
+    in
+    (config.baseUrl ++ "/data/" ++ Http.encodeUri dataSetName)
+        |> HttpBuilder.put
+        |> withAuthorization config
+        |> HttpBuilder.withJsonBody keyBody
+        |> HttpBuilder.toRequest
+
+
+encodeKeyColumnMetadata : String -> Encode.Value
+encodeKeyColumnMetadata key =
+    Encode.object <|
+        [ ( key
+          , Encode.object [ ( "role", Encode.string "key" ) ]
+          )
+        ]

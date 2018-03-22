@@ -5,6 +5,7 @@ import Data.Import exposing (ImportDetail, decodeImportDetail)
 import Http
 import HttpBuilder exposing (withExpectJson)
 import Json.Encode exposing (Value, encode)
+import Request.DataSet exposing (encodeKeyColumnMetadata)
 
 
 type alias PostUrlRequest =
@@ -45,13 +46,4 @@ encodeImportUrl dataSetName url key =
         [ ( "dataSetName", Json.Encode.string <| dataSetName )
         , ( "url", Json.Encode.string <| url )
         , ( "columns", keyEncoder )
-        ]
-
-
-encodeKeyColumnMetadata : String -> Json.Encode.Value
-encodeKeyColumnMetadata key =
-    Json.Encode.object <|
-        [ ( key
-          , Json.Encode.object [ ( "role", Json.Encode.string "key" ) ]
-          )
         ]
