@@ -9,14 +9,16 @@ import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
+import Request.Sorting exposing (SortParameters, sortParams)
 import Time.ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
 
-get : Config -> Int -> Int -> Http.Request SessionList
-get config page pageSize =
+get : Config -> Int -> Int -> SortParameters -> Http.Request SessionList
+get config page pageSize sorting =
     let
         params =
             pageParams page pageSize
+                ++ sortParams sorting
     in
     (config.baseUrl ++ "/sessions")
         |> HttpBuilder.get

@@ -11,8 +11,8 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
-import Table
 import Util exposing ((=>), formatDisplayName, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
@@ -27,24 +27,28 @@ import View.Tooltip exposing (helpIcon)
 
 type alias Model =
     { modelList : Remote.WebData ModelList
-    , tableState : Table.State
+    , tableState : Grid.State
     , currentPage : Int
     , pageSize : Int
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
-loadModelList : Config -> Int -> Int -> Cmd Msg
-loadModelList config page pageSize =
-    Request.Model.get config page pageSize
+loadModelList : Config -> Int -> Int -> SortParameters -> Cmd Msg
+loadModelList config page pageSize sorting =
+    Request.Model.get config page pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map ModelListResponse
 
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading (Table.initialSort "createdDate") 0 context.userPageSize Nothing
-        => loadModelList context.config 0 context.userPageSize
+    let
+        initSort =
+            Grid.initialSort "createdDate" Ascending
+    in
+    Model Remote.Loading initSort 0 context.userPageSize Nothing
+        => loadModelList context.config 0 context.userPageSize initSort
 
 
 
@@ -53,7 +57,7 @@ init context =
 
 type Msg
     = ModelListResponse (Remote.WebData ModelList)
-    | SetTableState Table.State
+    | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
     | ShowDeleteDialog ModelData
@@ -67,8 +71,8 @@ update msg model context =
             { model | modelList = resp } => Cmd.none
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
+            { model | tableState = newState, modelList = Remote.Loading }
+                => loadModelList context.config model.currentPage model.pageSize newState
 
         ShowDeleteDialog modelData ->
             let
@@ -95,14 +99,14 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadModelList context.config model.currentPage model.pageSize
+                            loadModelList context.config model.currentPage model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList context.config pgNum model.pageSize
+                => loadModelList context.config pgNum model.pageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -111,7 +115,7 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadModelList context.config 0 pageSize
+                    [ loadModelList context.config 0 pageSize model.tableState
                     , StateStorage.saveAppState { context | userPageSize = pageSize }
                     ]
 
@@ -154,7 +158,7 @@ view model context =
 
 config : Dict String String -> Grid.Config ModelData Msg
 config toolTips =
-    Grid.config
+    Grid.remoteConfig
         { toId = \a -> a.modelId
         , toMsg = SetTableState
         , columns =
@@ -168,7 +172,7 @@ config toolTips =
         }
 
 
-viewModelGridReadonly : Dict String String -> Table.State -> Remote.WebData ModelList -> Html Grid.ReadOnlyTableMsg
+viewModelGridReadonly : Dict String String -> Grid.State -> Remote.WebData ModelList -> Html Grid.ReadOnlyTableMsg
 viewModelGridReadonly toolTips tableState modelList =
     Grid.view .items (configReadonly toolTips) tableState modelList
 
@@ -192,17 +196,17 @@ configReadonly toolTips =
 nameColumn : Grid.Column ModelData msg
 nameColumn =
     Grid.veryCustomColumn
-        { name = "Name"
+        { name = "modelName"
         , viewData = modelNameCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> modelOrDataSourceName a)
         , headAttributes = [ class "left fixed" ]
-        , headHtml = []
+        , headHtml = [ text "Name" ]
         }
 
 
-modelNameCell : ModelData -> Table.HtmlDetails msg
+modelNameCell : ModelData -> Grid.HtmlDetails msg
 modelNameCell model =
-    Table.HtmlDetails [ class "left name fixed" ]
+    Grid.HtmlDetails [ class "left name fixed" ]
         [ a [ AppRoutes.href (AppRoutes.ModelDetail model.modelId) ] [ text (formatDisplayName <| modelOrDataSourceName model) ]
         ]
 
@@ -222,15 +226,15 @@ predictActionColumn =
     Grid.veryCustomColumn
         { name = ""
         , viewData = predictActionButton
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
 
-predictActionButton : ModelData -> Table.HtmlDetails msg
+predictActionButton : ModelData -> Grid.HtmlDetails msg
 predictActionButton model =
-    Table.HtmlDetails [ class "action" ]
+    Grid.HtmlDetails [ class "action" ]
         --todo - make action buttons to something
         [ a
             [ class "btn btn-danger btn-sm", AppRoutes.href (AppRoutes.ModelDetail model.modelId) ]
@@ -243,15 +247,15 @@ typeColumn =
     Grid.veryCustomColumn
         { name = "Type"
         , viewData = typeCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> toString a.predictionDomain)
         , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
 
-typeCell : ModelData -> Table.HtmlDetails msg
+typeCell : ModelData -> Grid.HtmlDetails msg
 typeCell model =
-    Table.HtmlDetails []
+    Grid.HtmlDetails []
         [ text (toString model.predictionDomain)
         ]
 
@@ -259,17 +263,17 @@ typeCell model =
 createdColumn : Grid.Column ModelData msg
 createdColumn =
     Grid.veryCustomColumn
-        { name = "Created"
+        { name = "createdDate"
         , viewData = createdCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateString a.createdDate)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateString a.createdDate)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Created" ]
         }
 
 
-createdCell : ModelData -> Table.HtmlDetails msg
+createdCell : ModelData -> Grid.HtmlDetails msg
 createdCell model =
-    Table.HtmlDetails [ class "number" ]
+    Grid.HtmlDetails [ class "number" ]
         [ text (toShortDateString model.createdDate)
         ]
 
@@ -277,19 +281,18 @@ createdCell model =
 lastUsedColumn : Grid.Column ModelData msg
 lastUsedColumn =
     Grid.veryCustomColumn
-        { name = "Last used"
+        { name = "lastUsedDate"
         , viewData = lastUsedCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
+        , sorter = Grid.decreasingOrIncreasingBy (\a -> toShortDateStringOrEmpty a.lastUsedDate)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Last used" ]
         }
 
 
-lastUsedCell : ModelData -> Table.HtmlDetails msg
+lastUsedCell : ModelData -> Grid.HtmlDetails msg
 lastUsedCell model =
-    Table.HtmlDetails [ class "number" ]
-        [ text (toShortDateStringOrEmpty model.lastUsedDate)
-        ]
+    Grid.HtmlDetails [ class "number" ]
+        [ text (toShortDateStringOrEmpty model.lastUsedDate) ]
 
 
 deleteColumn : Grid.Column ModelData Msg
@@ -297,14 +300,14 @@ deleteColumn =
     Grid.veryCustomColumn
         { name = "Delete"
         , viewData = deleteButton
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per5" ]
         , headHtml = []
         }
 
 
-deleteButton : ModelData -> Table.HtmlDetails Msg
+deleteButton : ModelData -> Grid.HtmlDetails Msg
 deleteButton model =
-    Table.HtmlDetails []
+    Grid.HtmlDetails []
         [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
