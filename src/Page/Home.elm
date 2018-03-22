@@ -125,7 +125,7 @@ view model context messages =
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
+            [ div [ class "col-sm-12 col-md-8 col-lg-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView context model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
                 , viewRecentPanel "Session" (sessionListView context model) (AppRoutes.Sessions => Nothing)
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)

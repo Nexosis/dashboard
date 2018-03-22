@@ -13,7 +13,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -198,7 +198,7 @@ configReadonly toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.configCustom
+    Grid.config
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = Grid.Readonly
         , columns =
@@ -209,7 +209,6 @@ configReadonly toolTips =
             , col.created |> Grid.makeUnsortable
             , col.modified |> Grid.makeUnsortable
             ]
-        , customizations = Grid.toFixedTable
         }
 
 
@@ -240,15 +239,15 @@ nameColumn =
         { name = "dataSetName"
         , viewData = dataSetNameCell
         , sorter = Grid.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
-        , headAttributes = [ class "left fixed" ]
+        , headAttributes = [ class "left" ]
         , headHtml = [ text "Name" ]
         }
 
 
 dataSetNameCell : DataSet -> Grid.HtmlDetails msg
 dataSetNameCell dataSet =
-    Grid.HtmlDetails [ class "left name fixed" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayName <| dataSetNameToString dataSet.dataSetName) ] ]
+    Grid.HtmlDetails [ class "left name" ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayNameWithWidth 50 <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
 actionsColumn : Grid.Column DataSet msg

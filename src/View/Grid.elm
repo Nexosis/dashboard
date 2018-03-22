@@ -20,7 +20,6 @@ module View.Grid
         , remoteConfig
         , remoteConfigCustom
         , stringColumn
-        , toFixedTable
         , unsortable
         , veryCustomColumn
         , view
@@ -163,11 +162,6 @@ type alias Customizations data msg =
     , tbodyAttrs : List (Attribute msg)
     , rowAttrs : data -> List (Attribute msg)
     }
-
-
-toFixedTable : Customizations data msg -> Customizations data msg
-toFixedTable defaultCustomizations =
-    { defaultCustomizations | tableAttrs = [ id "dataset-details", class "table table-striped fixed" ] }
 
 
 toTableAttrs : List (Attribute msg)
