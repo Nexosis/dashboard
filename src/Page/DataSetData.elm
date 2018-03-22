@@ -47,7 +47,7 @@ init context dataSetName =
         model =
             Model dataSetName (Grid.initialSort "" Descending) 0 context.userPageSize Remote.Loading []
     in
-    model => loadData context model
+    model => Cmd.none
 
 
 dataUpdated : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
