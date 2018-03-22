@@ -1,17 +1,54 @@
-module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
-import Data.DataSet exposing (DataSetData)
-import Data.Session as Session exposing (..)
+import Data.DataSet exposing (DataSetData, DistributionShape)
+import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, div, h3, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, style)
 import List.Extra exposing (find)
-import String.Extra as String exposing (replace)
+import String.Extra exposing (replace)
 import VegaLite exposing (..)
+
+
+distributionHistogram : List DistributionShape -> Spec
+distributionHistogram data =
+    let
+        config =
+            configure
+                << configuration (Axis [ Labels False, Ticks False, Grid False, Domain False ])
+                << configuration (Background "transparent")
+                << configuration (View [ Stroke (Just "transparent") ])
+                << configuration (MarkStyle [ MFill "#2bb7ec" ])
+
+        enc =
+            encoding
+                << position X [ PName (normalizeFieldName "Value"), PmType Ordinal, PSort [] ]
+                << position Y [ PName (normalizeFieldName "Count"), PmType Quantitative ]
+    in
+    toVegaLite
+        [ width 150
+        , height 60
+        , padding (PEdges 0 0 0 0)
+        , autosize [ ANone ]
+        , dataFromRows [] <| (List.concatMap distributionItemToRow data |> Debug.log "data")
+        , mark Bar []
+        , enc []
+        , config []
+        ]
+
+
+distributionItemToRow : DistributionShape -> List DataRow
+distributionItemToRow shape =
+    case shape of
+        Data.DataSet.Counts label count ->
+            dataRow [ ( "Value", Str label ), ( "Count", Number (toFloat count) ) ] []
+
+        Data.DataSet.Ranges min max count ->
+            dataRow [ ( "Value", Str min ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
@@ -53,16 +90,13 @@ forecastResults sessionResults session dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
-
-                data =
-                    dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , data
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
@@ -348,6 +382,16 @@ resultsToRows result =
             |> List.map (\( k, v ) -> ( normalizeFieldName k, Str v ))
         )
         []
+
+
+resultIntervalToTimeUnit : Maybe Session.ResultInterval -> TimeUnit
+resultIntervalToTimeUnit resultInterval =
+    case resultInterval of
+        Just Session.Hour ->
+            Hours
+
+        _ ->
+            YearMonthDate
 
 
 mapAggregation : AggregationStrategy.AggregationStrategy -> Operation

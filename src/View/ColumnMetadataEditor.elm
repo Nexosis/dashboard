@@ -11,6 +11,7 @@ import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onFocus, onInput)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -18,7 +19,8 @@ import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
-import VegaLite exposing (Spec)
+import VegaLite exposing (Spec, combineSpecs)
+import View.Charts exposing (distributionHistogram)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid
 import View.PageSize as PageSize
@@ -120,7 +122,11 @@ update msg model context =
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    { model | statsResponse = resp } => Cmd.none => NoOp
+                    let
+                        cmd =
+                            s.columns |> Dict.toList |> List.map (\( k, v ) -> ( "histogram_" ++ k, distributionHistogram v.distribution )) |> combineSpecs |> Ports.drawVegaChart
+                    in
+                    { model | statsResponse = resp } => cmd => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -532,6 +538,7 @@ config toolTips stats =
             , roleColumn makeIcon
             , imputationColumn makeIcon
             , statsColumn stats
+            , histogramColumn
             ]
         }
 
@@ -612,7 +619,7 @@ statsColumn stats =
         { name = "Stats"
         , viewData = statsCell stats
         , sorter = Grid.unsortable
-        , headAttributes = [ class "per20", colspan 2 ]
+        , headAttributes = [ class "per20" ]
         , headHtml = []
         }
 
@@ -642,14 +649,14 @@ statsDisplay columnStats =
                     , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "Errors: " ]
+                    , strong [] [ text "Errors: " ]
                     , styledNumber <| commaFormatInteger stats.errorCount
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
                     , styledNumber <| commaFormatInteger stats.totalCount
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "# Missing: " ]
+                    , strong [] [ text "# Missing: " ]
                     , styledNumber <| commaFormatInteger stats.missingCount
                     , br [] []
                     , strong [] [ text "Mean: " ]

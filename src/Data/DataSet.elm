@@ -8,6 +8,7 @@ module Data.DataSet
         , DataSetList
         , DataSetName
         , DataSetStats
+        , DistributionShape(..)
         , dataSetNameDecoder
         , dataSetNameParser
         , dataSetNameToString

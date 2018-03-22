@@ -29,7 +29,7 @@
         "elm-lang/navigation": "2.1.0 <= v < 3.0.0",
         "elm-lang/window": "1.0.1 <= v < 2.0.0",
         "evancz/elm-markdown": "3.0.2 <= v < 4.0.0",
-        "gicentre/elm-vega": "1.0.4 <= v < 2.0.0",
+        "gicentre/elm-vega": "1.0.4 <= v < 2.2.0",
         "justinmimbs/elm-date-extra": "3.0.0 <= v < 4.0.0",
         "krisajenkins/remotedata": "4.3.3 <= v < 5.0.0",
         "lgastako/elm-select": "2.1.0 <= v < 3.0.0",
