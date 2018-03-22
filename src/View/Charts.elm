@@ -205,7 +205,7 @@ impactResults sessionResults session dataSet windowWidth =
 axisLabelFormat : SessionData -> String
 axisLabelFormat session =
     case session.resultInterval of
-        Just Hour ->
+        Just Session.Hour ->
             "%x %X"
 
         _ ->

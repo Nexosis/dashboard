@@ -116,17 +116,27 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
+updateCharts : Remote.WebData DataSetStats -> Cmd msg
+updateCharts statsResponse =
+    case statsResponse of
+        Remote.Success s ->
+            s.columns
+                |> Dict.toList
+                |> List.map (\( k, v ) -> ( "histogram_" ++ k, distributionHistogram v.distribution ))
+                |> combineSpecs
+                |> Ports.drawVegaChart
+
+        _ ->
+            Cmd.none
+
+
 update : Msg -> Model -> ContextModel -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model context =
     case msg of
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    let
-                        cmd =
-                            s.columns |> Dict.toList |> List.map (\( k, v ) -> ( "histogram_" ++ k, distributionHistogram v.distribution )) |> combineSpecs |> Ports.drawVegaChart
-                    in
-                    { model | statsResponse = resp } => cmd => NoOp
+                    { model | statsResponse = resp } => updateCharts resp => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -142,14 +152,14 @@ update msg model context =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ cmd, updateCharts model.statsResponse ] => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, updateCharts model.statsResponse, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
             if selection == Target then
