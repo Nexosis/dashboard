@@ -637,7 +637,7 @@ viewUploadTab config tabModel model =
                     []
                 , label [ for "upload-dataset" ] [ text uploadButtonText ]
                 , viewFieldError model.errors FileSelectionField
-                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) tabModel.fileUploadErrorOccurred
+                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]) tabModel.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]
