@@ -5,7 +5,7 @@ import Data.DataSet exposing (DataSetName, dataSetNameDecoder)
 import Data.Message exposing (Message, decodeMessage)
 import Data.Status exposing (HistoryRecord, Status, decodeHistoryRecord, decodeStatus)
 import Dict exposing (Dict)
-import Json.Decode as Decode exposing (Decoder, andThen, decodeValue, dict, fail, field, float, int, list, map2, string, succeed)
+import Json.Decode as Decode exposing (Decoder, andThen, decodeValue, dict, fail, field, float, int, list, map2, nullable, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.DateTime exposing (DateTime, fromISO8601)
 
@@ -15,7 +15,7 @@ type alias ImportDetail =
     , importType : ImportType
     , status : Status
     , dataSetName : DataSetName
-    , parameters : Dict String String
+    , parameters : Dict String (Maybe String)
     , requestedDate : DateTime
     , statusHistory : List HistoryRecord
     , messages : List Message
@@ -36,7 +36,7 @@ decodeImportDetail =
         |> required "type" decodeImportType
         |> required "status" decodeStatus
         |> required "dataSetName" dataSetNameDecoder
-        |> required "parameters" (dict string)
+        |> required "parameters" (dict (nullable string))
         |> required "requestedDate" decodeDate
         |> required "statusHistory" (list decodeHistoryRecord)
         |> required "messages" (list decodeMessage)
