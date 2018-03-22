@@ -110,10 +110,10 @@ viewDataGrid : Model -> Html Msg
 viewDataGrid model =
     case model.loadingResponse of
         Remote.Success dataSet ->
-            Grid.view .data (config dataSet) model.tableState model.loadingResponse
+            Grid.view .columns (config dataSet) model.tableState model.loadingResponse
 
         _ ->
-            text "Failed to load data"
+            text ""
 
 
 config : DataSetData -> Grid.Config ColumnMetadata Msg
