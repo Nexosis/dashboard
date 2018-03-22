@@ -4,13 +4,15 @@ import Data.Config as Config exposing (Config, withAuthorization)
 import Data.Model exposing (ModelData, ModelList, PredictionResult, decodeModel, decodeModelList, decodePredictions)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
+import Request.Sorting exposing (SortParameters, sortParams)
 
 
-get : Config -> Int -> Int -> Http.Request ModelList
-get config page pageSize =
+get : Config -> Int -> Int -> SortParameters -> Http.Request ModelList
+get config page pageSize sorting =
     let
         params =
             pageParams page pageSize
+                ++ sortParams sorting
     in
     (config.baseUrl ++ "/models")
         |> HttpBuilder.get

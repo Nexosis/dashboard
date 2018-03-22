@@ -31,7 +31,7 @@ import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
 import Time.TimeZones exposing (fromName, utc)
 import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
-import Util exposing ((=>), dateToUtcDateTime, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+import Util exposing ((=>), dateToUtcDateTime, formatDisplayName, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
@@ -645,7 +645,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Start a session" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Start a session" ] ]
             ]
         , div [ class "row mb20" ]
             ([ viewProgress configWizardSummary model.steps |> Html.map never ]
@@ -1055,7 +1055,7 @@ viewStartSession model =
 
         properties =
             [ ( "Session Name", model.sessionName, EditStep NameSession )
-            , ( "DataSet Name", Just <| dataSetNameToString model.dataSetName, Locked )
+            , ( "DataSet Name", Just <| formatDisplayName <| dataSetNameToString model.dataSetName, Locked )
             , ( "Session Type", Maybe.map sessionTypeToString model.selectedSessionType, EditStep SessionType )
             , ( "Contains Anomalies", maybeContainsAnomalies, EditStep ContainsAnomalies )
             , ( "Set Balance", maybeSetBalance, EditStep SetBalance )
