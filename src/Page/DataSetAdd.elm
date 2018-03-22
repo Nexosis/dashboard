@@ -36,7 +36,7 @@ import View.Wizard as Wizard exposing (WizardConfig, viewButtons)
 type alias Model =
     { steps : Ziplist Step
     , name : String
-    , key : String
+    , key : Maybe String
     , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData Data.Import.ImportDetail
@@ -102,7 +102,7 @@ init config =
     Model
         steps
         ""
-        ""
+        Nothing
         initTabs
         Remote.NotAsked
         Remote.NotAsked
@@ -149,6 +149,7 @@ validateUrlImportModel model =
     Verify.ok PostUrlRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.verify .importUrl (verifyRegex urlRegex (UrlField => "Enter a valid url."))
+        |> Verify.keep (always model.key)
 
 
 verifyFileType : error -> Validator error DataFormat.DataFormat String
@@ -236,7 +237,14 @@ update msg model context =
             updateTabContents model tabMsg => Cmd.none
 
         ( SetKey, ChangeKey key ) ->
-            { model | key = key } => Cmd.none
+            let
+                keyValue =
+                    if String.isEmpty key then
+                        Nothing
+                    else
+                        Just key
+            in
+            { model | key = keyValue } => Cmd.none
 
         ( SetKey, CreateDataSet createRequest ) ->
             case createRequest of
@@ -439,7 +447,7 @@ viewChooseUploadType context model =
             [ class "col-sm-12" ]
             [ div [ class "form-group col-sm-4" ]
                 [ label [] [ text "DataSet Name" ]
-                , input [ class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
+                , input [ type_ "text", class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
                 , viewFieldError model.errors DataSetNameField
                 ]
             ]
@@ -515,7 +523,7 @@ viewSetKey config model =
             , div [ class "col-sm-4" ]
                 [ div [ class "form-group" ]
                     [ label [] [ text "Key" ]
-                    , input [ class "form-control", placeholder "(Optional)", value model.key ] []
+                    , input [ type_ "text", class "form-control", placeholder "(Optional)", value <| Maybe.withDefault "" model.key, onInput ChangeKey ] []
                     ]
                 , errorDisplay
                 ]
@@ -632,7 +640,7 @@ viewImportUrlTab config tabModel model =
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
                 [ label [] [ text "File URL" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value tabModel.importUrl, onBlur InputBlur ] []
+                , input [ type_ "text", class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value tabModel.importUrl, onBlur InputBlur ] []
                 , viewFieldError model.errors UrlField
                 ]
             ]
