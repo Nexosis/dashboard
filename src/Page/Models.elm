@@ -45,7 +45,7 @@ init : ContextModel -> ( Model, Cmd Msg )
 init context =
     let
         initSort =
-            Grid.initialSort "createdDate" Ascending
+            Grid.initialSort "createdDate" Descending
     in
     Model Remote.Loading initSort 0 context.userPageSize Nothing
         => loadModelList context.config 0 context.userPageSize initSort

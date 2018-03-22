@@ -65,7 +65,7 @@ init : ContextModel -> ( Model, Cmd Msg )
 init context =
     let
         initialSorting =
-            Grid.initialSort "" Ascending
+            Grid.initialSort "lastModified" Descending
     in
     Model Remote.Loading 0 context.userPageSize initialSorting Nothing
         => loadDataSetList context 0 context.userPageSize initialSorting
