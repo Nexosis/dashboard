@@ -577,7 +577,7 @@ typeColumn makeIcon =
         , viewData = dataTypeCell
         , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Type"
+        , headHtml = text "Type " :: makeIcon "Type"
         }
 
 
@@ -593,7 +593,7 @@ roleColumn makeIcon =
         , viewData = roleCell
         , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Role"
+        , headHtml = text "Role " :: makeIcon "Role"
         }
 
 
@@ -614,7 +614,7 @@ imputationColumn makeIcon =
         , viewData = imputationCell
         , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Imputation"
+        , headHtml = text "Imputation " :: makeIcon "Imputation"
         }
 
 

@@ -8,11 +8,13 @@ import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, 
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
+import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log as Log exposing (logHttpError)
@@ -33,8 +35,10 @@ type alias Model =
     , loadingResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
     , deleteDialogModel : Maybe DeleteDialog.Model
-    , sessionLinks : SessionLinks
+    , sessionResponse : Remote.WebData SessionList
     , updateResponse : Remote.WebData ()
+    , tabs : Ziplist ( Tab, String )
+    , dataSetDataModel : DataSetData.Model
     }
 
 
@@ -43,22 +47,38 @@ type alias SessionLinks =
     }
 
 
-init : Config -> DataSetName -> ( Model, Cmd Msg )
-init config dataSetName =
+type Tab
+    = MetadataTab
+    | DataSetDataTab
+
+
+init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
+init context dataSetName =
     let
         loadData =
-            Request.DataSet.getRetrieveDetail config dataSetName
+            Request.DataSet.getRetrieveDetail context.config dataSetName 0 context.userPageSize
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
         ( editorModel, initCmd ) =
             ColumnMetadataEditor.init dataSetName True
+
+        ( dataSetModel, _ ) =
+            DataSetData.init context dataSetName
     in
-    Model dataSetName Remote.Loading editorModel Nothing (SessionLinks []) Remote.NotAsked
+    Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked Remote.NotAsked initTabs dataSetModel
         ! [ loadData
-          , loadRelatedSessions config dataSetName
+          , loadRelatedSessions context.config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
           ]
+
+
+initTabs : Ziplist ( Tab, String )
+initTabs =
+    Ziplist.create []
+        ( MetadataTab, "View metadata" )
+        [ ( DataSetDataTab, "View data" )
+        ]
 
 
 loadRelatedSessions : Config -> DataSetName -> Cmd Msg
@@ -79,6 +99,8 @@ type Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | MetadataUpdated (Remote.WebData ())
+    | ChangeTab String
+    | DataSetDataMsg DataSetData.Msg
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -88,9 +110,15 @@ update msg model context =
             let
                 ( subModel, cmd ) =
                     ColumnMetadataEditor.updateDataSetResponse context model.columnMetadataEditorModel resp
+
+                ( dsModel, dsCmd ) =
+                    DataSetData.dataUpdated context model.dataSetDataModel resp
             in
-            { model | loadingResponse = resp, columnMetadataEditorModel = subModel }
-                => Cmd.map ColumnMetadataEditorMsg cmd
+            { model | loadingResponse = resp, columnMetadataEditorModel = subModel, dataSetDataModel = dsModel }
+                => Cmd.batch
+                    [ Cmd.map ColumnMetadataEditorMsg cmd
+                    , Cmd.map DataSetDataMsg dsCmd
+                    ]
 
         ColumnMetadataEditorMsg subMsg ->
             let
@@ -137,21 +165,7 @@ update msg model context =
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         SessionDataListResponse listResp ->
-            case listResp of
-                Remote.Success sessionList ->
-                    let
-                        subList =
-                            List.map (\s -> s.links) sessionList.items
-                                |> List.concat
-                                |> List.filter (\l -> l.rel == "self")
-                    in
-                    { model | sessionLinks = SessionLinks subList } => Cmd.none
-
-                Remote.Failure err ->
-                    model => logHttpError err
-
-                _ ->
-                    model => Cmd.none
+            { model | sessionResponse = listResp } => Cmd.none
 
         MetadataUpdated response ->
             let
@@ -178,6 +192,23 @@ update msg model context =
                 _ ->
                     model => Cmd.none
 
+        ChangeTab tabName ->
+            let
+                newTabs =
+                    model.tabs
+                        |> Ziplist.find (\( _, name ) -> name == tabName)
+                        |> Maybe.withDefault model.tabs
+            in
+            { model | tabs = newTabs } => Cmd.none
+
+        DataSetDataMsg subMsg ->
+            let
+                ( newModel, cmd ) =
+                    DataSetData.update subMsg model.dataSetDataModel context
+            in
+            { model | dataSetDataModel = newModel }
+                => Cmd.map DataSetDataMsg cmd
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -200,7 +231,8 @@ view model context =
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ viewError model
-                , ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+                , viewTabControl model
+                , viewTabContent context model
                 ]
             ]
         , DeleteDialog.view model.deleteDialogModel
@@ -216,7 +248,7 @@ viewNameRow : Model -> Html Msg
 viewNameRow model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
-            [ h2 [ ] [ text (formatDisplayName <| DataSet.dataSetNameToString model.dataSetName) ] ]
+            [ h2 [] [ text (formatDisplayName <| DataSet.dataSetNameToString model.dataSetName) ] ]
         , div [ class "col-sm-6 right" ]
             [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
@@ -239,31 +271,51 @@ viewError model =
 viewDetailsRow : Model -> Html Msg
 viewDetailsRow model =
     div [ id "details", class "row" ]
-        [ viewRolesCol model
-        , viewDetailsCol model
-        , viewUrlAndDeleteCol model
+        [ viewDetailsCol model
+        , viewRelatedCol model
+        , viewRolesCol model
         ]
+
+
+viewRelatedCol : Model -> Html Msg
+viewRelatedCol model =
+    div [ class "col-sm-3" ]
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#related", attribute "aria-expanded" "true", attribute "aria-controls" "related" ]
+            [ strong [] [ text "Related Sessions" ]
+            , i [ class "fa fa-angle-down ml5" ] []
+            ]
+        , ul [ id "related", class "collapse in", attribute "aria-expanded" "true" ]
+            (getRelatedSessions model)
+        ]
+
+
+getRelatedSessions : Model -> List (Html Msg)
+getRelatedSessions model =
+    case model.sessionResponse of
+        Remote.Success sessionList ->
+            if List.isEmpty sessionList.items then
+                [ li [] [ text "No related sessions..." ] ]
+            else
+                List.map sessionLinkItem sessionList.items
+
+        _ ->
+            [ li [] [ text "There was a problem accessing sessions..." ] ]
+
+
+sessionLinkItem : SessionData -> Html Msg
+sessionLinkItem session =
+    let
+        detailRef =
+            AppRoutes.href (AppRoutes.SessionDetail session.sessionId)
+    in
+    li [] [ a [ detailRef ] [ text session.name ] ]
 
 
 viewRolesCol : Model -> Html Msg
 viewRolesCol model =
-    div [ class "col-sm-4" ]
+    div [ class "col-sm-5" ]
         [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
-        ]
-
-
-viewUrlAndDeleteCol : Model -> Html Msg
-viewUrlAndDeleteCol model =
-    div [ class "col-sm-4" ]
-        [ p []
-            [ strong [] [ text "API Endpoint URL:" ]
-            , br [] []
-            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
-            ]
-        , p []
-            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
-            ]
         ]
 
 
@@ -320,4 +372,51 @@ viewDetailsCol model =
             [ strong [] [ text "Modified: " ]
             , modified
             ]
+        , p []
+            [ strong [] [ text "API Endpoint URL:" ]
+            , br [] []
+            , copyableText ("/data/" ++ (dataSetNameToString model.dataSetName |> encodeUri))
+            ]
+        , p []
+            [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ] [ i [ class "fa fa-trash-o mr5" ] [], text " Delete dataset" ]
+            ]
+        ]
+
+
+viewTabControl : Model -> Html Msg
+viewTabControl model =
+    let
+        tabHeaders =
+            (model.tabs.previous |> List.map viewInactiveTab)
+                ++ [ viewActiveTab model.tabs.current ]
+                ++ (model.tabs.next |> List.map viewInactiveTab)
+    in
+    ul [ class "nav nav-tabs", attribute "role" "tablist" ]
+        tabHeaders
+
+
+viewInactiveTab : ( Tab, String ) -> Html Msg
+viewInactiveTab ( _, tabText ) =
+    li [] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
+
+
+viewActiveTab : ( Tab, String ) -> Html Msg
+viewActiveTab ( _, tabText ) =
+    li [ class "active" ] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
+
+
+viewTabContent : ContextModel -> Model -> Html Msg
+viewTabContent context model =
+    let
+        content =
+            case model.tabs.current of
+                ( MetadataTab, _ ) ->
+                    ColumnMetadataEditor.view context model.columnMetadataEditorModel |> Html.map ColumnMetadataEditorMsg
+
+                ( DataSetDataTab, _ ) ->
+                    DataSetData.view context model.dataSetDataModel |> Html.map DataSetDataMsg
+    in
+    div [ class "tab-content" ]
+        [ div [ class "tab-pane active" ]
+            [ content ]
         ]
