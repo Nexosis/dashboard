@@ -2,7 +2,7 @@ module Page.DataSetData exposing (..)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (DataSetData, DataSetName, toDataSetName)
+import Data.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -15,7 +15,6 @@ import Util exposing ((=>), styledNumber)
 import View.Grid as Grid
 import View.PageSize as PageSize
 import View.Pager as Pager
-import View.Tooltip exposing (helpIcon)
 
 
 type Msg
@@ -110,35 +109,18 @@ viewDataGrid : Model -> Html Msg
 viewDataGrid model =
     case model.loadingResponse of
         Remote.Success dataSet ->
-            Grid.view .columns (config dataSet) model.tableState model.loadingResponse
+            Grid.view .data (config dataSet.columns) model.tableState model.loadingResponse
 
         _ ->
             text ""
 
 
-config : DataSetData -> Grid.Config ColumnMetadata Msg
-config model =
+config : List ColumnMetadata -> Grid.Config (Dict.Dict String String) Msg
+config columns =
     Grid.config
-        { toId = \a -> a.name
+        { toId = \a -> ""
         , toMsg = TableChanged
         , columns =
-            List.map dynamicColumn model.columns
+            columns
+                |> List.map (\c -> Grid.stringColumn c.name (\r -> Dict.get c.name r |> Maybe.withDefault ""))
         }
-
-
-dynamicColumn : ColumnMetadata -> Grid.Column ColumnMetadata msg
-dynamicColumn column =
-    Grid.veryCustomColumn
-        { name = column.name
-        , viewData = dynamicCell
-        , sorter = Table.decreasingOrIncreasingBy (\a -> a.name)
-        , headAttributes = [ class "per10" ]
-        , headHtml = []
-        }
-
-
-dynamicCell : ColumnMetadata -> Table.HtmlDetails msg
-dynamicCell column =
-    Table.HtmlDetails [ class "number" ]
-        [ styledNumber column.name
-        ]
