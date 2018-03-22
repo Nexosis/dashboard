@@ -15,7 +15,7 @@ import RemoteData as Remote
 import Request.Session exposing (get)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
-import Util exposing ((=>), formatDisplayName, spinner)
+import Util exposing ((=>), formatDisplayName, formatDisplayNameWithWidth, spinner)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -236,7 +236,7 @@ nameColumn =
 sessionNameCell : SessionData -> Grid.HtmlDetails msg
 sessionNameCell model =
     Grid.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayName model.name ] ]
+        [ a [ AppRoutes.href (AppRoutes.SessionDetail model.sessionId) ] [ text <| formatDisplayNameWithWidth 40 model.name ] ]
 
 
 statusColumn : Grid.Column SessionData msg
