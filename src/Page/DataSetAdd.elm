@@ -40,6 +40,7 @@ type alias Model =
     , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData Data.Import.ImportDetail
+    , awsRegions : AwsRegions
     , errors : List FieldError
     }
 
@@ -54,6 +55,11 @@ type alias FileUploadEntry =
 
 type alias UrlImportEntry =
     { importUrl : String }
+
+
+type alias AwsRegions =
+    { regions : List ( String, String )
+    }
 
 
 type alias S3ImportEntry =
@@ -123,8 +129,31 @@ init config =
         initTabs
         Remote.NotAsked
         Remote.NotAsked
+        listAwsRegions
         []
         => Cmd.none
+
+
+listAwsRegions : AwsRegions
+listAwsRegions =
+    AwsRegions
+        [ ( "us-east-1", "US East (N. Virginia)" )
+        , ( "us-east-2", "US East (Ohio)" )
+        , ( "us-west-1", "US West (N. California)" )
+        , ( "us-west-2", "US West (Oregon)" )
+        , ( "ca-central-1", "Canada (Central)" )
+        , ( "eu-central-1", "EU (Frankfurt)" )
+        , ( "eu-west-1", "EU (Ireland)" )
+        , ( "eu-west-2", "EU (London)" )
+        , ( "eu-west-3", "EU (Paris)" )
+        , ( "ap-northeast-1", "Asia Pacific (Tokyo)" )
+        , ( "ap-northeast-2", "Asia Pacific (Seoul)" )
+        , ( "ap-northeast-3", "Asia Pacific (Osaka-Local)" )
+        , ( "ap-southeast-1", "Asia Pacific (Singapore)" )
+        , ( "ap-southeast-2", "Asia Pacific (Sydney)" )
+        , ( "ap-south-1", "Asia Pacific (Mumbai)" )
+        , ( "sa-east-1", "South America (São Paulo)" )
+        ]
 
 
 
@@ -765,18 +794,18 @@ viewImportS3Tab config tabModel model =
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
-                [ label [] [ text "Bucket Name" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (S3BucketChange c), value tabModel.bucket, onBlur InputBlur ] []
+                [ label [] [ text "Bucket Name", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3BucketChange c), value tabModel.bucket, onBlur InputBlur ] []
                 , viewFieldError model.errors BucketField
                 ]
             , div [ class "form-group col-sm-8" ]
-                [ label [] [ text "File Path" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (S3PathChange c), value tabModel.path, onBlur InputBlur ] []
+                [ label [] [ text "File Path", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3PathChange c), value tabModel.path, onBlur InputBlur ] []
                 , viewFieldError model.errors PathField
                 ]
             , div [ class "form-group col-sm-8" ]
                 [ label [] [ text "AWS Region" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (S3RegionChange c), value <| Maybe.withDefault "" tabModel.region, onBlur InputBlur ] []
+                , viewRegions model tabModel.region
                 , viewFieldError model.errors RegionField
                 ]
             , div [ class "form-group col-sm-8" ]
@@ -796,6 +825,25 @@ viewImportS3Tab config tabModel model =
                 ]
             ]
         ]
+
+
+viewRegions : Model -> Maybe String -> Html Msg
+viewRegions model selectedRegion =
+    let
+        isSelected val selected =
+            case selected of
+                Nothing ->
+                    False
+
+                Just s ->
+                    val == s
+
+        optionize ( val, name ) =
+            option [ value val, selected <| isSelected val selectedRegion ]
+                [ text name ]
+    in
+    select [ class "form-control", onInput <| \c -> TabMsg (S3RegionChange c) ]
+        (List.map optionize model.awsRegions.regions)
 
 
 viewPasteInTab : Model -> Html Msg

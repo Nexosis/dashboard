@@ -84,6 +84,7 @@ encodeImportS3 request =
         [ ( "dataSetName", Json.Encode.string <| request.dataSetName )
         , ( "path", Json.Encode.string <| request.path )
         , ( "bucket", Json.Encode.string <| request.bucket )
+        , ( "region", encodeMaybe <| request.region )
         , ( "accessKeyId", encodeMaybe <| request.accessKeyId )
         , ( "secretAccessKey", encodeMaybe <| request.secretAccessKey )
         ]
