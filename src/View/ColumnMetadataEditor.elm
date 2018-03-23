@@ -86,11 +86,16 @@ mapColumnListToPagedListing context columns =
             context.userPageSize
     in
     { pageNumber = 0
-    , totalPages = count // context.userPageSize
+    , totalPages = calcTotalPages count pageSize
     , pageSize = context.userPageSize
     , totalCount = count
     , metadata = DictX.fromListBy .name columns
     }
+
+
+calcTotalPages : Int -> Int -> Int
+calcTotalPages count pageSize =
+    (count + pageSize - 1) // pageSize
 
 
 updateDataSetResponse : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
@@ -360,7 +365,7 @@ updateColumnPageNumber pageNumber columnListing =
 
 updateColumnPageSize : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
 updateColumnPageSize pageSize columnListing =
-    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
+    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = calcTotalPages columnListing.totalCount pageSize } => Cmd.none
 
 
 updateColumnMetadata : Dict String ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
