@@ -11,7 +11,7 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Util exposing ((=>), styledNumber)
+import Util exposing ((=>), formatDisplayName, styledNumber)
 import View.Grid as Grid
 import View.PageSize as PageSize
 import View.Pager as Pager
@@ -125,5 +125,5 @@ config columns =
         , toMsg = TableChanged
         , columns =
             columns
-                |> List.map (\c -> Grid.stringColumn c.name (\r -> Dict.get c.name r |> Maybe.withDefault ""))
+                |> List.map (\c -> Grid.stringColumn (formatDisplayName c.name) (\r -> Dict.get c.name r |> Maybe.withDefault ""))
         }
