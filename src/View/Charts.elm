@@ -198,8 +198,8 @@ regressionResults sessionResults session windowWidth =
                 ( sumX, sumY ) =
                     List.foldl (\( x, y ) ( sx, sy ) -> ( sx + x, sy + y )) ( 0, 0 ) dataValues
 
-                sumXSquare =
-                    List.foldl (\( x, _ ) s -> s + x ^ 2) 0 dataValues
+                sumYSquare =
+                    List.foldl (\( _, y ) s -> s + y ^ 2) 0 dataValues
 
                 sumXY =
                     List.foldl (\( x, y ) s -> s + (x * y)) 0 dataValues
@@ -216,17 +216,17 @@ regressionResults sessionResults session windowWidth =
                 meanXY =
                     sumXY / valuesLength
 
-                meanXSquare =
-                    sumXSquare / valuesLength
+                meanYSquare =
+                    sumYSquare / valuesLength
 
-                meanSquareX =
-                    meanX ^ 2
+                meanSquareY =
+                    meanY ^ 2
 
                 m =
-                    (meanXY - (meanX * meanY)) / (meanXSquare - meanSquareX)
+                    (meanXY - (meanX * meanY)) / (meanYSquare - meanSquareY)
 
                 b =
-                    meanY - m * meanX
+                    meanX - m * meanY
 
                 actualName =
                     targetCol.name ++ ":actual"
