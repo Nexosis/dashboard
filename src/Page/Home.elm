@@ -134,9 +134,8 @@ view model context messages =
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
                 , hr [] []
                 , viewSidePanel (viewQuotas model.quotas)
+                , viewSidePanel (viewRecentMessages messages)
                 ]
-            , hr [] []
-            , viewSidePanel (viewRecentMessages messages)
             ]
         ]
 
@@ -169,7 +168,7 @@ viewQuota name quota =
             else if percentUsed < 95 then
                 "warning"
             else
-                "error"
+                "danger"
 
         percentUsed : Quota -> Int
         percentUsed quota =
@@ -206,6 +205,7 @@ viewRecentMessages messages =
                     [ strong [] [ text "Recent API Messages" ]
                     ]
                     :: List.map viewMessage messages
+                    ++ [ hr [] [] ]
                 )
         )
         messages
@@ -238,8 +238,7 @@ viewSidePanel : Html Msg -> Html Msg
 viewSidePanel view =
     div [ class "panel" ]
         [ div [ class "panel-body p15" ]
-            [ view
-            ]
+            [ view ]
         ]
 
 
