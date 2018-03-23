@@ -25,7 +25,7 @@ import Request.Import exposing (PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), delayTask, spinner, unwrapErrors)
+import Util exposing ((=>), delayTask, formatDisplayName, spinner, unwrapErrors)
 import Verify exposing (Validator, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
@@ -625,7 +625,7 @@ viewEntryReview : Model -> List (Html Msg)
 viewEntryReview model =
     let
         dataSetName =
-            ( "DataSet Name", model.name )
+            ( "DataSet Name", formatDisplayName model.name )
 
         properties =
             case model.tabs.current of

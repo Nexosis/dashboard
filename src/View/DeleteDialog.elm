@@ -8,7 +8,7 @@ import Http
 import RemoteData as Remote
 import Request.Log as Log
 import Set
-import Util exposing ((=>), spinner)
+import Util exposing ((=>), formatDisplayName, spinner)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIfElements, viewJust)
 import View.Modal as Modal
@@ -145,7 +145,7 @@ deleteModalBody model deleteConfig =
     div []
         [ h5 []
             [ text "Are you sure you want to delete "
-            , strong [] [ text model.displayName ]
+            , strong [] [ text (formatDisplayName model.displayName) ]
             , text "?"
             ]
         , viewJust
