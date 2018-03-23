@@ -258,7 +258,8 @@ viewSubscriptions model subscriptions =
             )
         , p [ class "mt15" ]
             [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developers") ]
-                [ i [ class "fa fa-key mr5" ] [ text "Manage keys" ]
+                [ i [ class "fa fa-key mr5" ] []
+                , text "Manage keys"
                 ]
             ]
         ]
@@ -273,7 +274,7 @@ viewSubscription model subscription =
             -- TODO : put this back in when we have time to wire up copy to clipboard
             --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm btn-link btn-danger"
+                [ class "btn btn-sm btn-link"
                 , onClick (ShowApiKey subscription.id)
                 ]
                 [ i [ class "fa fa-eye mr5" ] []
