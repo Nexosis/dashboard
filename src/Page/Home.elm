@@ -257,7 +257,7 @@ viewSubscriptions model subscriptions =
                 |> List.map (viewSubscription model)
             )
         , p [ class "mt15" ]
-            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developers") ]
+            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developer") ]
                 [ i [ class "fa fa-key mr5" ] []
                 , text "Manage keys"
                 ]
