@@ -42,7 +42,7 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName
@@ -91,7 +91,7 @@ impactResults sessionResults session dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -104,10 +104,10 @@ impactResults sessionResults session dataSet windowWidth =
                             ]
 
                 minPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Min ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Min ]
 
                 maxPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Max ]
 
                 predictionsOnly =
                     transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
@@ -135,7 +135,7 @@ impactResults sessionResults session dataSet windowWidth =
 
                 boxSpec =
                     asSpec
-                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]) []
+                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Max ]) []
                         , mark Rect [ MFillOpacity 0.1 ]
                         , predictionsOnly
                         ]
