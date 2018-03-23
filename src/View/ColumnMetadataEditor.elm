@@ -117,10 +117,14 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
-updateCharts : Remote.WebData DataSetStats -> Cmd msg
-updateCharts statsResponse =
-    case statsResponse of
-        Remote.Success s ->
+updateCharts : Remote.WebData ColumnMetadataListing -> Remote.WebData DataSetStats -> Cmd msg
+updateCharts columnMetadata statsResponse =
+    case ( columnMetadata, statsResponse ) of
+        ( Remote.Success m, Remote.Success s ) ->
+            let
+                x =
+                    Dict.keys m.metadata |> Debug.log "names"
+            in
             s.columns
                 |> Dict.toList
                 |> List.map (\( k, v ) -> ( "histogram_" ++ k |> String.classify, distributionHistogram v.distribution ))
@@ -137,7 +141,11 @@ update msg model context =
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    { model | statsResponse = resp } => updateCharts resp => NoOp
+                    let
+                        cmd =
+                            updateCharts model.columnMetadata resp
+                    in
+                    { model | statsResponse = resp } => cmd => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -153,14 +161,14 @@ update msg model context =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ cmd, updateCharts model.statsResponse ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ cmd, updateCharts columnListing model.statsResponse ] => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, updateCharts model.statsResponse, cmd ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, updateCharts columnListing model.statsResponse, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
             if selection == Target then

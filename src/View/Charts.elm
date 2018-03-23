@@ -34,7 +34,7 @@ distributionHistogram data =
         , height 60
         , padding (PEdges 0 0 0 0)
         , autosize [ ANone ]
-        , dataFromRows [] <| (List.concatMap distributionItemToRow data |> Debug.log "data")
+        , dataFromRows [] <| List.concatMap distributionItemToRow data
         , mark Bar []
         , enc []
         , config []
