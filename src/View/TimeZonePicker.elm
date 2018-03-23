@@ -14,8 +14,8 @@ tzToOption current tzName =
     let
         -- the elm-time package seems to have the sign on the timezones backward. so the label
         -- is changed to select the 'opposite' sign TZ.
-        -- note that the elm-time people seem to think they are right which is why it's being worked
-        -- around rather than fixed (https://github.com/elm-community/elm-time/issues/57).
+        -- discussed how this is possibly correct for the lib, but confusing to users in this issue:
+        -- https://github.com/elm-community/elm-time/issues/57.
         rename input =
             if String.contains "-" input then
                 String.replace "-" "+" input
