@@ -48,6 +48,7 @@ resultsCsv config sessionId =
         |> HttpBuilder.get
         |> HttpBuilder.withExpectString
         |> HttpBuilder.withHeader "Accept" "text/csv"
+        |> HttpBuilder.withQueryParams [ ( "pageSize", "1000" ) ]
         |> withAuthorization config
         |> HttpBuilder.toRequest
 
