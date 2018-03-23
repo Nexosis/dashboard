@@ -222,6 +222,7 @@ regressionResults sessionResults session windowWidth =
                 meanSquareY =
                     meanY ^ 2
 
+                -- Calculation of m and b have the axes reversed compared to convention (Wikipedia), but this is the correct line for our plot.
                 m =
                     (meanXY - (meanX * meanY)) / (meanYSquare - meanSquareY)
 
