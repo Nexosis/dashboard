@@ -12,6 +12,10 @@ import Time.TimeZones exposing (all)
 tzToOption : String -> String -> Html msg
 tzToOption current tzName =
     let
+        -- the elm-time package seems to have the sign on the timezones backward. so the label
+        -- is changed to select the 'opposite' sign TZ.
+        -- note that the elm-time people seem to think they are right which is why it's being worked
+        -- around rather than fixed (https://github.com/elm-community/elm-time/issues/57).
         rename input =
             if String.contains "-" input then
                 String.replace "-" "+" input
