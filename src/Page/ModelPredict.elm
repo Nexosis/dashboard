@@ -23,6 +23,7 @@ import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListi
 
 type alias Model =
     { modelId : String
+    , modelName : Maybe String
     , activeTab : Tab
     , inputType : DataFormat.DataFormat
     , outputType : DataFormat.DataFormat
@@ -45,9 +46,9 @@ type alias PredictionResultListing =
     }
 
 
-init : Config -> String -> Model
-init config modelId =
-    Model modelId UploadFile DataFormat.Json DataFormat.Json "" Nothing Nothing Remote.NotAsked Remote.NotAsked False 0
+init : Config -> String -> Maybe String -> Model
+init config modelId modelName =
+    Model modelId modelName UploadFile DataFormat.Json DataFormat.Json "" Nothing Nothing Remote.NotAsked Remote.NotAsked False 0
 
 
 type Msg
@@ -191,7 +192,12 @@ update msg model context =
 
 formatFilename : Model -> String
 formatFilename model =
-    model.modelId ++ "-results." ++ DataFormat.dataFormatToString model.outputType
+    let
+        prefix =
+            model.modelName
+                |> Maybe.withDefault model.modelId
+    in
+    prefix ++ "-results." ++ DataFormat.dataFormatToString model.outputType
 
 
 subscriptions : Model -> Sub Msg
@@ -411,7 +417,7 @@ downloadButton model =
         spinner
     else
         div [ class dropDownClass ]
-            [ button [ class "btn btn-danger", onClick <| FileDownload DataFormat.Json ]
+            [ button [ class "btn btn-danger", onClick <| FileDownload DataFormat.Csv ]
                 [ i [ class "fa fa-download mr5" ]
                     []
                 , text "Download predictions"
