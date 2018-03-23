@@ -6,6 +6,7 @@ import Data.Context exposing (ContextModel, defaultContext)
 import Data.Message as Message
 import Data.Metric exposing (Metric)
 import Data.Response as Response
+import Dom.Scroll as Scroll exposing (toTop)
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
 import Http
@@ -88,6 +89,7 @@ type Msg
     | OnAppStateUpdated StateStorage.Msg
     | PageLoadFailed Http.Error
     | MetricTextLoaded (Remote.WebData (List Metric))
+    | NoOp
 
 
 type Page
@@ -128,6 +130,10 @@ getQuotas resp =
 
 setRoute : Maybe ( AppRoutes.Route, String ) -> App -> ( App, Cmd Msg )
 setRoute route app =
+    let
+        scrollCmd =
+            Task.attempt (always NoOp) <| Scroll.toTop "html"
+    in
     case app.context.config.token of
         Nothing ->
             app => Navigation.load app.context.config.loginUrl
@@ -161,7 +167,7 @@ setRoute route app =
                         ( pageModel, initCmd ) =
                             DataSetDetail.init app.context name
                     in
-                    { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
 
                 Just ( AppRoutes.DataSetAdd, title ) ->
                     let
@@ -182,7 +188,7 @@ setRoute route app =
                         ( pageModel, initCmd ) =
                             SessionDetail.init app.context id
                     in
-                    { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
 
                 Just ( AppRoutes.SessionStart dataSetName, title ) ->
                     let
@@ -203,7 +209,7 @@ setRoute route app =
                         ( pageModel, initCmd ) =
                             ModelDetail.init app.context id
                     in
-                    { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
 
 
 extractError : { b | loadingError : Maybe Http.Error } -> Maybe Http.Error
