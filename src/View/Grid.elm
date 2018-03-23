@@ -11,6 +11,7 @@ module View.Grid
         , customStringColumn
         , customUnsortableColumn
         , decreasingOrIncreasingBy
+        , defaultCustomizations
         , floatColumn
         , increasingOrDecreasingBy
         , initialSort
