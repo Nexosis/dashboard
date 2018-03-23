@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Page.Helpers exposing (explainer)
 import RemoteData as Remote
 import Request.Model exposing (delete, get)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
@@ -133,7 +134,30 @@ view model context =
             , div [ class "col-sm-6 right" ] []
             ]
         , hr [] []
-        , div [ class "row" ]
+        , div [] (viewModelListResults context model)
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Model"
+            , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
+        ]
+
+
+viewModelListResults : ContextModel -> Model -> List (Html Msg)
+viewModelListResults context model =
+    let
+        modelsFound =
+            case model.modelList of
+                Remote.Success list ->
+                    not (List.isEmpty list.items)
+
+                _ ->
+                    -- Let the grid handle loading scenario
+                    True
+    in
+    if modelsFound then
+        [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row mb25" ]
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
@@ -147,12 +171,13 @@ view model context =
         , hr [] []
         , div [ class "center" ]
             [ Pager.view model.modelList ChangePage ]
-        , DeleteDialog.view model.deleteDialogModel
-            { headerMessage = "Delete Model"
-            , bodyMessage = Just "This action cannot be undone. You will have to run another session to replace this model."
-            , associatedAssets = []
-            }
-            |> Html.map DeleteDialogMsg
+        ]
+    else
+        [ div [ class "help col-sm-12" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer context.config "empty_model"
+                ]
+            ]
         ]
 
 
