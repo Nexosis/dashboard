@@ -91,7 +91,7 @@ viewHeader config navLinks =
                         [ div [ class "navbar-header" ]
                             [ button
                                 [ class "navbar-toggle collapsed"
-                                , attribute "data-toggle" "collapsed"
+                                , attribute "data-toggle" "collapse"
                                 , attribute "data-target" "#topnav-collapse"
                                 , attribute "aria-expanded" "false"
                                 ]
