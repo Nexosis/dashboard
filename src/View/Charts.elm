@@ -7,8 +7,8 @@ import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
 import Data.Session as Session exposing (..)
 import Dict exposing (Dict)
-import Html exposing (Html, div, h3, table, tbody, td, tr)
-import Html.Attributes exposing (attribute, class, style)
+import Html exposing (Html, div, h3, span, table, tbody, td, tr)
+import Html.Attributes exposing (attribute, class, colspan, rowspan, style)
 import List.Extra exposing (find)
 import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
@@ -393,7 +393,7 @@ renderConfusionMatrix matrix =
                 [ tbody []
                     (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
                         -- footer is the set of classes
-                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ Html.text c ]) (Array.toList matrix.classes)) ]
+                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
                     )
                 ]
             ]
