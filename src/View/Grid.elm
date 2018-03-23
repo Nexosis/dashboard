@@ -303,12 +303,12 @@ headerCell ( headerConfig, name, status, onClick ) =
 
 mediumGray : String -> Html msg
 mediumGray icon =
-    i [ class ("fa fa-" ++ icon ++ " color-mediumGray m15") ] []
+    i [ class ("fa fa-" ++ icon ++ " color-mediumGray ml5") ] []
 
 
 darkGray : String -> Html msg
 darkGray icon =
-    i [ class ("fa fa-" ++ icon ++ " color-darkGray m15") ] []
+    i [ class ("fa fa-" ++ icon ++ " color-darkGray ml5") ] []
 
 
 view : (response -> List data) -> Config data msg -> State -> Remote.WebData response -> Html.Html msg
@@ -463,15 +463,15 @@ quite cut it. You could define a custom column like this:
 
     dollarColumn : String -> (data -> Float) -> Column data msg
     dollarColumn name toDollars =
-      Table.customColumn
-        { name = name
-        , viewData = \data -> viewDollars (toDollars data)
-        , sorter = Table.decreasingBy toDollars
-        }
+        Table.customColumn
+            { name = name
+            , viewData = \data -> viewDollars (toDollars data)
+            , sorter = Table.decreasingBy toDollars
+            }
 
     viewDollars : Float -> String
     viewDollars dollars =
-      "$" ++ toString (round (dollars / 1000)) ++ "k"
+        "$" ++ toString (round (dollars / 1000)) ++ "k"
 
 The `viewData` field means we will displays the number `12345.67` as `$12k`.
 
@@ -664,7 +664,7 @@ This function lets you see both, starting with decreasing order.
 
     sorter : Sorter { a | sugar : comparable }
     sorter =
-      decreasingOrIncreasingBy .sugar
+        decreasingOrIncreasingBy .sugar
 
 -}
 decreasingOrIncreasingBy : (data -> comparable) -> Sorter data
@@ -678,7 +678,7 @@ sort by best time by default, but also see the other order.
 
     sorter : Sorter { a | time : comparable }
     sorter =
-      increasingOrDecreasingBy .time
+        increasingOrDecreasingBy .time
 
 -}
 increasingOrDecreasingBy : (data -> comparable) -> Sorter data
