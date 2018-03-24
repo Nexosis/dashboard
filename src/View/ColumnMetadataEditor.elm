@@ -20,7 +20,7 @@ import StateStorage exposing (saveAppState)
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
 import View.Extra exposing (viewIf)
-import View.Grid as Grid
+import View.Grid as Grid exposing (defaultCustomizations)
 import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
@@ -528,7 +528,7 @@ config toolTips stats =
         makeIcon =
             helpIcon toolTips
     in
-    Grid.config
+    Grid.configCustom
         { toId = \c -> c.name
         , toMsg = SetTableState
         , columns =
@@ -538,7 +538,16 @@ config toolTips stats =
             , imputationColumn makeIcon
             , statsColumn stats
             ]
+        , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
         }
+
+
+customRowAttributes : ColumnMetadata -> List (Attribute Msg)
+customRowAttributes column =
+    if column.role == Key then
+        [ id "key" ]
+    else
+        []
 
 
 nameColumn : Grid.Column ColumnMetadata Msg
@@ -571,7 +580,15 @@ typeColumn makeIcon =
 
 dataTypeCell : ColumnMetadata -> Grid.HtmlDetails Msg
 dataTypeCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+    if column.role == Key then
+        emptyDropdown
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+
+
+emptyDropdown : Grid.HtmlDetails Msg
+emptyDropdown =
+    Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [] ]
 
 
 roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
@@ -587,7 +604,10 @@ roleColumn makeIcon =
 
 roleCell : ColumnMetadata -> Grid.HtmlDetails Msg
 roleCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
+    if column.role == Key then
+        Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [ option [] [ text "Key" ] ] ]
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
 
 
 enumOption : e -> e -> Html Msg
@@ -608,7 +628,10 @@ imputationColumn makeIcon =
 
 imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
+    if column.role == Key then
+        emptyDropdown
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
 
 
 statsColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
