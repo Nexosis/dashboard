@@ -6,6 +6,7 @@ repl-temp-*
 junit.xml
 node_modules/
 dist/
+temp/
 npm-debug.log
 yarn-error.log
 .vscode

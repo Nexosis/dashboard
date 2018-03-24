@@ -11,9 +11,9 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import RemoteData as Remote
 import Request.DataSet
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Table exposing (defaultCustomizations)
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -41,30 +41,34 @@ defaultColumns tooltips =
         actionsColumn
         sizeColumn
         (shapeColumn tooltips)
-        (Grid.customNumberColumn "Created" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [])
-        (Grid.customNumberColumn "Modified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [])
+        (Grid.customNumberColumn "dateCreated" (\a -> toShortDateString a.dateCreated) [ class "per10" ] [ text "Created" ])
+        (Grid.customNumberColumn "lastModified" (\a -> toShortDateString a.lastModified) [ class "per10" ] [ text "Modified" ])
 
 
 type alias Model =
     { dataSetList : Remote.WebData DataSetList
     , currentPage : Int
     , pageSize : Int
-    , tableState : Table.State
+    , tableState : Grid.State
     , deleteDialogModel : Maybe DeleteDialog.Model
     }
 
 
-loadDataSetList : ContextModel -> Int -> Int -> Cmd Msg
-loadDataSetList context pageNum pageSize =
-    Request.DataSet.get context.config pageNum pageSize
+loadDataSetList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
+loadDataSetList context pageNum pageSize sorting =
+    Request.DataSet.get context.config pageNum pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
 
 init : ContextModel -> ( Model, Cmd Msg )
 init context =
-    Model Remote.Loading 0 context.userPageSize (Table.initialSort "dataSetName") Nothing
-        => loadDataSetList context 0 context.userPageSize
+    let
+        initialSorting =
+            Grid.initialSort "lastModified" Descending
+    in
+    Model Remote.Loading 0 context.userPageSize initialSorting Nothing
+        => loadDataSetList context 0 context.userPageSize initialSorting
 
 
 
@@ -73,7 +77,7 @@ init context =
 
 type Msg
     = DataSetListResponse (Remote.WebData DataSetList)
-    | SetTableState Table.State
+    | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
     | ShowDeleteDialog DataSet
@@ -87,12 +91,16 @@ update msg model context =
             { model | dataSetList = resp } => Cmd.none
 
         SetTableState newState ->
-            { model | tableState = newState }
-                => Cmd.none
+            let
+                sortedRequest =
+                    loadDataSetList context 0 context.userPageSize newState
+            in
+            { model | tableState = newState, dataSetList = Remote.Loading }
+                => sortedRequest
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList context pgNum context.userPageSize
+                => loadDataSetList context pgNum context.userPageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -101,7 +109,7 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadDataSetList context 0 pageSize
+                    [ loadDataSetList context 0 pageSize model.tableState
                     , StateStorage.saveAppState { context | userPageSize = pageSize }
                     ]
 
@@ -126,7 +134,7 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadDataSetList context model.currentPage context.userPageSize
+                            loadDataSetList context model.currentPage context.userPageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -142,7 +150,7 @@ view model context =
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
             , div [ class "col-sm-6" ]
-                [ h2 [ class "mt10" ]
+                [ h2 []
                     ([ text "DataSets " ]
                         ++ helpIcon context.config.toolTips "Datasets"
                     )
@@ -174,12 +182,12 @@ view model context =
         ]
 
 
-viewDataSetGrid : Dict String String -> Table.State -> Remote.WebData DataSetList -> Html Msg
+viewDataSetGrid : Dict String String -> Grid.State -> Remote.WebData DataSetList -> Html Msg
 viewDataSetGrid toolTips tableState dataSetList =
     Grid.view .items (config toolTips) tableState dataSetList
 
 
-viewDataSetGridReadonly : Dict String String -> Table.State -> Remote.WebData DataSetList -> Html Grid.ReadOnlyTableMsg
+viewDataSetGridReadonly : Dict String String -> Grid.State -> Remote.WebData DataSetList -> Html Grid.ReadOnlyTableMsg
 viewDataSetGridReadonly toolTips tableState dataSetList =
     Grid.view .items (configReadonly toolTips) tableState dataSetList
 
@@ -210,7 +218,7 @@ config toolTips =
         col =
             defaultColumns toolTips
     in
-    Grid.config
+    Grid.remoteConfig
         { toId = \a -> a.dataSetName |> dataSetNameToString
         , toMsg = SetTableState
         , columns =
@@ -228,18 +236,18 @@ config toolTips =
 nameColumn : Grid.Column DataSet msg
 nameColumn =
     Grid.veryCustomColumn
-        { name = "Name"
+        { name = "dataSetName"
         , viewData = dataSetNameCell
-        , sorter = Table.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
-        , headAttributes = [ class "left per30" ]
-        , headHtml = []
+        , sorter = Grid.increasingOrDecreasingBy (\a -> a.dataSetName |> dataSetNameToString)
+        , headAttributes = [ class "left" ]
+        , headHtml = [ text "Name" ]
         }
 
 
-dataSetNameCell : DataSet -> Table.HtmlDetails msg
+dataSetNameCell : DataSet -> Grid.HtmlDetails msg
 dataSetNameCell dataSet =
-    Table.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (dataSetNameToString dataSet.dataSetName) ] ]
+    Grid.HtmlDetails [ class "left name" ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayNameWithWidth 40 <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
 actionsColumn : Grid.Column DataSet msg
@@ -247,17 +255,15 @@ actionsColumn =
     Grid.veryCustomColumn
         { name = ""
         , viewData = dataSetActionButton
-        , sorter = Table.unsortable
-        , headAttributes = []
+        , sorter = Grid.unsortable
+        , headAttributes = [ class "per15" ]
         , headHtml = []
         }
 
 
-dataSetActionButton : DataSet -> Table.HtmlDetails msg
+dataSetActionButton : DataSet -> Grid.HtmlDetails msg
 dataSetActionButton dataSet =
-    Table.HtmlDetails [ class "action" ]
-        --todo - make action buttons to something
-        --todo - Change the button text and color based on the status
+    Grid.HtmlDetails [ class "action" ]
         [ a [ AppRoutes.href (AppRoutes.SessionStart dataSet.dataSetName) ] [ button [ class "btn btn-danger btn-sm" ] [ text "Start Session" ] ] ]
 
 
@@ -266,33 +272,33 @@ deleteColumn =
     Grid.veryCustomColumn
         { name = "Delete"
         , viewData = dataSetDeleteButton
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per5" ]
         , headHtml = []
         }
 
 
-dataSetDeleteButton : DataSet -> Table.HtmlDetails Msg
+dataSetDeleteButton : DataSet -> Grid.HtmlDetails Msg
 dataSetDeleteButton dataSet =
-    Table.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete" ] [ i [ class "fa fa-trash-o" ] [] ]
+    Grid.HtmlDetails []
+        [ a [ onClick (ShowDeleteDialog dataSet), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
         ]
 
 
 sizeColumn : Grid.Column DataSet msg
 sizeColumn =
     Grid.veryCustomColumn
-        { name = "Size"
+        { name = "dataSetSize"
         , viewData = sizeCell
-        , sorter = Table.increasingOrDecreasingBy (\a -> toString a.dataSetSize)
+        , sorter = Grid.increasingOrDecreasingBy (\a -> toString a.dataSetSize)
         , headAttributes = [ class "per10" ]
-        , headHtml = []
+        , headHtml = [ text "Size" ]
         }
 
 
-sizeCell : DataSet -> Table.HtmlDetails msg
+sizeCell : DataSet -> Grid.HtmlDetails msg
 sizeCell dataset =
-    Table.HtmlDetails [ class "number" ] [ text (dataSizeWithSuffix dataset.dataSetSize) ]
+    Grid.HtmlDetails [ class "number" ] [ text (dataSizeWithSuffix dataset.dataSetSize) ]
 
 
 shapeColumn : Dict String String -> Grid.Column DataSet msg
@@ -300,12 +306,12 @@ shapeColumn tooltips =
     Grid.veryCustomColumn
         { name = "Shape"
         , viewData = shapeCell
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per15" ]
-        , headHtml = helpIcon tooltips "Shape"
+        , headHtml = text "Shape" :: helpIcon tooltips "Shape"
         }
 
 
-shapeCell : DataSet -> Table.HtmlDetails msg
+shapeCell : DataSet -> Grid.HtmlDetails msg
 shapeCell dataset =
-    Table.HtmlDetails [ class "number" ] [ text (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]
+    Grid.HtmlDetails [ class "number" ] [ text (commaFormatInteger dataset.rowCount ++ " x " ++ commaFormatInteger dataset.columnCount) ]

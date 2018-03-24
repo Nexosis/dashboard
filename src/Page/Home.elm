@@ -3,13 +3,13 @@ module Page.Home exposing (Model, Msg(..), init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import Data.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
 import Data.Model exposing (ModelData, ModelList)
-import Data.Response exposing (Quota, Quotas, Response)
+import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
-import Html.Attributes exposing (attribute, class)
+import Html.Attributes exposing (attribute, class, href, id)
 import Html.Events exposing (onClick)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
@@ -19,9 +19,12 @@ import RemoteData as Remote
 import Request.DataSet
 import Request.Model
 import Request.Session
+import Request.Sorting as Sorting
 import Request.Subscription
-import Table
 import Util exposing ((=>))
+import View.Extra exposing (viewIfElements)
+import View.Grid as Grid
+import View.Messages exposing (messageSeverityDisplay)
 
 
 ---- MODEL ----
@@ -34,6 +37,7 @@ type alias Model =
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
     , quotas : Maybe Quotas
+    , apiManagerUrl : String
     }
 
 
@@ -46,14 +50,15 @@ init config quotas =
         Remote.Loading
         []
         quotas
+        config.apiManagerUrl
         => Cmd.batch
-            [ Request.DataSet.get config 0 5
+            [ Request.DataSet.get config 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-            , Request.Session.get config 0 5
+            , Request.Session.get config 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map SessionListResponse
-            , Request.Model.get config 0 5
+            , Request.Model.get config 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
             , Request.Subscription.list config
@@ -114,22 +119,22 @@ update msg model context =
 -- VIEW --
 
 
-view : Model -> ContextModel -> Html Msg
-view model context =
-    div []
+view : Model -> ContextModel -> List GlobalMessage -> Html Msg
+view model context messages =
+    div [ id "page-header", class "row" ]
         [ h2 [] [ text "API Dashboard" ]
         , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-12 col-md-8 col-g-9 col-xl-9" ]
+            [ div [ class "col-sm-12 col-md-8 col-lg-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView context model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
                 , viewRecentPanel "Session" (sessionListView context model) (AppRoutes.Sessions => Nothing)
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
-                ]
-            , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (viewQuotas model.quotas)
+                , hr [] []
+                , viewSidePanel (viewQuotas model.quotas)
+                , viewSidePanel (viewRecentMessages messages)
                 ]
             ]
         ]
@@ -145,7 +150,7 @@ viewQuotas quotas =
             div []
                 [ div [ class "row m0" ]
                     [ h4 [ class "mb15" ]
-                        [ text "Usage Stats" ]
+                        [ strong [] [ text "Usage Stats" ] ]
                     , viewQuota "DataSets" quotas.dataSets
                     , viewQuota "Sessions" quotas.sessions
                     , viewQuota "Predictions" quotas.predictions
@@ -163,7 +168,7 @@ viewQuota name quota =
             else if percentUsed < 95 then
                 "warning"
             else
-                "error"
+                "danger"
 
         percentUsed : Quota -> Int
         percentUsed quota =
@@ -191,12 +196,49 @@ viewQuota name quota =
         ]
 
 
+viewRecentMessages : List GlobalMessage -> Html Msg
+viewRecentMessages messages =
+    viewIfElements
+        (\() ->
+            div [ id "api-messages", class "row m0" ]
+                (h4 [ class "mb15" ]
+                    [ strong [] [ text "Recent API Messages" ]
+                    ]
+                    :: List.map viewMessage messages
+                    ++ [ hr [] [] ]
+                )
+        )
+        messages
+
+
+viewMessage : GlobalMessage -> Html Msg
+viewMessage message =
+    let
+        messageDisplay =
+            div [ class "message-group" ]
+                [ p [ class "api-code" ] [ messageSeverityDisplay message ]
+                , p [ class "message" ] [ text message.message ]
+
+                -- todo - Messages don't have timestamps, but, if we create an endpoint to gather all messages,
+                -- that will probably change.
+                -- , p [ class "date" ]
+                --     [ i [ class "fa fa-calendar-o" ]
+                --         [ text "date"
+                --         ]
+                --     ]
+                ]
+    in
+    message.routeToResource
+        |> Maybe.map
+            (\route -> a [ AppRoutes.href route ] [ messageDisplay ])
+        |> Maybe.withDefault messageDisplay
+
+
 viewSidePanel : Html Msg -> Html Msg
 viewSidePanel view =
     div [ class "panel" ]
         [ div [ class "panel-body p15" ]
-            [ view
-            ]
+            [ view ]
         ]
 
 
@@ -206,13 +248,19 @@ viewSubscriptions model subscriptions =
         [ h4 [ class "mb15" ]
             [ strong
                 []
-                [ text "API Keys" ]
+                [ strong [] [ text "API Keys" ] ]
             ]
         , div
             []
             (subscriptions
                 |> List.map (viewSubscription model)
             )
+        , p [ class "mt15" ]
+            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developer") ]
+                [ i [ class "fa fa-key mr5" ] []
+                , text "Manage keys"
+                ]
+            ]
         ]
 
 
@@ -225,7 +273,7 @@ viewSubscription model subscription =
             -- TODO : put this back in when we have time to wire up copy to clipboard
             --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm btn-link btn-danger"
+                [ class "btn btn-sm btn-link"
                 , onClick (ShowApiKey subscription.id)
                 ]
                 [ i [ class "fa fa-eye mr5" ] []
@@ -249,17 +297,17 @@ viewApiKey model subscription =
 
 modelListView : ContextModel -> Model -> Html Msg
 modelListView context model =
-    viewModelGridReadonly context.config.toolTips (Table.initialSort "createdDate") model.modelList |> Html.map (\_ -> None)
+    viewModelGridReadonly context.config.toolTips Grid.initialUnsorted model.modelList |> Html.map (\_ -> None)
 
 
 dataSetListView : ContextModel -> Model -> Html Msg
 dataSetListView context model =
-    viewDataSetGridReadonly context.config.toolTips (Table.initialSort "dataSetName") model.dataSetList |> Html.map (\_ -> None)
+    viewDataSetGridReadonly context.config.toolTips Grid.initialUnsorted model.dataSetList |> Html.map (\_ -> None)
 
 
 sessionListView : ContextModel -> Model -> Html Msg
 sessionListView context model =
-    viewSessionGridReadonly context.config.toolTips (Table.initialSort "name") model.sessionList |> Html.map (\_ -> None)
+    viewSessionGridReadonly context.config.toolTips Grid.initialUnsorted model.sessionList |> Html.map (\_ -> None)
 
 
 viewRecentPanel : String -> Html Msg -> ( AppRoutes.Route, Maybe AppRoutes.Route ) -> Html Msg
@@ -279,7 +327,7 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
     div [ class "panel panel-default" ]
         [ div [ class "panel-body" ]
             [ div [ class "row" ]
-                [ div [ class "col-sm-6 p10" ]
+                [ div [ class "col-sm-6 pleft0" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
                 , div [ class "col-sm-6 pt5 pr0 right" ]

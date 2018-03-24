@@ -139,7 +139,7 @@ mapToPagedListing currentPage rows =
             10
     in
     { pageNumber = currentPage
-    , totalPages = count // pageSize
+    , totalPages = (count + pageSize - 1) // pageSize
     , pageSize = pageSize
     , totalCount = count
     , items = rows

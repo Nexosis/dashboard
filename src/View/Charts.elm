@@ -5,12 +5,12 @@ import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData)
-import Data.Session as Session exposing (SessionData, SessionResults)
+import Data.Session as Session exposing (..)
 import Dict exposing (Dict)
-import Html exposing (Html, div, h3, table, tbody, td, tr)
-import Html.Attributes exposing (attribute, class, style)
+import Html exposing (Html, div, h3, span, table, tbody, td, tr)
+import Html.Attributes exposing (attribute, class, colspan, rowspan, style)
 import List.Extra exposing (find)
-import String.Extra exposing (replace)
+import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
 
 
@@ -42,7 +42,7 @@ forecastResults sessionResults session dataSet windowWidth =
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
                         << color
                             [ MName pointTypeName
@@ -53,13 +53,16 @@ forecastResults sessionResults session dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
+
+                data =
+                    dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
+                , data
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
@@ -88,7 +91,7 @@ impactResults sessionResults session dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat "%x" ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -165,6 +168,16 @@ impactResults sessionResults session dataSet windowWidth =
                 []
 
 
+axisLabelFormat : SessionData -> String
+axisLabelFormat session =
+    case session.resultInterval of
+        Just Hour ->
+            "%x %X"
+
+        _ ->
+            "%x"
+
+
 regressionResults : SessionResults -> SessionData -> Int -> Spec
 regressionResults sessionResults session windowWidth =
     let
@@ -185,8 +198,8 @@ regressionResults sessionResults session windowWidth =
                 ( sumX, sumY ) =
                     List.foldl (\( x, y ) ( sx, sy ) -> ( sx + x, sy + y )) ( 0, 0 ) dataValues
 
-                sumXSquare =
-                    List.foldl (\( x, _ ) s -> s + x ^ 2) 0 dataValues
+                sumYSquare =
+                    List.foldl (\( _, y ) s -> s + y ^ 2) 0 dataValues
 
                 sumXY =
                     List.foldl (\( x, y ) s -> s + (x * y)) 0 dataValues
@@ -203,17 +216,18 @@ regressionResults sessionResults session windowWidth =
                 meanXY =
                     sumXY / valuesLength
 
-                meanXSquare =
-                    sumXSquare / valuesLength
+                meanYSquare =
+                    sumYSquare / valuesLength
 
-                meanSquareX =
-                    meanX ^ 2
+                meanSquareY =
+                    meanY ^ 2
 
+                -- Calculation of m and b have the axes reversed compared to convention (Wikipedia), but this is the correct line for our plot.
                 m =
-                    (meanXY - (meanX * meanY)) / (meanXSquare - meanSquareX)
+                    (meanXY - (meanX * meanY)) / (meanYSquare - meanSquareY)
 
                 b =
-                    meanY - m * meanX
+                    meanX - m * meanY
 
                 actualName =
                     targetCol.name ++ ":actual"
@@ -337,16 +351,6 @@ resultsToRows result =
         []
 
 
-resultIntervalToTimeUnit : Maybe Session.ResultInterval -> TimeUnit
-resultIntervalToTimeUnit resultInterval =
-    case resultInterval of
-        Just Session.Hour ->
-            Hours
-
-        _ ->
-            YearMonthDate
-
-
 mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
 mapAggregation aggregate =
     case aggregate of
@@ -389,7 +393,7 @@ renderConfusionMatrix matrix =
                 [ tbody []
                     (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
                         -- footer is the set of classes
-                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ Html.text c ]) (Array.toList matrix.classes)) ]
+                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
                     )
                 ]
             ]

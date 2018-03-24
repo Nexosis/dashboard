@@ -20,26 +20,27 @@ import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (PutUploadRequest, put)
-import Request.Import exposing (PostUrlRequest)
+import Request.DataSet exposing (PutUploadRequest, createDataSetWithKey, put)
+import Request.Import exposing (PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), delayTask, spinner, unwrapErrors)
-import Verify exposing (Validator)
+import Util exposing ((=>), delayTask, formatDisplayName, spinner, unwrapErrors)
+import Verify exposing (Validator, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
-import View.Extra exposing (viewIf, viewIfElements)
+import View.Extra exposing (viewIf, viewIfElements, viewJust)
 import View.Wizard as Wizard exposing (WizardConfig, viewButtons)
 
 
 type alias Model =
     { steps : Ziplist Step
     , name : String
-    , key : String
+    , key : Maybe String
     , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData Data.Import.ImportDetail
+    , awsRegions : AwsRegions
     , errors : List FieldError
     }
 
@@ -48,12 +49,26 @@ type alias FileUploadEntry =
     { fileContent : String
     , fileName : String
     , fileUploadType : DataFormat.DataFormat
-    , fileUploadErrorOccurred : Bool
+    , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     }
 
 
 type alias UrlImportEntry =
     { importUrl : String }
+
+
+type alias AwsRegions =
+    { regions : List ( String, String )
+    }
+
+
+type alias S3ImportEntry =
+    { bucket : String
+    , path : String
+    , region : Maybe String
+    , accessKeyId : Maybe String
+    , secretAccessKey : Maybe String
+    }
 
 
 type Step
@@ -64,11 +79,13 @@ type Step
 type Tab
     = FileUploadTab FileUploadEntry
     | UrlImportTab UrlImportEntry
+    | S3ImportTab S3ImportEntry
 
 
 type AddDataSetRequest
     = PutUpload PutUploadRequest
     | ImportUrl PostUrlRequest
+    | ImportS3 PostS3Request
 
 
 initFileUploadTab : FileUploadEntry
@@ -76,20 +93,26 @@ initFileUploadTab =
     { fileContent = ""
     , fileName = ""
     , fileUploadType = DataFormat.Other
-    , fileUploadErrorOccurred = False
+    , fileUploadErrorOccurred = Nothing
     }
 
 
-initImportTab : UrlImportEntry
-initImportTab =
+initImportUrlTab : UrlImportEntry
+initImportUrlTab =
     { importUrl = "" }
+
+
+initImportS3Tab : S3ImportEntry
+initImportS3Tab =
+    { path = "", bucket = "", region = Nothing, accessKeyId = Nothing, secretAccessKey = Nothing }
 
 
 initTabs : Ziplist ( Tab, String )
 initTabs =
     Ziplist.create []
         ( FileUploadTab <| initFileUploadTab, "Upload" )
-        [ ( UrlImportTab <| initImportTab, "Import from URL" )
+        [ ( UrlImportTab <| initImportUrlTab, "Import from URL" )
+        , ( S3ImportTab <| initImportS3Tab, "Import from AWS S3" )
         ]
 
 
@@ -102,12 +125,35 @@ init config =
     Model
         steps
         ""
-        ""
+        Nothing
         initTabs
         Remote.NotAsked
         Remote.NotAsked
+        listAwsRegions
         []
         => Cmd.none
+
+
+listAwsRegions : AwsRegions
+listAwsRegions =
+    AwsRegions
+        [ ( "us-east-1", "US East (N. Virginia)" )
+        , ( "us-east-2", "US East (Ohio)" )
+        , ( "us-west-1", "US West (N. California)" )
+        , ( "us-west-2", "US West (Oregon)" )
+        , ( "ca-central-1", "Canada (Central)" )
+        , ( "eu-central-1", "EU (Frankfurt)" )
+        , ( "eu-west-1", "EU (Ireland)" )
+        , ( "eu-west-2", "EU (London)" )
+        , ( "eu-west-3", "EU (Paris)" )
+        , ( "ap-northeast-1", "Asia Pacific (Tokyo)" )
+        , ( "ap-northeast-2", "Asia Pacific (Seoul)" )
+        , ( "ap-northeast-3", "Asia Pacific (Osaka-Local)" )
+        , ( "ap-southeast-1", "Asia Pacific (Singapore)" )
+        , ( "ap-southeast-2", "Asia Pacific (Sydney)" )
+        , ( "ap-south-1", "Asia Pacific (Mumbai)" )
+        , ( "sa-east-1", "South America (São Paulo)" )
+        ]
 
 
 
@@ -118,6 +164,11 @@ type Field
     = DataSetNameField
     | UrlField
     | FileSelectionField
+    | PathField
+    | BucketField
+    | RegionField
+    | AccessTokenIdField
+    | SecretAccessKeyField
 
 
 type alias FieldError =
@@ -135,6 +186,10 @@ validateModel model =
             validateUrlImportModel model urlImportEntry
                 |> Result.map ImportUrl
 
+        ( S3ImportTab s3ImportEntry, _ ) ->
+            validateS3ImportModel model s3ImportEntry
+                |> Result.map ImportS3
+
 
 validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
 validateFileUploadModel model =
@@ -149,6 +204,18 @@ validateUrlImportModel model =
     Verify.ok PostUrlRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.verify .importUrl (verifyRegex urlRegex (UrlField => "Enter a valid url."))
+        |> Verify.keep (always model.key)
+
+
+validateS3ImportModel : Model -> Validator FieldError S3ImportEntry PostS3Request
+validateS3ImportModel model =
+    Verify.ok PostS3Request
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .bucket (notBlank (BucketField => "Bucket required."))
+        |> Verify.verify .path (notBlank (PathField => "Path required."))
+        |> Verify.keep .region
+        |> Verify.keep .accessKeyId
+        |> Verify.keep .secretAccessKey
 
 
 verifyFileType : error -> Validator error DataFormat.DataFormat String
@@ -212,6 +279,11 @@ type Msg
 type TabMsg
     = FileContentRead Json.Decode.Value
     | ImportUrlInputChange String
+    | S3PathChange String
+    | S3BucketChange String
+    | S3RegionChange String
+    | S3AccessKeyIdChange String
+    | S3SecretAccessKeyChange String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -227,7 +299,7 @@ update msg model context =
                         |> Ziplist.find (\( _, name ) -> name == tabName)
                         |> Maybe.withDefault model.tabs
             in
-            { model | tabs = newTabs } => Cmd.none
+            { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
             model => Ports.uploadFileSelected "upload-dataset"
@@ -236,15 +308,36 @@ update msg model context =
             updateTabContents model tabMsg => Cmd.none
 
         ( SetKey, ChangeKey key ) ->
-            { model | key = key } => Cmd.none
+            let
+                keyValue =
+                    if String.isEmpty key then
+                        Nothing
+                    else
+                        Just key
+            in
+            { model | key = keyValue } => Cmd.none
 
         ( SetKey, CreateDataSet createRequest ) ->
             case createRequest of
                 PutUpload request ->
                     let
-                        putRequest =
+                        setKeyRequest =
+                            case model.key of
+                                Just key ->
+                                    createDataSetWithKey context.config request.name key
+                                        |> Http.toTask
+
+                                Nothing ->
+                                    Task.succeed ()
+
+                        putDataRequest =
                             put context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        putRequest =
+                            setKeyRequest
+                                |> Task.andThen (always putDataRequest)
+                                |> Remote.asCmd
                                 |> Cmd.map UploadDataSetResponse
                     in
                     { model | uploadResponse = Remote.Loading } => putRequest
@@ -253,6 +346,15 @@ update msg model context =
                     let
                         importRequest =
                             Request.Import.postUrl context.config request
+                                |> Remote.sendRequest
+                                |> Cmd.map ImportResponse
+                    in
+                    { model | importResponse = Remote.Loading } => importRequest
+
+                ImportS3 request ->
+                    let
+                        importRequest =
+                            Request.Import.postS3 context.config request
                                 |> Remote.sendRequest
                                 |> Cmd.map ImportResponse
                     in
@@ -342,7 +444,7 @@ updateTabContents model msg =
                     let
                         readStatus =
                             Json.Decode.decodeValue File.fileReadStatusDecoder readResult
-                                |> Result.withDefault File.ReadError
+                                |> Result.withDefault (File.ReadError File.UnknownError)
 
                         m =
                             case readStatus of
@@ -352,21 +454,21 @@ updateTabContents model msg =
                                             { fileContent = content
                                             , fileName = fileName
                                             , fileUploadType = DataFormat.Json
-                                            , fileUploadErrorOccurred = False
+                                            , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Csv ->
                                             { fileContent = content
                                             , fileName = fileName
                                             , fileUploadType = DataFormat.Csv
-                                            , fileUploadErrorOccurred = False
+                                            , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Other ->
-                                            { fileUploadEntry | fileUploadErrorOccurred = True }
+                                            { fileUploadEntry | fileUploadErrorOccurred = Just File.UnsupportedFileType }
 
-                                File.ReadError ->
-                                    { fileUploadEntry | fileUploadErrorOccurred = True }
+                                File.ReadError readError ->
+                                    { fileUploadEntry | fileUploadErrorOccurred = Just readError }
                     in
                     ( FileUploadTab m, id )
 
@@ -376,6 +478,26 @@ updateTabContents model msg =
                             { urlTab | importUrl = urlEntry }
                     in
                     ( UrlImportTab urlImportModel, id )
+
+                ( ( S3ImportTab s3Tab, id ), changeMsg ) ->
+                    case changeMsg of
+                        S3PathChange path ->
+                            ( S3ImportTab { s3Tab | path = path }, id )
+
+                        S3BucketChange bucket ->
+                            ( S3ImportTab { s3Tab | bucket = bucket }, id )
+
+                        S3RegionChange region ->
+                            ( S3ImportTab { s3Tab | region = Just <| region }, id )
+
+                        S3AccessKeyIdChange accessKeyId ->
+                            ( S3ImportTab { s3Tab | accessKeyId = Just <| accessKeyId }, id )
+
+                        S3SecretAccessKeyChange secret ->
+                            ( S3ImportTab { s3Tab | secretAccessKey = Just <| secret }, id )
+
+                        _ ->
+                            ( S3ImportTab s3Tab, id )
 
                 ( _, _ ) ->
                     model.tabs.current
@@ -399,7 +521,7 @@ view model context =
     div []
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.list
-            , div [ class "col-sm-6" ] [ h2 [ class "mt10" ] [ text "Add DataSet" ] ]
+            , div [ class "col-sm-6" ] [ h2 [] [ text "Add DataSet" ] ]
             ]
         , div [ class "row" ]
             [ case model.steps.current of
@@ -411,7 +533,7 @@ view model context =
             ]
         , hr [] []
         , div [ class "row" ]
-            [ div [ class "col-sm-4" ]
+            [ div [ class "col-sm-12 right" ]
                 [ viewButtons configWizard
                     model
                     model.steps
@@ -439,7 +561,7 @@ viewChooseUploadType context model =
             [ class "col-sm-12" ]
             [ div [ class "form-group col-sm-4" ]
                 [ label [] [ text "DataSet Name" ]
-                , input [ class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
+                , input [ type_ "text", class "form-control", onInput ChangeName, onBlur InputBlur, value model.name ] []
                 , viewFieldError model.errors DataSetNameField
                 ]
             ]
@@ -515,11 +637,11 @@ viewSetKey config model =
             , div [ class "col-sm-4" ]
                 [ div [ class "form-group" ]
                     [ label [] [ text "Key" ]
-                    , input [ class "form-control", placeholder "(Optional)", value model.key ] []
+                    , input [ type_ "text", class "form-control", placeholder "(Optional)", value <| Maybe.withDefault "" model.key, onInput ChangeKey ] []
                     ]
                 , errorDisplay
                 ]
-            , div [ class "col-sm-6" ]
+            , div [ class "col-sm-6 col-sm-offset-2" ]
                 [ div [ class "alert alert-info" ]
                     [ explainer config "why_choose_key"
                     ]
@@ -532,7 +654,7 @@ viewEntryReview : Model -> List (Html Msg)
 viewEntryReview model =
     let
         dataSetName =
-            ( "DataSet Name", model.name )
+            ( "DataSet Name", formatDisplayName model.name )
 
         properties =
             case model.tabs.current of
@@ -541,6 +663,14 @@ viewEntryReview model =
 
                 ( UrlImportTab urlImport, _ ) ->
                     [ ( "Url", urlImport.importUrl ) ]
+
+                ( S3ImportTab s3Import, _ ) ->
+                    [ ( "Path", s3Import.path )
+                    , ( "Bucket", s3Import.bucket )
+                    , ( "Region", Maybe.withDefault "" s3Import.region )
+                    , ( "Access Key Id", Maybe.withDefault "" s3Import.accessKeyId )
+                    , ( "Secret Access Key", Maybe.withDefault "" s3Import.secretAccessKey )
+                    ]
     in
     dataSetName
         :: properties
@@ -569,12 +699,12 @@ viewTabControl model =
 
 viewInactiveTab : ( Tab, String ) -> Html Msg
 viewInactiveTab ( _, tabText ) =
-    li [] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewActiveTab : ( Tab, String ) -> Html Msg
 viewActiveTab ( _, tabText ) =
-    li [ class "active" ] [ a [ onClick (ChangeTab tabText) ] [ text tabText ] ]
+    li [ class "active" ] [ a [ attribute "role" "button", onClick (ChangeTab tabText) ] [ text tabText ] ]
 
 
 viewTabContent : ContextModel -> Model -> Html Msg
@@ -587,6 +717,9 @@ viewTabContent context model =
 
                 ( UrlImportTab urlImportEntry, _ ) ->
                     viewImportUrlTab context.config urlImportEntry model
+
+                ( S3ImportTab s3ImportEntry, _ ) ->
+                    viewImportS3Tab context.config s3ImportEntry model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -615,7 +748,19 @@ viewUploadTab config tabModel model =
                     []
                 , label [ for "upload-dataset" ] [ text uploadButtonText ]
                 , viewFieldError model.errors FileSelectionField
-                , viewIf (\() -> div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and try again." ]) tabModel.fileUploadErrorOccurred
+                , viewJust
+                    (\errorType ->
+                        case errorType of
+                            File.FileTooLarge ->
+                                div [ class "alert alert-danger" ] [ text "Files uploaded through the browser must be less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+
+                            File.UnsupportedFileType ->
+                                div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
+
+                            File.UnknownError ->
+                                div [ class "alert alert-danger" ] [ text "An error occurred when uploading the file.  Please ensure it is a valid JSON or CSV file and less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+                    )
+                    tabModel.fileUploadErrorOccurred
                 ]
             ]
         , div [ class "col-sm-6" ]
@@ -632,7 +777,7 @@ viewImportUrlTab config tabModel model =
         [ div [ class "col-sm-6" ]
             [ div [ class "form-group col-sm-8" ]
                 [ label [] [ text "File URL" ]
-                , input [ class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value tabModel.importUrl, onBlur InputBlur ] []
+                , input [ type_ "text", class "form-control", onInput <| \c -> TabMsg (ImportUrlInputChange c), value tabModel.importUrl, onBlur InputBlur ] []
                 , viewFieldError model.errors UrlField
                 ]
             ]
@@ -642,6 +787,63 @@ viewImportUrlTab config tabModel model =
                 ]
             ]
         ]
+
+
+viewImportS3Tab : Config -> S3ImportEntry -> Model -> Html Msg
+viewImportS3Tab config tabModel model =
+    div [ class "row" ]
+        [ div [ class "col-sm-6" ]
+            [ div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Bucket Name", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3BucketChange c), value tabModel.bucket, onBlur InputBlur ] []
+                , viewFieldError model.errors BucketField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "File Path", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3PathChange c), value tabModel.path, onBlur InputBlur ] []
+                , viewFieldError model.errors PathField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "AWS Region" ]
+                , viewRegions model tabModel.region
+                , viewFieldError model.errors RegionField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Access Key Id" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3AccessKeyIdChange c), value <| Maybe.withDefault "" tabModel.accessKeyId, onBlur InputBlur ] []
+                , viewFieldError model.errors AccessTokenIdField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Secret Access Key" ]
+                , input [ class "form-control", onInput <| \c -> TabMsg (S3SecretAccessKeyChange c), value <| Maybe.withDefault "" tabModel.secretAccessKey, onBlur InputBlur ] []
+                , viewFieldError model.errors SecretAccessKeyField
+                ]
+            ]
+        , div [ class "col-sm-6" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer config "how_upload_s3"
+                ]
+            ]
+        ]
+
+
+viewRegions : Model -> Maybe String -> Html Msg
+viewRegions model selectedRegion =
+    let
+        isSelected val selected =
+            case selected of
+                Nothing ->
+                    False
+
+                Just s ->
+                    val == s
+
+        optionize ( val, name ) =
+            option [ value val, selected <| isSelected val selectedRegion ]
+                [ text name ]
+    in
+    select [ class "form-control", onInput <| \c -> TabMsg (S3RegionChange c) ]
+        (List.map optionize model.awsRegions.regions)
 
 
 viewPasteInTab : Model -> Html Msg

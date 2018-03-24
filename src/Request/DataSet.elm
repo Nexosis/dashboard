@@ -1,4 +1,4 @@
-module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, delete, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
@@ -6,14 +6,16 @@ import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, Data
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
 import Json.Encode as Encode
+import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)
 import Set
 
 
-get : Config -> Int -> Int -> Http.Request DataSetList
-get config page pageSize =
+get : Config -> Int -> Int -> SortParameters -> Http.Request DataSetList
+get config page pageSize sorting =
     let
         params =
             pageParams page pageSize
+                ++ sortParams sorting
     in
     (config.baseUrl ++ "/data")
         |> HttpBuilder.get
@@ -23,11 +25,11 @@ get config page pageSize =
         |> HttpBuilder.toRequest
 
 
-getRetrieveDetail : Config -> DataSetName -> Http.Request DataSetData
-getRetrieveDetail config name =
+getRetrieveDetail : Config -> DataSetName -> Int -> Int -> Http.Request DataSetData
+getRetrieveDetail config name pgNum pgSize =
     let
         params =
-            pageParams 0 1
+            pageParams pgNum pgSize
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
@@ -44,6 +46,7 @@ getDataByDateRange config name dateRange include =
             pageParams 0 1000
                 ++ dateParams dateRange
                 ++ includeParams include
+                ++ [ ( "formatDates", "true" ) ]
     in
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
@@ -140,3 +143,25 @@ encodeMetadataPutDataRequest request =
 uriEncodeDataSetName : DataSetName -> String
 uriEncodeDataSetName name =
     Http.encodeUri <| dataSetNameToString name
+
+
+createDataSetWithKey : Config -> String -> String -> Http.Request ()
+createDataSetWithKey config dataSetName keyName =
+    let
+        keyBody =
+            Encode.object [ ( "columns", encodeKeyColumnMetadata keyName ) ]
+    in
+    (config.baseUrl ++ "/data/" ++ Http.encodeUri dataSetName)
+        |> HttpBuilder.put
+        |> withAuthorization config
+        |> HttpBuilder.withJsonBody keyBody
+        |> HttpBuilder.toRequest
+
+
+encodeKeyColumnMetadata : String -> Encode.Value
+encodeKeyColumnMetadata key =
+    Encode.object <|
+        [ ( key
+          , Encode.object [ ( "role", Encode.string "key" ) ]
+          )
+        ]

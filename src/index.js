@@ -15,6 +15,7 @@ import 'nexosis-styles/bootstrap-custom.css';
 import 'nexosis-styles/nexosis.css';
 import 'nexosis-styles/api-styles.css';
 import 'nexosis-styles/docs-styles.css';
+import 'nexosis-styles/hubspot-forms.css';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -122,31 +123,36 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 var file = node.files[0];
                 if (file !== undefined) {
-                    var reader = new FileReader();
+                    if(file.size > 1000000) {
+                        app.ports.fileContentRead.send({ status : 'FileTooLarge'});
+                    } else {
 
-                    reader.onload = (function (event) {
-                        try {
+                        var reader = new FileReader();
 
-                            var fileContent = event.target.result;
+                        reader.onload = (function (event) {
+                            try {
 
-                            var portData = {
-                                contents: fileContent,
-                                filename: file.name,
-                                status: 'Success'
-                            };
+                                var fileContent = event.target.result;
 
-                            app.ports.fileContentRead.send(portData);
-                        }
-                        catch (e) {
-                            app.ports.fileContentRead.send({ status: 'ReadFail' })
-                        }
-                    });
+                                var portData = {
+                                    contents: fileContent,
+                                    filename: file.name,
+                                    status: 'Success'
+                                };
 
-                    reader.onerror = (function (event) {
-                        app.ports.fileContentRead.send({ status: 'ReadFail' })
-                    });
+                                app.ports.fileContentRead.send(portData);
+                            }
+                            catch (e) {
+                                app.ports.fileContentRead.send({ status: 'UnknownError' });
+                            }
+                        });
 
-                    reader.readAsText(file);
+                        reader.onerror = (function (event) {
+                            app.ports.fileContentRead.send({ status: 'UnknownError' });
+                        });
+
+                        reader.readAsText(file);
+                    }
                 }
             });
 
@@ -181,11 +187,16 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
                     }
+                    
+                    let responseText = '';
+                    if (xhr.response){
+                        responseText = JSON.stringify(JSON.parse(xhr.response), null, 2);
+                    }
 
                     let xhrInfo = {
                         status: xhr.status,
                         statusText: xhr.statusText,
-                        response: JSON.stringify(JSON.parse(xhr.response), null, 2),
+                        response: responseText, 
                         method: xhr.method,
                         url: xhr.url,
                         quotas: quotas,
@@ -214,6 +225,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             app.ports.setPageTitle.subscribe(function (title) {
                 document.title = `${title} - Nexosis API`;
+            });
+
+            app.ports.scrollIntoView.subscribe(function(elementId){
+                requestAnimationFrame(() => {
+                    let elem = document.getElementById(elementId);
+                    if(elem){
+                        elem.scrollIntoView(true);
+                    }
+                });
             });
         });
     });

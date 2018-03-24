@@ -4,7 +4,7 @@ import Autocomplete
 import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as DictX
@@ -14,10 +14,10 @@ import Html.Events exposing (onFocus, onInput)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
+import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
-import Table
-import Util exposing ((=>), commaFormatInteger, formatFloatToString, styledNumber)
+import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid
@@ -30,7 +30,7 @@ type alias Model =
     { columnMetadata : Remote.WebData ColumnMetadataListing
     , statsResponse : Remote.WebData DataSetStats
     , dataSetName : DataSetName
-    , tableState : Table.State
+    , tableState : Grid.State
     , modifiedMetadata : Dict String ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
@@ -56,7 +56,7 @@ type alias ColumnMetadataListing =
 
 type Msg
     = StatsResponse (Remote.WebData DataSetStats)
-    | SetTableState Table.State
+    | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
     | TypeSelectionChanged ColumnMetadata DataType
@@ -72,7 +72,7 @@ type Msg
 
 init : DataSetName -> Bool -> ( Model, Cmd Msg )
 init dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Table.initialSort "columnName") Dict.empty Autocomplete.empty "" Nothing False showTarget
+    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Autocomplete.empty "" Nothing False showTarget
         => Cmd.none
 
 
@@ -86,11 +86,16 @@ mapColumnListToPagedListing context columns =
             context.userPageSize
     in
     { pageNumber = 0
-    , totalPages = count // context.userPageSize
+    , totalPages = calcTotalPages count pageSize
     , pageSize = context.userPageSize
     , totalCount = count
     , metadata = DictX.fromListBy .name columns
     }
+
+
+calcTotalPages : Int -> Int -> Int
+calcTotalPages count pageSize =
+    (count + pageSize - 1) // pageSize
 
 
 updateDataSetResponse : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
@@ -297,9 +302,14 @@ filterColumnNames query columnMetadata =
 onKeyDown : Char.KeyCode -> Maybe String -> Maybe Msg
 onKeyDown code maybeId =
     if code == 38 || code == 40 then
+        -- up & down arrows
         Maybe.map PreviewTarget maybeId
     else if code == 13 || code == 9 then
+        -- enter & tab
         Maybe.map SetTarget maybeId
+    else if code == 27 then
+        --escape
+        Just <| SetQuery ""
     else
         Nothing
 
@@ -355,7 +365,7 @@ updateColumnPageNumber pageNumber columnListing =
 
 updateColumnPageSize : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
 updateColumnPageSize pageSize columnListing =
-    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
+    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = calcTotalPages columnListing.totalCount pageSize } => Cmd.none
 
 
 updateColumnMetadata : Dict String ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
@@ -406,8 +416,8 @@ view context model =
         ]
 
 
-viewTargetAndKeyColumns : Model -> Html Msg
-viewTargetAndKeyColumns model =
+viewTargetAndKeyColumns : ContextModel -> Model -> Html Msg
+viewTargetAndKeyColumns context model =
     let
         ( keyFormGroup, targetFormGroup ) =
             case model.columnMetadata of
@@ -419,7 +429,7 @@ viewTargetAndKeyColumns model =
                                 |> Maybe.map (viewKeyFormGroup << Tuple.second)
                                 |> Maybe.withDefault (div [] [])
                     in
-                    ( keyGroup, viewTargetFormGroup model )
+                    ( keyGroup, viewTargetFormGroup context model )
 
                 Remote.Loading ->
                     ( viewLoadingFormGroup, viewLoadingFormGroup )
@@ -457,15 +467,15 @@ viewKeyFormGroup key =
         ]
 
 
-viewTargetFormGroup : Model -> Html Msg
-viewTargetFormGroup model =
+viewTargetFormGroup : ContextModel -> Model -> Html Msg
+viewTargetFormGroup context model =
     if model.showTarget then
         let
             queryText =
                 Maybe.withDefault model.targetQuery model.previewTarget
         in
         div [ class "form-group" ]
-            [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+            [ label [ class "control-label col-sm-3 mr0 pr0" ] (text "Target" :: helpIcon context.config.toolTips "Target")
             , div [ class "col-sm-8" ]
                 [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
                 , viewIf
@@ -536,16 +546,16 @@ nameColumn =
     Grid.veryCustomColumn
         { name = "Column Name"
         , viewData = columnNameCell
-        , sorter = Table.increasingOrDecreasingBy (\c -> c.name)
+        , sorter = Grid.increasingOrDecreasingBy (\c -> c.name)
         , headAttributes = [ class "left per25" ]
         , headHtml = []
         }
 
 
-columnNameCell : ColumnMetadata -> Table.HtmlDetails Msg
+columnNameCell : ColumnMetadata -> Grid.HtmlDetails Msg
 columnNameCell column =
-    Table.HtmlDetails [ class "name" ]
-        [ text column.name ]
+    Grid.HtmlDetails [ class "name" ]
+        [ text <| formatDisplayName column.name ]
 
 
 typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
@@ -553,15 +563,15 @@ typeColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Type"
         , viewData = dataTypeCell
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Type"
+        , headHtml = text "Type " :: makeIcon "Type"
         }
 
 
-dataTypeCell : ColumnMetadata -> Table.HtmlDetails Msg
+dataTypeCell : ColumnMetadata -> Grid.HtmlDetails Msg
 dataTypeCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
 
 
 roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
@@ -569,15 +579,15 @@ roleColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Role"
         , viewData = roleCell
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Role"
+        , headHtml = text "Role " :: makeIcon "Role"
         }
 
 
-roleCell : ColumnMetadata -> Table.HtmlDetails Msg
+roleCell : ColumnMetadata -> Grid.HtmlDetails Msg
 roleCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
 
 
 enumOption : e -> e -> Html Msg
@@ -590,15 +600,15 @@ imputationColumn makeIcon =
     Grid.veryCustomColumn
         { name = "Imputation"
         , viewData = imputationCell
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
-        , headHtml = makeIcon "Imputation"
+        , headHtml = text "Imputation " :: makeIcon "Imputation"
         }
 
 
-imputationCell : ColumnMetadata -> Table.HtmlDetails Msg
+imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
-    Table.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
 
 
 statsColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
@@ -606,19 +616,19 @@ statsColumn stats =
     Grid.veryCustomColumn
         { name = "Stats"
         , viewData = statsCell stats
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per20", colspan 2 ]
         , headHtml = []
         }
 
 
-statsCell : ColumnStatsDict -> ColumnMetadata -> Table.HtmlDetails Msg
+statsCell : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 statsCell stats column =
     let
         columnStats =
             Dict.get column.name stats
     in
-    Table.HtmlDetails [ class "stats" ]
+    Grid.HtmlDetails [ class "stats" ]
         [ statsDisplay columnStats ]
 
 
@@ -634,7 +644,7 @@ statsDisplay columnStats =
                     , strong [] [ text "Max: " ]
                     , styledNumber <| stats.max
                     , br [] []
-                    , strong [] [ text "Standard Deviation: " ]
+                    , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
                     , strong [ class "text-danger" ] [ text "Errors: " ]
@@ -670,13 +680,13 @@ histogramColumn =
     Grid.veryCustomColumn
         { name = "Distribution"
         , viewData = histogram
-        , sorter = Table.unsortable
+        , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
 
 
-histogram : ColumnMetadata -> Table.HtmlDetails Msg
+histogram : ColumnMetadata -> Grid.HtmlDetails Msg
 histogram column =
-    Table.HtmlDetails []
+    Grid.HtmlDetails []
         [ div [ id ("histogram_" ++ column.name) ] [] ]

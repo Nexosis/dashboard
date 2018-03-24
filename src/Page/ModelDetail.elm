@@ -17,7 +17,7 @@ import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Request.Model exposing (getOne)
-import Util exposing ((=>), formatFloatToString, styledNumber)
+import Util exposing ((=>), formatDisplayName, formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
@@ -26,11 +26,10 @@ import View.Tooltip exposing (helpIconFromText)
 
 type alias Model =
     { modelId : String
-    , modelResponse : Remote.WebData ModelData
+    , loadingResponse : Remote.WebData ModelData
     , modelType : PredictionDomain
     , deleteDialogModel : Maybe DeleteDialog.Model
     , predictModel : Maybe ModelPredict.Model
-    , metricList : List Metric
     }
 
 
@@ -42,7 +41,7 @@ init context modelId =
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
-    Model modelId Remote.Loading Regression Nothing Nothing context.metricExplainers => loadModelDetail
+    Model modelId Remote.Loading Regression Nothing Nothing => loadModelDetail
 
 
 subscriptions : Model -> Sub Msg
@@ -69,13 +68,18 @@ update msg model context =
         ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    { model | modelResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
+                    { model
+                        | loadingResponse = response
+                        , modelType = modelInfo.predictionDomain
+                        , predictModel = Just (ModelPredict.init context.config model.modelId modelInfo.modelName)
+                    }
+                        => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
 
                 Remote.Failure err ->
-                    model => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
-                    model => Cmd.none
+                    { model | loadingResponse = response } => Cmd.none
 
         ModelPredictMsg subMsg ->
             let
@@ -125,11 +129,9 @@ view model context =
         [ div [ id "page-header", class "row" ]
             [ Breadcrumb.detail Routes.Models "Models"
             , modelName model
-            , div [ class "col-sm-3" ]
-                []
+            , div [ class "col-sm-3" ] []
             ]
-        , detailRow model
-        , hr [] []
+        , detailRow model context
         , renderPredict context model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Model"
@@ -152,9 +154,9 @@ renderPredict context model =
 
 modelName : Model -> Html Msg
 modelName model =
-    case model.modelResponse of
+    case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "col-sm-9" ] [ h2 [ class "mt10" ] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
+            div [ class "col-sm-9" ] [ h2 [] [ text (Maybe.withDefault ("Model For " ++ resp.dataSourceName) resp.modelName) ] ]
 
         Remote.Loading ->
             text "Loading..."
@@ -163,27 +165,26 @@ modelName model =
             text "Not found"
 
 
-detailRow : Model -> Html Msg
-detailRow model =
-    case model.modelResponse of
+detailRow : Model -> ContextModel -> Html Msg
+detailRow model context =
+    case model.loadingResponse of
         Remote.Success resp ->
-            div [ class "row" ]
-                [ div [ class "col-sm-12" ] [ h5 [ class "mt15 mb15" ] [ text "Details" ] ]
-                , div [ class "col-sm-4" ]
+            div [ id "details", class "row" ]
+                [ div [ class "col-sm-4" ]
                     [ p []
                         [ strong [] [ text "Session Used: " ]
                         , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]
                         ]
                     , p []
                         [ strong [] [ text "Source: " ]
-                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text resp.dataSourceName ]
+                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text <| formatDisplayName resp.dataSourceName ]
                         ]
                     , p []
                         [ strong [] [ text "Target Column: " ]
-                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "")
+                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
                         ]
                     ]
-                , div [ class "col-sm-4" ] [ metricsList model resp.algorithm.name resp.metrics ]
+                , div [ class "col-sm-4" ] [ metricsList context resp.algorithm.name resp.metrics ]
                 , div [ class "col-sm-4 " ]
                     [ p [] [ strong [] [ text "Model Type: " ], text (toString model.modelType) ]
                     , p []
@@ -210,8 +211,8 @@ detailRow model =
             text "Not found"
 
 
-metricsList : Model -> String -> Dict String Float -> Html Msg
-metricsList model algo metrics =
+metricsList : ContextModel -> String -> Dict String Float -> Html Msg
+metricsList context algo metrics =
     div []
         [ p []
             [ strong [] [ text "Algorithm: " ]
@@ -221,14 +222,14 @@ metricsList model algo metrics =
             [ strong [] [ text "Metrics" ]
             , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map (metricListItem model) (Dict.toList metrics))
+        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map (metricListItem context) (Dict.toList metrics))
         ]
 
 
-metricListItem : Model -> ( String, Float ) -> Html Msg
-metricListItem model ( name, value ) =
+metricListItem : ContextModel -> ( String, Float ) -> Html Msg
+metricListItem context ( name, value ) =
     li []
-        [ strong [] ([ text (getMetricNameFromKey model.metricList name) ] ++ helpIconFromText (getMetricDescriptionFromKey model.metricList name))
+        [ strong [] ([ text (getMetricNameFromKey context.metricExplainers name) ] ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers name))
         , br [] []
         , styledNumber <| formatFloatToString value
         ]
