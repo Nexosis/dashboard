@@ -40,7 +40,18 @@ export default {
         })
     ],
     optimization: {
-        noEmitOnErrors: true
+        noEmitOnErrors: true,
+        splitChunks: {
+            cacheGroups: {
+                default: false,
+                commons: {
+                    // Do not include nexosis-styles as a vendor css file.
+                    test: /[\\/]node_modules[\\/](?!nexosis)/,
+                    name: 'vendor',
+                    chunks: 'all'
+                }
+            }
+        }
     },
     module: {
         rules: [

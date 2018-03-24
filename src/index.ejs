@@ -271,29 +271,14 @@
             </div>
         </div>
     </footer>
-    <script src="https://cdn.jsdelivr.net/npm/fetch-inject@1.9.1/dist/fetch-inject.umd.min.js">
-    </script>
     <script>
-        fetchInject(["https://cdn.jsdelivr.net/npm/vega-embed@3.0.0/build/vega-embed.min.js"],
-            fetchInject(["https://cdn.jsdelivr.net/npm/vega-lite@2.1.3/build/vega-lite.min.js"],
-                fetchInject(['https://cdn.jsdelivr.net/npm/vega@3.0.10/build/vega.min.js'])
-            )
-        );
-        fetchInject(["https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"],
-            fetchInject(["https://code.jquery.com/jquery-3.2.1.slim.min.js"]));
-
-        fetchInject(["https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"]);
-
-        fetchInject(['//js.hsforms.net/forms/v2.js']).then(function () {
-            hbspt.forms.create({
-                css: '',
-                portalId: '2307117',
-                formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84',
-                target: '#hs-footer'
-            })
+        hbspt.forms.create({
+            css: '',
+            portalId: '2307117',
+            formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84',
+            target: '#hs-footer'
         });
     </script>
-    <script src="https://use.fontawesome.com/524bb1a518.js" async></script>
 </body>
 
 </html>

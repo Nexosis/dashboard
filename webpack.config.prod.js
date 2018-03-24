@@ -61,7 +61,18 @@ export default {
         minimizer: [
             new OptimizeCssAssetsPlugin(),
             new UglifyJsPlugin({ sourceMap: true })
-        ]
+        ],
+        splitChunks: {
+            cacheGroups: {
+                default: false,
+                commons: {
+                    // Do not include nexosis-styles as a vendor css file.
+                    test: /[\\/]node_modules[\\/](?!nexosis)/,
+                    name: 'vendor',
+                    chunks: 'all'
+                }
+            }
+        }
     },
     module: {
         rules: [
@@ -80,10 +91,10 @@ export default {
                 use: [
                     MiniCssExtractPlugin.loader,
                     "css-loader",
-                    { 
-                        loader: "postcss-loader", 
-                        options: { 
-                            plugins: () => [ require('autoprefixer')]
+                    {
+                        loader: "postcss-loader",
+                        options: {
+                            plugins: () => [require('autoprefixer')]
                         }
                     },
                     "sass-loader"
