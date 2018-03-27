@@ -130,10 +130,6 @@ getQuotas resp =
 
 setRoute : Maybe ( AppRoutes.Route, String ) -> App -> ( App, Cmd Msg )
 setRoute route app =
-    let
-        scrollCmd =
-            Task.attempt (always NoOp) <| Scroll.toTop "html"
-    in
     case app.context.config.token of
         Nothing ->
             app => Navigation.load app.context.config.loginUrl
@@ -142,74 +138,80 @@ setRoute route app =
             let
                 enabled =
                     isEnabled app.enabledFeatures
-            in
+
+                scrollCmd =
+                    Task.attempt (always NoOp) <| Scroll.toTop "html"
+
+                ((newApp, cmd), title) =
             case route of
                 Nothing ->
                     -- TODO Load 404 page not found
-                    ( app, Cmd.none )
+                    ( app, Cmd.none) => "Not Found" 
 
                 Just ( AppRoutes.Home, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Home.init app.context.config (getQuotas app.lastResponse)
                     in
-                    { app | page = Home pageModel } => Cmd.batch [ Cmd.map HomeMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = Home pageModel } => Cmd.map HomeMsg initCmd => title
 
                 Just ( AppRoutes.DataSets, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSets.init app.context
                     in
-                    { app | page = DataSets pageModel } => Cmd.batch [ Cmd.map DataSetsMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = DataSets pageModel } =>  Cmd.map DataSetsMsg initCmd => title
 
                 Just ( AppRoutes.DataSetDetail name, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetDetail.init app.context name
                     in
-                    { app | page = DataSetDetail pageModel } => Cmd.batch [ Cmd.map DataSetDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
+                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd => title
 
                 Just ( AppRoutes.DataSetAdd, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             DataSetAdd.init app.context.config
                     in
-                    { app | page = DataSetAdd pageModel } => Cmd.batch [ Cmd.map DataSetAddMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd => title
 
                 Just ( AppRoutes.Sessions, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Sessions.init app.context
                     in
-                    { app | page = Sessions pageModel } => Cmd.batch [ Cmd.map SessionsMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = Sessions pageModel } => Cmd.map SessionsMsg initCmd => title
 
                 Just ( AppRoutes.SessionDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             SessionDetail.init app.context id
                     in
-                    { app | page = SessionDetail pageModel } => Cmd.batch [ Cmd.map SessionDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
+                    { app | page = SessionDetail pageModel } => Cmd.map SessionDetailMsg initCmd => title
 
                 Just ( AppRoutes.SessionStart dataSetName, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             SessionStart.init app.context.config dataSetName
                     in
-                    { app | page = SessionStart pageModel } => Cmd.batch [ Cmd.map SessionStartMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = SessionStart pageModel } => Cmd.map SessionStartMsg initCmd => title
 
                 Just ( AppRoutes.Models, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             Models.init app.context
                     in
-                    { app | page = Models pageModel } => Cmd.batch [ Cmd.map ModelsMsg initCmd, Ports.setPageTitle title ]
+                    { app | page = Models pageModel } =>  Cmd.map ModelsMsg initCmd => title
 
                 Just ( AppRoutes.ModelDetail id, title ) ->
                     let
                         ( pageModel, initCmd ) =
                             ModelDetail.init app.context id
                     in
-                    { app | page = ModelDetail pageModel } => Cmd.batch [ Cmd.map ModelDetailMsg initCmd, Ports.setPageTitle title, scrollCmd ]
+                    { app | page = ModelDetail pageModel } => Cmd.map ModelDetailMsg initCmd => title
+            in
+                newApp => Cmd.batch [ cmd, Ports.setPageTitle title, scrollCmd ]
 
 
 extractError : { b | loadingError : Maybe Http.Error } -> Maybe Http.Error
