@@ -23,7 +23,7 @@ import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatTo
 import VegaLite exposing (Spec, combineSpecs)
 import View.Charts exposing (distributionHistogram)
 import View.Extra exposing (viewIf)
-import View.Grid as Grid
+import View.Grid as Grid exposing (defaultCustomizations)
 import View.PageSize as PageSize
 import View.Pager as Pager
 import View.Tooltip exposing (helpIcon)
@@ -89,11 +89,16 @@ mapColumnListToPagedListing context columns =
             context.userPageSize
     in
     { pageNumber = 0
-    , totalPages = count // context.userPageSize
+    , totalPages = calcTotalPages count pageSize
     , pageSize = context.userPageSize
     , totalCount = count
     , metadata = DictX.fromListBy .name columns
     }
+
+
+calcTotalPages : Int -> Int -> Int
+calcTotalPages count pageSize =
+    (count + pageSize - 1) // pageSize
 
 
 updateDataSetResponse : ContextModel -> Model -> Remote.WebData DataSetData -> ( Model, Cmd Msg )
@@ -385,7 +390,7 @@ updateColumnPageNumber pageNumber columnListing =
 
 updateColumnPageSize : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
 updateColumnPageSize pageSize columnListing =
-    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = columnListing.totalCount // pageSize } => Cmd.none
+    { columnListing | pageSize = pageSize, pageNumber = 0, totalPages = calcTotalPages columnListing.totalCount pageSize } => Cmd.none
 
 
 updateColumnMetadata : Dict String ColumnMetadata -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd msg )
@@ -436,8 +441,8 @@ view context model =
         ]
 
 
-viewTargetAndKeyColumns : Model -> Html Msg
-viewTargetAndKeyColumns model =
+viewTargetAndKeyColumns : ContextModel -> Model -> Html Msg
+viewTargetAndKeyColumns context model =
     let
         ( keyFormGroup, targetFormGroup ) =
             case model.columnMetadata of
@@ -449,7 +454,7 @@ viewTargetAndKeyColumns model =
                                 |> Maybe.map (viewKeyFormGroup << Tuple.second)
                                 |> Maybe.withDefault (div [] [])
                     in
-                    ( keyGroup, viewTargetFormGroup model )
+                    ( keyGroup, viewTargetFormGroup context model )
 
                 Remote.Loading ->
                     ( viewLoadingFormGroup, viewLoadingFormGroup )
@@ -487,15 +492,15 @@ viewKeyFormGroup key =
         ]
 
 
-viewTargetFormGroup : Model -> Html Msg
-viewTargetFormGroup model =
+viewTargetFormGroup : ContextModel -> Model -> Html Msg
+viewTargetFormGroup context model =
     if model.showTarget then
         let
             queryText =
                 Maybe.withDefault model.targetQuery model.previewTarget
         in
         div [ class "form-group" ]
-            [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Target" ]
+            [ label [ class "control-label col-sm-3 mr0 pr0" ] (text "Target" :: helpIcon context.config.toolTips "Target")
             , div [ class "col-sm-8" ]
                 [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
                 , viewIf
@@ -548,7 +553,7 @@ config toolTips stats =
         makeIcon =
             helpIcon toolTips
     in
-    Grid.config
+    Grid.configCustom
         { toId = \c -> c.name
         , toMsg = SetTableState
         , columns =
@@ -559,7 +564,16 @@ config toolTips stats =
             , statsColumn stats
             , histogramColumn
             ]
+        , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
         }
+
+
+customRowAttributes : ColumnMetadata -> List (Attribute Msg)
+customRowAttributes column =
+    if column.role == Key then
+        [ id "key" ]
+    else
+        []
 
 
 nameColumn : Grid.Column ColumnMetadata Msg
@@ -592,7 +606,15 @@ typeColumn makeIcon =
 
 dataTypeCell : ColumnMetadata -> Grid.HtmlDetails Msg
 dataTypeCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+    if column.role == Key then
+        emptyDropdown
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+
+
+emptyDropdown : Grid.HtmlDetails Msg
+emptyDropdown =
+    Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [] ]
 
 
 roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
@@ -608,7 +630,10 @@ roleColumn makeIcon =
 
 roleCell : ColumnMetadata -> Grid.HtmlDetails Msg
 roleCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
+    if column.role == Key then
+        Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [ option [] [ text "Key" ] ] ]
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
 
 
 enumOption : e -> e -> Html Msg
@@ -629,7 +654,10 @@ imputationColumn makeIcon =
 
 imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
+    if column.role == Key then
+        emptyDropdown
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
 
 
 statsColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg

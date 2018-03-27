@@ -1,5 +1,7 @@
 module Page.SessionStart exposing (Model, Msg, init, subscriptions, update, view)
 
+import Task
+import Dom.Scroll as Scroll
 import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
@@ -83,6 +85,7 @@ type Msg
     | SelectContainsAnomalies Bool
     | SelectBalance Bool
     | SetWizardPage Step
+    | NoOp
 
 
 type Step
@@ -527,12 +530,14 @@ update msg model context =
                     validateStep model
             in
             if errors == [] then
-                { model | steps = Ziplist.advance model.steps } => Cmd.none
+                { model | steps = Ziplist.advance model.steps } =>
+                    (Task.attempt (always NoOp) <| Scroll.toTop "html")
             else
                 { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
-            { model | steps = Ziplist.rewind model.steps, errors = [] } => Cmd.none
+            { model | steps = Ziplist.rewind model.steps, errors = [] } => 
+                    (Task.attempt (always NoOp) <| Scroll.toTop "html")
 
         ( _, InputBlur ) ->
             recheckErrors model => Cmd.none
@@ -1003,7 +1008,7 @@ viewColumnMetadata context model =
                 ]
             ]
         , div [ class "form-group col-sm-6" ]
-            [ ColumnMetadataEditor.viewTargetAndKeyColumns model.columnEditorModel
+            [ ColumnMetadataEditor.viewTargetAndKeyColumns context model.columnEditorModel
                 |> Html.map ColumnMetadataEditorMsg
             ]
         , hr [] []

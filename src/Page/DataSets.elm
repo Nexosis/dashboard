@@ -247,7 +247,7 @@ nameColumn =
 dataSetNameCell : DataSet -> Grid.HtmlDetails msg
 dataSetNameCell dataSet =
     Grid.HtmlDetails [ class "left name" ]
-        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayNameWithWidth 50 <| dataSetNameToString dataSet.dataSetName) ] ]
+        [ a [ AppRoutes.href (AppRoutes.DataSetDetail dataSet.dataSetName) ] [ text (formatDisplayNameWithWidth 40 <| dataSetNameToString dataSet.dataSetName) ] ]
 
 
 actionsColumn : Grid.Column DataSet msg

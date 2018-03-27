@@ -134,9 +134,8 @@ view model context messages =
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
                 , hr [] []
                 , viewSidePanel (viewQuotas model.quotas)
+                , viewSidePanel (viewRecentMessages messages)
                 ]
-            , hr [] []
-            , viewSidePanel (viewRecentMessages messages)
             ]
         ]
 
@@ -169,7 +168,7 @@ viewQuota name quota =
             else if percentUsed < 95 then
                 "warning"
             else
-                "error"
+                "danger"
 
         percentUsed : Quota -> Int
         percentUsed quota =
@@ -206,6 +205,7 @@ viewRecentMessages messages =
                     [ strong [] [ text "Recent API Messages" ]
                     ]
                     :: List.map viewMessage messages
+                    ++ [ hr [] [] ]
                 )
         )
         messages
@@ -238,8 +238,7 @@ viewSidePanel : Html Msg -> Html Msg
 viewSidePanel view =
     div [ class "panel" ]
         [ div [ class "panel-body p15" ]
-            [ view
-            ]
+            [ view ]
         ]
 
 
@@ -257,8 +256,9 @@ viewSubscriptions model subscriptions =
                 |> List.map (viewSubscription model)
             )
         , p [ class "mt15" ]
-            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developers") ]
-                [ i [ class "fa fa-key mr5" ] [ text "Manage keys" ]
+            [ a [ class "btn btn-default btn-sm", href (model.apiManagerUrl ++ "/developer") ]
+                [ i [ class "fa fa-key mr5" ] []
+                , text "Manage keys"
                 ]
             ]
         ]
@@ -273,7 +273,7 @@ viewSubscription model subscription =
             -- TODO : put this back in when we have time to wire up copy to clipboard
             --, a [ class "obfuscate ml15" ] [ i [ class "fa fa-copy" ] [] ]
             , button
-                [ class "btn btn-sm btn-link btn-danger"
+                [ class "btn btn-sm btn-link"
                 , onClick (ShowApiKey subscription.id)
                 ]
                 [ i [ class "fa fa-eye mr5" ] []

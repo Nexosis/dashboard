@@ -148,22 +148,7 @@ view model context =
             , div [ class "col-sm-6" ] [ h2 [] ([ text "Sessions " ] ++ helpIcon context.config.toolTips "Sessions") ]
             , div [ class "col-sm-6 right" ] []
             ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ div [ class "row mb25" ]
-                    [ div [ class "col-sm-6 col-sm-offset-3" ]
-                        [ Pager.view model.sessionList ChangePage ]
-                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                        [ PageSize.view ChangePageSize context.userPageSize ]
-                    ]
-                , div []
-                    [ viewSessionsGrid context.config.toolTips model.tableState model.sessionList
-                    , hr [] []
-                    , div [ class "center" ]
-                        [ Pager.view model.sessionList ChangePage ]
-                    ]
-                ]
-            ]
+        , div [] (viewSessionListResults context model)
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
             , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
@@ -173,9 +158,46 @@ view model context =
         ]
 
 
-viewSessionsGrid : Dict String String -> Grid.State -> Remote.WebData SessionList -> Html Msg
-viewSessionsGrid toolTips tableState sessionList =
-    Grid.view .items (config toolTips) tableState sessionList
+viewSessionListResults : ContextModel -> Model -> List (Html Msg)
+viewSessionListResults context model =
+    let
+        sessionsFound =
+            case model.sessionList of
+                Remote.Success list ->
+                    not (List.isEmpty list.items)
+
+                _ ->
+                    -- Let the grid handle loading scenario
+                    True
+    in
+    if sessionsFound then
+        [ div [ class "row" ]
+            [ div [ class "col-sm-12" ]
+                [ div [ class "row mb25" ]
+                    [ div [ class "col-sm-6 col-sm-offset-3" ]
+                        [ Pager.view model.sessionList ChangePage ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                        [ PageSize.view ChangePageSize context.userPageSize ]
+                    ]
+                ]
+            ]
+        , viewSessionsGrid context model.tableState model.sessionList
+        , hr [] []
+        , div [ class "center" ]
+            [ Pager.view model.sessionList ChangePage ]
+        ]
+    else
+        [ div [ class "help col-sm-12" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer context.config "empty_session"
+                ]
+            ]
+        ]
+
+
+viewSessionsGrid : ContextModel -> Grid.State -> Remote.WebData SessionList -> Html Msg
+viewSessionsGrid context tableState sessionList =
+    Grid.view .items (config context.config.toolTips) tableState sessionList
 
 
 config : Dict String String -> Grid.Config SessionData Msg

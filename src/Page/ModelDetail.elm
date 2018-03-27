@@ -68,10 +68,15 @@ update msg model context =
         ModelResponse response ->
             case response of
                 Remote.Success modelInfo ->
-                    { model | loadingResponse = response, modelType = modelInfo.predictionDomain, predictModel = Just (ModelPredict.init context.config model.modelId) } => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
+                    { model
+                        | loadingResponse = response
+                        , modelType = modelInfo.predictionDomain
+                        , predictModel = Just (ModelPredict.init context.config model.modelId modelInfo.modelName)
+                    }
+                        => Ports.setPageTitle (Maybe.withDefault "Model" modelInfo.modelName ++ " Details")
 
                 Remote.Failure err ->
-                    { model | loadingResponse = response } => (Log.logMessage <| Log.LogMessage ("Model details response failure: " ++ toString err) Log.Error)
+                    { model | loadingResponse = response } => Log.logHttpError err
 
                 _ ->
                     { model | loadingResponse = response } => Cmd.none
