@@ -127,10 +127,13 @@ updateCharts columnMetadata statsResponse =
     case ( columnMetadata, statsResponse ) of
         ( Remote.Success m, Remote.Success s ) ->
             let
-                x =
-                    Dict.keys m.metadata |> Debug.log "names"
+                columnList =
+                    filterColumnsToDisplay m |> List.map .name
+
+                filteredList =
+                    s.columns |> Dict.filter (\k v -> List.member k columnList)
             in
-            s.columns
+            filteredList
                 |> Dict.toList
                 |> List.map (\( k, v ) -> ( "histogram_" ++ k |> String.classify, distributionHistogram v.distribution ))
                 |> combineSpecs
