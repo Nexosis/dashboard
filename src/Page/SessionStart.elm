@@ -1,7 +1,5 @@
 module Page.SessionStart exposing (Model, Msg, init, subscriptions, update, view)
 
-import Task
-import Dom.Scroll as Scroll
 import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
@@ -17,6 +15,7 @@ import DateTimePicker
 import DateTimePicker.Config exposing (defaultDatePickerConfig, defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
 import Dict
+import Dom.Scroll as Scroll
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onBlur, onCheck, onClick, onInput)
@@ -29,6 +28,7 @@ import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, M
 import Select exposing (fromSelected)
 import String.Extra as String
 import String.Verify exposing (notBlank)
+import Task
 import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
 import Time.TimeZones exposing (fromName, utc)
@@ -530,14 +530,14 @@ update msg model context =
                     validateStep model
             in
             if errors == [] then
-                { model | steps = Ziplist.advance model.steps } =>
-                    (Task.attempt (always NoOp) <| Scroll.toTop "html")
+                { model | steps = Ziplist.advance model.steps }
+                    => (Task.attempt (always NoOp) <| Scroll.toTop "html")
             else
                 { model | errors = errors } => Cmd.none
 
         ( _, PrevStep ) ->
-            { model | steps = Ziplist.rewind model.steps, errors = [] } => 
-                    (Task.attempt (always NoOp) <| Scroll.toTop "html")
+            { model | steps = Ziplist.rewind model.steps, errors = [] }
+                => (Task.attempt (always NoOp) <| Scroll.toTop "html")
 
         ( _, InputBlur ) ->
             recheckErrors model => Cmd.none
@@ -561,7 +561,10 @@ update msg model context =
         ( _, ColumnMetadataEditorMsg subMsg ) ->
             let
                 ( ( newModel, cmd ), updateCmd ) =
-                    ColumnMetadataEditor.update subMsg model.columnEditorModel context
+                    ColumnMetadataEditor.update subMsg
+                        model.columnEditorModel
+                        context
+                        (\_ -> Task.succeed () |> Remote.asCmd)
 
                 modifiedMetadata =
                     case updateCmd of
@@ -572,12 +575,7 @@ update msg model context =
                             model.sessionColumnMetadata
 
                 stats =
-                    case newModel.statsResponse of
-                        Remote.Success s ->
-                            Just s
-
-                        _ ->
-                            Nothing
+                    Remote.toMaybe newModel.statsResponse
 
                 newTarget =
                     getTargetColumn modifiedMetadata

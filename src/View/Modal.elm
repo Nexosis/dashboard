@@ -32,11 +32,7 @@ view maybeConfig =
     in
     div []
         [ div
-            [ classList
-                [ ( "modal", True )
-                , ( "fade", True )
-                , ( "in", True )
-                ]
+            [ class "modal fade in"
             , tabindex -1
             , style
                 [ ( "display"

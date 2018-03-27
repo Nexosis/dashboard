@@ -98,7 +98,6 @@ type Msg
     | DeleteDialogMsg DeleteDialog.Msg
     | SessionDataListResponse (Remote.WebData SessionList)
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
-    | MetadataUpdated (Remote.WebData ())
     | ChangeTab String
     | DataSetDataMsg DataSetData.Msg
 
@@ -123,20 +122,29 @@ update msg model context =
         ColumnMetadataEditorMsg subMsg ->
             let
                 ( ( newModel, cmd ), updateMsg ) =
-                    ColumnMetadataEditor.update subMsg model.columnMetadataEditorModel context
-
-                requestMsg =
-                    case updateMsg of
-                        ColumnMetadataEditor.NoOp ->
-                            Cmd.none
-
-                        ColumnMetadataEditor.Updated modifiedMetadata ->
+                    ColumnMetadataEditor.update subMsg
+                        model.columnMetadataEditorModel
+                        context
+                        (\modifiedMetadata ->
                             Request.DataSet.updateMetadata context.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
-                                |> Cmd.map MetadataUpdated
+                        )
+
+                newMetadataModel =
+                    case updateMsg of
+                        ColumnMetadataEditor.NoOp ->
+                            newModel
+
+                        ColumnMetadataEditor.Updated modifiedMetadata ->
+                            { newModel
+                                | modifiedMetadata = Dict.empty
+                                , columnMetadata =
+                                    newModel.columnMetadata
+                                        |> Remote.map (\cm -> { cm | metadata = Dict.union newModel.modifiedMetadata cm.metadata })
+                            }
             in
-            { model | columnMetadataEditorModel = newModel }
-                => Cmd.batch [ requestMsg, Cmd.map ColumnMetadataEditorMsg cmd ]
+            { model | columnMetadataEditorModel = newMetadataModel }
+                => Cmd.map ColumnMetadataEditorMsg cmd
 
         ShowDeleteDialog ->
             let
@@ -166,31 +174,6 @@ update msg model context =
 
         SessionDataListResponse listResp ->
             { model | sessionResponse = listResp } => Cmd.none
-
-        MetadataUpdated response ->
-            let
-                metadataModel =
-                    model.columnMetadataEditorModel
-
-                newMetadataModel =
-                    { metadataModel
-                        | modifiedMetadata = Dict.empty
-                        , columnMetadata =
-                            metadataModel.columnMetadata
-                                |> Remote.map (\cm -> { cm | metadata = Dict.union metadataModel.modifiedMetadata cm.metadata })
-                    }
-            in
-            case response of
-                Remote.Success () ->
-                    { model | columnMetadataEditorModel = newMetadataModel, updateResponse = response }
-                        => Cmd.none
-
-                Remote.Failure err ->
-                    { model | updateResponse = response }
-                        => logHttpError err
-
-                _ ->
-                    model => Cmd.none
 
         ChangeTab tabName ->
             let
