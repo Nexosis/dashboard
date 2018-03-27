@@ -9,6 +9,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.DistanceMetric exposing (..)
 import Data.Metric exposing (..)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
@@ -54,6 +55,7 @@ type alias Model =
     , currentPage : Int
     , csvDownload : Remote.WebData String
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
+    , distanceMetrics : List DistanceValue
     }
 
 
@@ -68,7 +70,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing [] ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -82,6 +84,7 @@ type Msg
     | ChangePage Int
     | DownloadResults
     | DownloadResponse (Remote.WebData String)
+    | DistanceMetricLoaded (Remote.WebData DistanceMetrics)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -101,6 +104,11 @@ update msg model context =
                                         getConfusionMatrix context.config model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
+
+                                    PredictionDomain.Anomalies ->
+                                        getDistanceMetrics context.config model.sessionId 0 1000
+                                            |> Remote.sendRequest
+                                            |> Cmd.map DistanceMetricLoaded
 
                                     _ ->
                                         Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
@@ -260,6 +268,14 @@ update msg model context =
                 Remote.Failure err ->
                     { model | csvDownload = result }
                         => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        DistanceMetricLoaded result ->
+            case result of
+                Remote.Success metrics ->
+                    { model | distanceMetrics = fromDistanceMetrics metrics } => Cmd.none
 
                 _ ->
                     model => Cmd.none
