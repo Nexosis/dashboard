@@ -17,7 +17,7 @@ type alias ColumnMetadata =
 
 
 type DataType
-    = NumericMeasure
+    = Measure
     | String
     | Numeric
     | Logical
@@ -27,7 +27,7 @@ type DataType
 
 enumDataType : List DataType
 enumDataType =
-    [ NumericMeasure
+    [ Measure
     , Numeric
     , String
     , Logical
@@ -50,7 +50,6 @@ enumRole =
     , Timestamp
     , Target
     , Feature
-    , Key
     ]
 
 
@@ -72,7 +71,7 @@ decodeDataType =
             (\columnType ->
                 case String.toLower columnType of
                     "numericmeasure" ->
-                        succeed NumericMeasure
+                        succeed Measure
 
                     "string" ->
                         succeed String
@@ -189,13 +188,21 @@ encodeColumnMetadataList columns =
 encodeColumnValues : ColumnMetadata -> Encode.Value
 encodeColumnValues column =
     Encode.object
-        [ ( "dataType", Encode.string <| toString <| column.dataType )
+        [ ( "dataType", encodeDataType <| column.dataType )
         , ( "role", Encode.string <| toString <| column.role )
         , ( "imputation", Encode.string <| toString <| column.imputation )
         , ( "aggregation", Encode.string <| toString <| column.aggregation )
         ]
 
 
+encodeDataType : DataType -> Encode.Value
+encodeDataType dataType =
+    if dataType == Measure then
+        Encode.string "numericMeasure"
+    else
+        Encode.string <| toString dataType
+
+
 defaultColumnMetadata : ColumnMetadata
 defaultColumnMetadata =
-    ColumnMetadata NumericMeasure None Impute.Mean Aggregate.Mean ""
+    ColumnMetadata Measure None Impute.Mean Aggregate.Mean ""
