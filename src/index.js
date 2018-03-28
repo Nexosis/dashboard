@@ -18,6 +18,8 @@ import 'nexosis-styles/nexosis.css';
 import 'nexosis-styles/api-styles.css';
 import 'nexosis-styles/docs-styles.css';
 import 'nexosis-styles/hubspot-forms.css';
+import './elements/vega-chart';
+
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -106,14 +108,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             app.ports.drawVegaChart.subscribe(function (specObject) {
                 requestAnimationFrame(() => {
-                    for (let name of Object.keys(specObject)) {
-                        vegaEmbed(`#${name}`, specObject[name], {
-                            actions: false, logLevel: vega.Warn
-                        }).then(function(result) {
-                            vegaTooltip.vegaLite(result.view, specObject[name], { colorTheme: 'dark'});
-                        })
-                        .catch(console.warn);
-                    }
+                    // for (let name of Object.keys(specObject)) {
+                    //     console.log(JSON.stringify(specObject[name]));
+                    //     vegaEmbed(`#${name}`, specObject[name], {
+                    //         actions: false, logLevel: vega.Warn
+                    //     }).then(function(result) {
+                    //         vegaTooltip.vegaLite(result.view, specObject[name], { colorTheme: 'dark'});
+                    //     })
+                    //     .catch(console.warn);
+                    // }
                 });
             });
 

@@ -741,4 +741,8 @@ histogramColumn =
 histogram : ColumnMetadata -> Grid.HtmlDetails Msg
 histogram column =
     Grid.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.name |> String.classify) ] [] ]
+        [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
+        , node "vega-chart" [ attribute "spec" """
+        {"$schema":"https://vega.github.io/schema/vega-lite/v2.json","width":150,"height":60,"padding":{"left":0,"top":0,"right":0,"bottom":0},"autosize":{"type":"none"},"data":{"values":[{"Range":"0 to 0","Count":122},{"Range":"1 to 1","Count":3}]},"mark":"bar","encoding":{"x":{"field":"Value","type":"ordinal","sort":null},"y":{"field":"Count","type":"quantitative"}},"config":{"axis":{"labels":false,"ticks":false,"grid":false,"domain":false},"background":"transparent","view":{"stroke":"transparent"},"mark":{"fill":"#2bb7ec"}}}
+        """ ] []
+        ]
