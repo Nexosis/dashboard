@@ -109,7 +109,10 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                     for (let name of Object.keys(specObject)) {
                         vegaEmbed(`#${name}`, specObject[name], {
                             actions: false, logLevel: vega.Warn
-                        }).catch(console.warn);
+                        }).then(function(result) {
+                            vegaTooltip.vegaLite(result.view, specObject[name], { colorTheme: 'dark'});
+                        })
+                        .catch(console.warn);
                     }
                 });
             });
