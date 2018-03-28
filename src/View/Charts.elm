@@ -7,8 +7,8 @@ import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData, DistributionShape)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
-import Html exposing (Html, a, div, h3, span, table, tbody, td, tr)
-import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
+import Html exposing (Html, div, h3, span, table, tbody, td, tr)
+import Html.Attributes exposing (attribute, class, colspan, rowspan, style)
 import List.Extra exposing (find)
 import String.Extra exposing (replace)
 import VegaLite exposing (..)
@@ -439,22 +439,15 @@ widthToSize width =
 
 renderConfusionMatrix : ConfusionMatrix -> Html msg
 renderConfusionMatrix matrix =
-    div []
-        [ div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h3 [] [ Html.text "Confusion Matrix" ] ]
-            , div [ class "col-sm-6 text-right" ]
-                [ a [ href "https://docs.nexosis.com/guides/analyzing-classification-results", target "_blank" ] [ div [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ] ]
-                ]
-            ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ table [ class "table table-bordered confusion-matrix" ]
-                    [ tbody []
-                        (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
-                            -- footer is the set of classes
-                            ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
-                        )
-                    ]
+    div [ class "row" ]
+        [ div [ class "col-sm-12" ]
+            [ h3 [] [ Html.text "Confusion Matrix" ]
+            , table [ class "table table-bordered confusion-matrix" ]
+                [ tbody []
+                    (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
+                        -- footer is the set of classes
+                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
+                    )
                 ]
             ]
         ]

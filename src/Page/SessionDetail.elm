@@ -777,8 +777,8 @@ viewModelTrainingResults model sessionData =
             div [ class "row" ]
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row" ]
-                        [ div [ class "col-sm-6" ] [ h3 [] [ text "Test Data" ] ]
-                        , div [ class "col-sm-6" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ], renderExplanatoryButton sessionData ] ]
+                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
                         ]
                     , table [ class "table table-striped" ]
                         [ thead []
@@ -795,18 +795,6 @@ viewModelTrainingResults model sessionData =
 
         Nothing ->
             div [] []
-
-
-renderExplanatoryButton : SessionData -> Html Msg
-renderExplanatoryButton session =
-    if session.predictionDomain == PredictionDomain.Regression then
-        div [ style [ ( "margin-top", "5px" ) ] ]
-            [ a [ href "https://docs.nexosis.com/guides/analyzing-regression-results", target "_blank" ]
-                [ button [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ]
-                ]
-            ]
-    else
-        span [] []
 
 
 viewAnomalyResults : Model -> SessionData -> Html Msg

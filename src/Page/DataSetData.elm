@@ -125,5 +125,5 @@ config columns =
         , toMsg = TableChanged
         , columns =
             columns
-                |> List.map (\c -> Grid.makeUnsortable (Grid.stringColumn (formatDisplayName c.name) (\r -> Dict.get c.name r |> Maybe.withDefault "")))
+                |> List.map (\c -> Grid.stringColumn (formatDisplayName c.name) (\r -> Dict.get c.name r |> Maybe.withDefault ""))
         }
