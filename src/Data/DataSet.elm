@@ -12,6 +12,7 @@ module Data.DataSet
         , dataSetNameDecoder
         , dataSetNameParser
         , dataSetNameToString
+        , decodeData
         , decodeDataSetData
         , decodeDataSetList
         , decodeDataSetStats
