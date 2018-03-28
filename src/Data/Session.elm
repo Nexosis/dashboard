@@ -2,6 +2,7 @@ module Data.Session exposing (ResultInterval(..), SessionData, SessionList, Sess
 
 import Data.Algorithm exposing (..)
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.DataSet exposing (decodeData)
 import Data.DisplayDate exposing (dateDecoder)
 import Data.Link exposing (..)
 import Data.Message exposing (..)
@@ -78,7 +79,7 @@ decodeSessionResults : Decode.Decoder SessionResults
 decodeSessionResults =
     decode SessionResults
         |> required "metrics" (Decode.dict Decode.float)
-        |> required "data" (Decode.list (Decode.dict Decode.string))
+        |> required "data" decodeData
 
 
 decodeSession : Decode.Decoder SessionData
