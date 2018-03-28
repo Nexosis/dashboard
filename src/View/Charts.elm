@@ -24,9 +24,12 @@ distributionHistogram data =
                 << configuration (View [ Stroke (Just "transparent") ])
                 << configuration (MarkStyle [ MFill "#2bb7ec" ])
 
+        axisField =
+            data |> List.head |> distributionItemField
+
         enc =
             encoding
-                << position X [ PName (normalizeFieldName "Value"), PmType Ordinal, PSort [] ]
+                << position X [ PName (normalizeFieldName axisField), PmType Ordinal, PSort [] ]
                 << position Y [ PName (normalizeFieldName "Count"), PmType Quantitative ]
     in
     toVegaLite
@@ -41,6 +44,22 @@ distributionHistogram data =
         ]
 
 
+distributionItemField : Maybe DistributionShape -> String
+distributionItemField shape =
+    case shape of
+        Just (Data.DataSet.Counts _ _) ->
+            "Value"
+
+        Just (Data.DataSet.Ranges min max _) ->
+            if min == max then
+                "Value"
+            else
+                "Range"
+
+        _ ->
+            "Value"
+
+
 distributionItemToRow : DistributionShape -> List DataRow
 distributionItemToRow shape =
     case shape of
@@ -48,7 +67,7 @@ distributionItemToRow shape =
             dataRow [ ( "Value", Str label ), ( "Count", Number (toFloat count) ) ] []
 
         Data.DataSet.Ranges min max count ->
-            dataRow [ ( "Value", Str min ), ( "Count", Number (toFloat count) ) ] []
+            dataRow [ ( "Range", Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec

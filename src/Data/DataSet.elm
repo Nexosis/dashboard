@@ -26,7 +26,7 @@ import Http
 import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (decode, optional, required)
 import Time.ZonedDateTime exposing (ZonedDateTime)
-import Util exposing (formatFloatToString)
+import Util exposing (commaFormatInteger, formatFloatToString)
 
 
 {-| Returned from /data/{dataSetName}
@@ -240,8 +240,8 @@ decodeDistributionItem =
 numberOrStringDecoder : Decoder String
 numberOrStringDecoder =
     Decode.oneOf
-        [ Decode.int |> Decode.andThen (\i -> toString i |> succeed)
-        , Decode.float |> Decode.andThen (\f -> toString f |> succeed)
+        [ Decode.int |> Decode.andThen (\i -> commaFormatInteger i |> succeed)
+        , Decode.float |> Decode.andThen (\f -> formatFloatToString f |> succeed)
         , Decode.string
         ]
 
