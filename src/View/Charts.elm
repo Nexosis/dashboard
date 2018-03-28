@@ -404,16 +404,6 @@ resultsToRows result =
         []
 
 
-resultIntervalToTimeUnit : Maybe Session.ResultInterval -> TimeUnit
-resultIntervalToTimeUnit resultInterval =
-    case resultInterval of
-        Just Session.Hour ->
-            Hours
-
-        _ ->
-            YearMonthDate
-
-
 mapAggregation : AggregationStrategy.AggregationStrategy -> Operation
 mapAggregation aggregate =
     case aggregate of
