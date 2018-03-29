@@ -17,6 +17,7 @@ import Request.Log exposing (logHttpError)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
+import String.Extra as String
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
 import VegaLite exposing (Spec)
 import View.Extra exposing (viewIf)
