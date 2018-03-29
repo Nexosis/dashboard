@@ -426,7 +426,8 @@ viewSessionDetails model context =
                     [ viewPendingSession session ]
     in
     div [ class "row", id "details" ]
-        [ div [ class "col-sm-3" ]
+        [ loadingOr <| viewWaitTimeExplainer context
+        , div [ class "col-sm-3" ]
             [ loadingOr pendingOrCompleted ]
 
         --, p []
@@ -441,6 +442,11 @@ viewSessionDetails model context =
             , loadingOr viewStatusHistory
             ]
         ]
+
+
+viewWaitTimeExplainer : ContextModel -> Model -> SessionData -> Html Msg
+viewWaitTimeExplainer context model session =
+    viewIf (\() -> div [ class "help alert alert-info" ] [ explainer context.config "session_start_timing" ]) <| not <| Data.Session.sessionIsCompleted session
 
 
 viewSessionInfo : Model -> SessionData -> Html Msg
