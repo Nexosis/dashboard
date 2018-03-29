@@ -11,6 +11,7 @@ import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onFocus, onInput)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -19,7 +20,8 @@ import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import String.Extra as String
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
-import VegaLite exposing (Spec)
+import VegaLite exposing (Spec, combineSpecs)
+import View.Charts exposing (distributionHistogram)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid exposing (defaultCustomizations)
 import View.PageSize as PageSize
@@ -120,13 +122,38 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
+updateCharts : Remote.WebData ColumnMetadataListing -> Remote.WebData DataSetStats -> Cmd msg
+updateCharts columnMetadata statsResponse =
+    case ( columnMetadata, statsResponse ) of
+        ( Remote.Success m, Remote.Success s ) ->
+            let
+                columnList =
+                    filterColumnsToDisplay m |> List.map .name
+
+                filteredList =
+                    s.columns |> Dict.filter (\k v -> List.member k columnList)
+            in
+            filteredList
+                |> Dict.toList
+                |> List.map (\( k, v ) -> ( "histogram_" ++ k |> String.classify, distributionHistogram v.distribution ))
+                |> combineSpecs
+                |> Ports.drawVegaChart
+
+        _ ->
+            Cmd.none
+
+
 update : Msg -> Model -> ContextModel -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model context =
     case msg of
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    { model | statsResponse = resp } => Cmd.none => NoOp
+                    let
+                        cmd =
+                            updateCharts model.columnMetadata resp
+                    in
+                    { model | statsResponse = resp } => cmd => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -142,14 +169,14 @@ update msg model context =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => cmd => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ cmd, updateCharts columnListing model.statsResponse ] => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, updateCharts columnListing model.statsResponse, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
             if selection == Target then
@@ -538,6 +565,7 @@ config toolTips stats =
             , roleColumn makeIcon
             , imputationColumn makeIcon
             , statsColumn stats
+            , histogramColumn
             ]
         , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
         }
@@ -641,7 +669,7 @@ statsColumn stats =
         { name = "Stats"
         , viewData = statsCell stats
         , sorter = Grid.unsortable
-        , headAttributes = [ class "per20", colspan 2 ]
+        , headAttributes = [ class "per20" ]
         , headHtml = []
         }
 
@@ -671,14 +699,14 @@ statsDisplay columnStats =
                     , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "Errors: " ]
+                    , strong [] [ text "Errors: " ]
                     , styledNumber <| commaFormatInteger stats.errorCount
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
                     , styledNumber <| commaFormatInteger stats.totalCount
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "# Missing: " ]
+                    , strong [] [ text "# Missing: " ]
                     , styledNumber <| commaFormatInteger stats.missingCount
                     , br [] []
                     , strong [] [ text "Mean: " ]

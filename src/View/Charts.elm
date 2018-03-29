@@ -1,17 +1,73 @@
-module View.Charts exposing (forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
-import Data.DataSet exposing (DataSetData)
-import Data.Session as Session exposing (..)
+import Data.DataSet exposing (DataSetData, DistributionShape)
+import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, a, div, h3, span, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
 import List.Extra exposing (find)
-import String.Extra as String exposing (replace)
+import String.Extra exposing (replace)
 import VegaLite exposing (..)
+
+
+distributionHistogram : List DistributionShape -> Spec
+distributionHistogram data =
+    let
+        config =
+            configure
+                << configuration (Axis [ Labels False, Ticks False, Grid False, Domain False ])
+                << configuration (Background "transparent")
+                << configuration (View [ Stroke (Just "transparent") ])
+                << configuration (MarkStyle [ MFill "#2bb7ec" ])
+
+        axisField =
+            data |> List.head |> distributionItemField
+
+        enc =
+            encoding
+                << position X [ PName (normalizeFieldName axisField), PmType Ordinal, PSort [] ]
+                << position Y [ PName (normalizeFieldName "Count"), PmType Quantitative ]
+    in
+    toVegaLite
+        [ width 150
+        , height 60
+        , padding (PEdges 0 0 0 0)
+        , autosize [ ANone ]
+        , dataFromRows [] <| List.concatMap distributionItemToRow data
+        , mark Bar []
+        , enc []
+        , config []
+        ]
+
+
+distributionItemField : Maybe DistributionShape -> String
+distributionItemField shape =
+    case shape of
+        Just (Data.DataSet.Counts _ _) ->
+            "Value"
+
+        Just (Data.DataSet.Ranges min max _) ->
+            if min == max then
+                "Value"
+            else
+                "Range"
+
+        _ ->
+            "Value"
+
+
+distributionItemToRow : DistributionShape -> List DataRow
+distributionItemToRow shape =
+    case shape of
+        Data.DataSet.Counts label count ->
+            dataRow [ ( "Value", Str label ), ( "Count", Number (toFloat count) ) ] []
+
+        Data.DataSet.Ranges min max count ->
+            dataRow [ ( "Range", Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
@@ -43,7 +99,7 @@ forecastResults sessionResults session dataSet windowWidth =
                 enc =
                     encoding
                         << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
-                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative ]
+                        << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
                             , MmType Nominal
@@ -53,16 +109,13 @@ forecastResults sessionResults session dataSet windowWidth =
                                     , ( "Observations", "#04850d" )
                                     ]
                             ]
-
-                data =
-                    dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
             in
             toVegaLite
                 [ VegaLite.title "Results"
                 , VegaLite.width chartWidth
                 , VegaLite.height chartHeight
                 , autosize [ AFit, APadding ]
-                , data
+                , dataFromRows [] <| List.concatMap resultsToRows (sessionData ++ dataSetData)
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
@@ -171,7 +224,7 @@ impactResults sessionResults session dataSet windowWidth =
 axisLabelFormat : SessionData -> String
 axisLabelFormat session =
     case session.resultInterval of
-        Just Hour ->
+        Just Session.Hour ->
             "%x %X"
 
         _ ->
