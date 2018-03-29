@@ -11,7 +11,7 @@ import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onFocus, onInput)
-import Ports
+import Json.Encode exposing (encode)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -122,38 +122,13 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
-updateCharts : Remote.WebData ColumnMetadataListing -> Remote.WebData DataSetStats -> Cmd msg
-updateCharts columnMetadata statsResponse =
-    case ( columnMetadata, statsResponse ) of
-        ( Remote.Success m, Remote.Success s ) ->
-            let
-                columnList =
-                    filterColumnsToDisplay m |> List.map .name
-
-                filteredList =
-                    s.columns |> Dict.filter (\k v -> List.member k columnList)
-            in
-            filteredList
-                |> Dict.toList
-                |> List.map (\( k, v ) -> ( "histogram_" ++ k |> String.classify, distributionHistogram v.distribution ))
-                |> combineSpecs
-                |> Ports.drawVegaChart
-
-        _ ->
-            Cmd.none
-
-
 update : Msg -> Model -> ContextModel -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model context =
     case msg of
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    let
-                        cmd =
-                            updateCharts model.columnMetadata resp
-                    in
-                    { model | statsResponse = resp } => cmd => NoOp
+                    { model | statsResponse = resp } => Cmd.none => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
@@ -169,14 +144,14 @@ update msg model context =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageNumber pageNumber) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ cmd, updateCharts columnListing model.statsResponse ] => NoOp
+            { model | columnMetadata = columnListing } => cmd => NoOp
 
         ChangePageSize pageSize ->
             let
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, updateCharts columnListing model.statsResponse, cmd ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
 
         RoleSelectionChanged metadata selection ->
             if selection == Target then
@@ -565,7 +540,7 @@ config toolTips stats =
             , roleColumn makeIcon
             , imputationColumn makeIcon
             , statsColumn stats
-            , histogramColumn
+            , histogramColumn stats
             ]
         , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
         }
@@ -727,22 +702,29 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn : Grid.Column ColumnMetadata Msg
-histogramColumn =
+histogramColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
+histogramColumn stats =
     Grid.veryCustomColumn
         { name = "Distribution"
-        , viewData = histogram
+        , viewData = histogram stats
         , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
 
 
-histogram : ColumnMetadata -> Grid.HtmlDetails Msg
-histogram column =
-    Grid.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
-        , node "vega-chart" [ attribute "spec" """
-        {"$schema":"https://vega.github.io/schema/vega-lite/v2.json","width":150,"height":60,"padding":{"left":0,"top":0,"right":0,"bottom":0},"autosize":{"type":"none"},"data":{"values":[{"Range":"0 to 0","Count":122},{"Range":"1 to 1","Count":3}]},"mark":"bar","encoding":{"x":{"field":"Value","type":"ordinal","sort":null},"y":{"field":"Count","type":"quantitative"}},"config":{"axis":{"labels":false,"ticks":false,"grid":false,"domain":false},"background":"transparent","view":{"stroke":"transparent"},"mark":{"fill":"#2bb7ec"}}}
-        """ ] []
-        ]
+histogram : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+histogram stats column =
+    let
+        columnStats =
+            Dict.get column.name stats
+    in
+    case columnStats of
+        Just stats ->
+            Grid.HtmlDetails []
+                [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
+                , node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] []
+                ]
+
+        Nothing ->
+            Grid.HtmlDetails [] [ div [] [] ]

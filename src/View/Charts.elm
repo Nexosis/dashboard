@@ -67,7 +67,10 @@ distributionItemToRow shape =
             dataRow [ ( "Value", Str label ), ( "Count", Number (toFloat count) ) ] []
 
         Data.DataSet.Ranges min max count ->
-            dataRow [ ( "Range", Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
+            if min == max then
+                dataRow [ ( "Value", Str min ), ( "Count", Number (toFloat count) ) ] []
+            else
+                dataRow [ ( "Range", Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec

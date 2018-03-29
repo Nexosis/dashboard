@@ -4,7 +4,13 @@ class VegaChart extends HTMLElement {
     }
 
     connectedCallback() {
-        vegaEmbed(this, JSON.parse(this.spec));
+        var _spec = this.spec;
+        vegaEmbed(this, JSON.parse(_spec), { actions: false, logLevel: vega.Warn })
+        .then(function(result) {
+            vegaTooltip.vegaLite(result.view, result.spec, { colorTheme: 'dark'});
+        })
+        .catch(console.warn);
+        
     }
 }
 
