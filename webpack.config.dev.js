@@ -33,7 +33,7 @@ export default {
         new HtmlWebpackPlugin({
             template: 'src/index.ejs',
             minify: {
-                removeComments: true,
+                removeComments: false,
                 collapseWhitespace: true
             },
             inject: true

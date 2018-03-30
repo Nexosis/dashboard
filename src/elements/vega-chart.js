@@ -18,6 +18,4 @@ class VegaChart extends HTMLElement {
     }
 }
 
-window.addEventListener('WebComponentsReady', function(){
-    customElements.define('vega-chart', VegaChart);
-});
+customElements.define('vega-chart', VegaChart); 

@@ -1,24 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" id="html">
-<!--
-  **NOTE:** This is a template for index.html. It uses ejs and htmlWebpackPlugin to generate a different index.html for each environment. htmlWebpackPlugin will dynamically add references to the scripts and styles that it bundles to this file. The generated bundles have hash-based filenames, so it's necessary to add the references dynamically.
-  For more info on ejs, see http://www.embeddedjs.com/. For examples of using it with htmlWebpackPlugin, see https://github.com/jaketrent/html-webpack-template/blob/master/index.ejs
-  -->
-
 <head>
-    <!--
-    The htmlWebpackPlugin will parse the logic below so that trackJS is only added to the production version of index.html (since only webpack.config.prod.js provides the trackJS token)
-    This is an example of how to add features to index.html for only one environment.
-    To track JavaScript errors via TrackJS, sign up for a free trial at TrackJS.com and enter your token in /webpack.config.prod.js on line 55.
-   -->
-    <!-- <% if (htmlWebpackPlugin.options.trackJSToken) { %>
-        <script>window._trackJs = { token: '<%= htmlWebpackPlugin.options.trackJSToken %>' };</script>
-        <script src="https://d2zah9y47r7bi2.cloudfront.net/releases/current/tracker.js"></script>
-        <% } %> -->
-
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta charset="utf-8" />
     <title>Nexosis Dashboard</title>
+
+    <script>if (window.customElements) { document.write('<!--'); }</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/custom-elements/1.0.9/custom-elements.min.js"></script>
+    <!-- DO NOT REMOVE THIS COMMENT, IT CONDITIONALLY CLOSES THE ONE ABOVE -->
     <link rel="stylesheet" href="https://developers.nexosis.com/themes/portals.themes.bootstrap/styles/bootstrap.published.less"
     />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vega-tooltip@0.7.0/build/vega-tooltip.min.css" />
@@ -32,7 +21,6 @@
         crossorigin="anonymous"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.7.0"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.1.1/webcomponents-loader.js"></script>
 
     <style>
         .line-height {
@@ -63,7 +51,6 @@
 
 <body>
     <div id="main"></div>
-    <!-- FOOTER  -->
     <div class="footer-nav">
         <div class="footer-nav-top">
             <img src="https://apimgmtstfgcbs4expsd9y4r.blob.core.windows.net/content/MediaLibrary/Test/footer-nav-top.png" class="responsive">
@@ -166,9 +153,6 @@
                 <div class="col-sm-6 col-md-6 col-lg-6 col-xl-6 col-sm-offset-2 col-md-offset-2 col-lg-offset-2 col-xl-offset-2">
                     <h4>Newsletter</h4>
                     <div class="hs-footer">
-                        <!--[if lte IE 8]>
-                            <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/v2-legacy.js"></script>
-                            <![endif]-->
                         <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/v2.js"></script>
                         <script>
                             hbspt.forms.create({
