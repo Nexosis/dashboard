@@ -53,7 +53,7 @@ type alias Model =
     , currentPage : Int
     , csvDownload : Remote.WebData String
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
-    , distanceMetrics : List DistanceValue
+    , distanceMetricsResponse : Remote.WebData DistanceMetrics
     }
 
 
@@ -68,7 +68,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing [] ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -197,8 +197,8 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
-                Remote.Success ( results, session, data ) ->
+            case response of
+                Remote.Success data ->
                     { model | dataSetResponse = response } => Cmd.none
 
                 Remote.Failure err ->
@@ -246,7 +246,7 @@ update msg model context =
         DistanceMetricLoaded result ->
             case result of
                 Remote.Success metrics ->
-                    { model | distanceMetrics = fromDistanceMetrics metrics } => Cmd.none
+                    { model | distanceMetricsResponse = result } => Cmd.none
 
                 _ ->
                     model => Cmd.none
@@ -732,8 +732,8 @@ viewResultsGraph model =
 
 graphModel : Model -> Maybe (Html msg)
 graphModel model =
-    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse ) of
-        ( Remote.Success session, Remote.Success results, Remote.Success data ) ->
+    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse, model.distanceMetricsResponse ) of
+        ( Remote.Success session, Remote.Success results, Remote.Success data, _ ) ->
             case session.predictionDomain of
                 PredictionDomain.Forecast ->
                     Charts.forecastResults results session data model.windowWidth |> Just
@@ -744,7 +744,15 @@ graphModel model =
                 _ ->
                     Nothing
 
-        ( Remote.Success session, Remote.Success results, _ ) ->
+        ( Remote.Success session, Remote.Success results, _, Remote.Success metrics ) ->
+            case session.predictionDomain of
+                PredictionDomain.Anomalies ->
+                    Charts.anomalyResults results session metrics model.windowWidth |> Just
+
+                _ ->
+                    Nothing
+
+        ( Remote.Success session, Remote.Success results, _, _ ) ->
             case session.predictionDomain of
                 PredictionDomain.Regression ->
                     Charts.regressionResults results session model.windowWidth |> Just

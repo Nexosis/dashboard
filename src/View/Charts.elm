@@ -1,10 +1,11 @@
-module View.Charts exposing (distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData, DistributionShape)
+import Data.DistanceMetric exposing (DistanceMetrics, fromDistanceMetrics)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, a, div, h3, node, span, table, tbody, td, tr)
@@ -382,6 +383,11 @@ resultsToPredictedObserved target result =
         |> Maybe.withDefault ( "0", "0" )
         |> Tuple.mapFirst (String.toFloat >> Result.withDefault 0)
         |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
+
+
+anomalyResults : SessionResults -> SessionData -> DistanceMetrics -> Int -> Html msg
+anomalyResults sessionResults session metric windowWidth =
+    div [] []
 
 
 normalizeFieldName : String -> String
