@@ -7,11 +7,13 @@ import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
-import Dict.Extra as DictX
+import Dict.Extra as Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onFocus, onInput)
+import Html.Events exposing (onClick, onFocus, onInput)
+import Json.Decode as Decode
 import Json.Encode exposing (encode)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -19,9 +21,10 @@ import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import String.Extra as String
-import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
+import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
 import View.Charts exposing (distributionHistogram)
+import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid exposing (defaultCustomizations)
 import View.PageSize as PageSize
@@ -35,11 +38,14 @@ type alias Model =
     , dataSetName : DataSetName
     , tableState : Grid.State
     , modifiedMetadata : Dict String ColumnMetadata
+    , changesPendingSave : Dict String ColumnMetadata
     , autoState : Autocomplete.State
     , targetQuery : String
     , previewTarget : Maybe String
     , showAutocomplete : Bool
     , showTarget : Bool
+    , columnInEditMode : Maybe ColumnMetadata
+    , saveResult : Remote.WebData ()
     }
 
 
@@ -62,20 +68,25 @@ type Msg
     | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
-    | TypeSelectionChanged ColumnMetadata DataType
-    | RoleSelectionChanged ColumnMetadata Role
-    | ImputationSelectionChanged ColumnMetadata ImputationStrategy
+    | TypeSelectionChanged DataType
+    | RoleSelectionChanged Role
+    | ImputationSelectionChanged ImputationStrategy
     | SetAutoCompleteState Autocomplete.Msg
     | SetTarget String
     | SetQuery String
     | PreviewTarget String
     | AutocompleteWrap Bool
     | AutocompleteReset
+    | SelectColumnForEdit ColumnMetadata
+    | CancelColumnEdit
+    | CommitMetadataChange
+    | NoOpMsg
+    | SaveMetadata (Remote.WebData ())
 
 
 init : DataSetName -> Bool -> ( Model, Cmd Msg )
 init dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Autocomplete.empty "" Nothing False showTarget
+    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Dict.empty Autocomplete.empty "" Nothing False showTarget Nothing Remote.NotAsked
         => Cmd.none
 
 
@@ -92,7 +103,7 @@ mapColumnListToPagedListing context columns =
     , totalPages = calcTotalPages count pageSize
     , pageSize = context.userPageSize
     , totalCount = count
-    , metadata = DictX.fromListBy .name columns
+    , metadata = Dict.fromListBy .name columns
     }
 
 
@@ -111,7 +122,7 @@ updateDataSetResponse context model dataSetResponse =
             mappedColumns
                 |> Remote.map .metadata
                 |> Remote.withDefault Dict.empty
-                |> DictX.find (\_ m -> m.role == Columns.Target)
+                |> Dict.find (\_ m -> m.role == Columns.Target)
                 |> Maybe.map Tuple.first
                 |> Maybe.withDefault ""
     in
@@ -122,8 +133,8 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
-update : Msg -> Model -> ContextModel -> ( ( Model, Cmd Msg ), ExternalMsg )
-update msg model context =
+update : Msg -> Model -> ContextModel -> (List ColumnMetadata -> Cmd (Remote.WebData ())) -> ( ( Model, Cmd Msg ), ExternalMsg )
+update msg model context pendingSaveCommand =
     case msg of
         StatsResponse resp ->
             case resp of
@@ -153,41 +164,35 @@ update msg model context =
             in
             { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
 
-        RoleSelectionChanged metadata selection ->
-            if selection == Target then
-                update (SetTarget metadata.name) model context
-            else
-                let
-                    updatedModel =
-                        { model
-                            | modifiedMetadata =
-                                updateRole (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                                    |> maybeAppendColumn model.modifiedMetadata
-                        }
-                in
-                updatedModel
-                    => Cmd.none
-                    => Updated (Dict.values updatedModel.modifiedMetadata)
-
-        TypeSelectionChanged metadata selection ->
-            let
-                modifiedMetadata =
-                    updateDataType (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                        |> maybeAppendColumn model.modifiedMetadata
-            in
-            { model | modifiedMetadata = modifiedMetadata }
+        RoleSelectionChanged selection ->
+            { model
+                | columnInEditMode =
+                    model.columnInEditMode
+                        |> Maybe.map (updateRole selection)
+            }
                 => Cmd.none
-                => Updated (Dict.values modifiedMetadata)
+                => NoOp
 
-        ImputationSelectionChanged metadata selection ->
-            let
-                modifiedMetadata =
-                    updateImputation (getExistingOrOriginalColumn model.modifiedMetadata metadata) selection
-                        |> maybeAppendColumn model.modifiedMetadata
-            in
-            { model | modifiedMetadata = modifiedMetadata }
+        TypeSelectionChanged selection ->
+            { model
+                | columnInEditMode =
+                    model.columnInEditMode
+                        |> Maybe.map (updateDataType selection)
+            }
                 => Cmd.none
-                => Updated (Dict.values modifiedMetadata)
+                => NoOp
+
+        ImputationSelectionChanged selection ->
+            { model
+                | columnInEditMode =
+                    model.columnInEditMode
+                        |> Maybe.map (updateImputation selection)
+            }
+                => Cmd.none
+                => NoOp
+
+        CommitMetadataChange ->
+            updateMetadata model model.columnInEditMode pendingSaveCommand
 
         SetQuery query ->
             let
@@ -209,7 +214,7 @@ update msg model context =
                     newModel => Cmd.none => NoOp
 
                 Just updateMsg ->
-                    update updateMsg newModel context
+                    update updateMsg newModel context pendingSaveCommand
 
         PreviewTarget targetName ->
             { model | previewTarget = Just targetName } => Cmd.none => NoOp
@@ -217,7 +222,7 @@ update msg model context =
         AutocompleteWrap toTop ->
             case model.previewTarget of
                 Just target ->
-                    update AutocompleteReset model context
+                    update AutocompleteReset model context pendingSaveCommand
 
                 Nothing ->
                     if toTop then
@@ -240,49 +245,95 @@ update msg model context =
 
         SetTarget targetName ->
             let
-                ( newTarget, oldTarget ) =
+                newTarget =
                     model.columnMetadata
                         |> Remote.map
                             (\cm ->
-                                let
-                                    newTarget =
-                                        cm.metadata
-                                            |> Dict.get targetName
-
-                                    oldTarget =
-                                        cm.metadata
-                                            |> Dict.union model.modifiedMetadata
-                                            |> DictX.find (\_ c -> c.role == Target)
-                                            |> Maybe.map Tuple.second
-                                in
-                                ( newTarget, oldTarget )
+                                cm.metadata
+                                    |> Dict.get targetName
+                                    |> Maybe.map (updateRole Target)
                             )
-                        |> Remote.withDefault ( Nothing, Nothing )
-
-                metadataWithNew =
-                    newTarget
-                        |> Maybe.map
-                            (\new ->
-                                updateRole (getExistingOrOriginalColumn model.modifiedMetadata new) Target
-                                    |> maybeAppendColumn model.modifiedMetadata
-                            )
-                        |> Maybe.withDefault model.modifiedMetadata
-
-                updatedMetadata =
-                    oldTarget
-                        |> Maybe.map
-                            (\old ->
-                                updateRole (getExistingOrOriginalColumn metadataWithNew old) Feature
-                                    |> maybeAppendColumn metadataWithNew
-                            )
-                        |> Maybe.withDefault metadataWithNew
-
-                targetName =
-                    newTarget
-                        |> Maybe.map .name
-                        |> Maybe.withDefault ""
+                        |> Remote.withDefault Nothing
             in
-            { model | modifiedMetadata = updatedMetadata, targetQuery = targetName, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => Updated (Dict.values updatedMetadata)
+            updateMetadata model newTarget pendingSaveCommand
+
+        SelectColumnForEdit column ->
+            { model | columnInEditMode = Just column } => Cmd.none => NoOp
+
+        CancelColumnEdit ->
+            { model | columnInEditMode = Nothing, changesPendingSave = Dict.empty } => Cmd.none => NoOp
+
+        NoOpMsg ->
+            model => Cmd.none => NoOp
+
+        SaveMetadata result ->
+            if Remote.isSuccess result then
+                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing }
+                    => Ports.highlightIds (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
+                    => Updated (Dict.values model.modifiedMetadata)
+            else
+                { model | saveResult = result } => Cmd.none => NoOp
+
+
+updateMetadata : Model -> Maybe ColumnMetadata -> (List ColumnMetadata -> Cmd (Remote.WebData ())) -> ( ( Model, Cmd Msg ), ExternalMsg )
+updateMetadata model updatedColumn saveCommand =
+    let
+        existingColumns =
+            model.columnMetadata
+                |> Remote.map .metadata
+                |> Remote.withDefault Dict.empty
+
+        ensureChanged column =
+            existingColumns
+                |> Dict.values
+                |> List.member column
+                |> (\same ->
+                        if same then
+                            Nothing
+                        else
+                            Just column
+                   )
+
+        ensureSingleTarget newColumn =
+            if newColumn.role == Target then
+                existingColumns
+                    |> Dict.union model.modifiedMetadata
+                    |> Dict.find (\_ c -> c.role == Target)
+                    |> Maybe.map (\( _, oldTarget ) -> Just [ updateRole Feature oldTarget, newColumn ])
+                    |> Maybe.withDefault (Just [ newColumn ])
+            else
+                Just [ newColumn ]
+
+        changedMetadata =
+            updatedColumn
+                |> Maybe.andThen ensureChanged
+                |> Maybe.andThen ensureSingleTarget
+                |> Maybe.withDefault []
+                |> Dict.fromListBy .name
+                |> flip Dict.intersect existingColumns
+
+        -- Keep new changes, or changes to something that has already been modified.
+        -- Throw out modified columns, as these have been set back to the values we had originally.
+        modifiedMetadata =
+            Dict.merge (\_ changed a -> changed :: a)
+                (\_ changed modified a -> changed :: a)
+                (\_ modified a -> a)
+                changedMetadata
+                model.modifiedMetadata
+                []
+                |> Dict.fromListBy .name
+
+        targetName =
+            existingColumns
+                |> Dict.union modifiedMetadata
+                |> Dict.find (\_ c -> c.role == Target)
+                |> Maybe.map (\( _, c ) -> c.name)
+                |> Maybe.withDefault ""
+    in
+    if modifiedMetadata /= Dict.empty then
+        { model | changesPendingSave = modifiedMetadata, targetQuery = targetName, saveResult = Remote.Loading } => Cmd.map SaveMetadata (saveCommand <| Dict.values modifiedMetadata) => NoOp
+    else
+        { model | modifiedMetadata = modifiedMetadata, columnInEditMode = Nothing, targetQuery = targetName, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => NoOp
 
 
 subscriptions : Model -> Sub Msg
@@ -331,34 +382,19 @@ autocompleteUpdateConfig =
         }
 
 
-getExistingOrOriginalColumn : Dict String ColumnMetadata -> ColumnMetadata -> ColumnMetadata
-getExistingOrOriginalColumn modifiedList column =
-    modifiedList
-        |> Dict.get column.name
-        |> Maybe.withDefault column
+updateImputation : ImputationStrategy -> ColumnMetadata -> ColumnMetadata
+updateImputation value column =
+    { column | imputation = value }
 
 
-updateImputation : ColumnMetadata -> ImputationStrategy -> ( ColumnMetadata, Bool )
-updateImputation column value =
-    { column | imputation = value } => column.imputation == value
+updateRole : Role -> ColumnMetadata -> ColumnMetadata
+updateRole value column =
+    { column | role = value }
 
 
-updateRole : ColumnMetadata -> Role -> ( ColumnMetadata, Bool )
-updateRole column value =
-    { column | role = value } => column.role == value
-
-
-updateDataType : ColumnMetadata -> DataType -> ( ColumnMetadata, Bool )
-updateDataType column value =
-    { column | dataType = value } => column.dataType == value
-
-
-maybeAppendColumn : Dict String ColumnMetadata -> ( ColumnMetadata, Bool ) -> Dict String ColumnMetadata
-maybeAppendColumn dict ( metadata, unchanged ) =
-    if unchanged then
-        dict
-    else
-        Dict.insert metadata.name metadata dict
+updateDataType : DataType -> ColumnMetadata -> ColumnMetadata
+updateDataType value column =
+    { column | dataType = value }
 
 
 updateColumnPageNumber : Int -> ColumnMetadataListing -> ( ColumnMetadataListing, Cmd Msg )
@@ -406,6 +442,9 @@ view context model =
                         in
                         { cm | metadata = unionedMetadata }
                     )
+
+        editTable =
+            buildEditTable context stats model
     in
     div []
         [ div [ class "row mb25" ]
@@ -414,9 +453,48 @@ view context model =
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
                 [ PageSize.view ChangePageSize context.userPageSize ]
             ]
-        , Grid.view filterColumnsToDisplay (config context.config.toolTips stats) model.tableState mergedMetadata
+        , Grid.view filterColumnsToDisplay (config context.config.toolTips stats editTable model.columnInEditMode) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
         ]
+
+
+buildEditTable : ContextModel -> ColumnStatsDict -> Model -> ColumnMetadata -> Html Msg
+buildEditTable context stats model column =
+    let
+        saveButton =
+            case model.saveResult of
+                Remote.Loading ->
+                    button [ class "btn btn-danger btn-sm" ] [ spinner ]
+
+                _ ->
+                    button [ class "btn btn-danger btn-sm", onClick CommitMetadataChange ] [ text "Save Changes" ]
+
+        columnInEdit =
+            model.changesPendingSave
+                |> Dict.get column.name
+                |> Maybe.withDefault column
+    in
+    tr [ class "modal fade in", style [ ( "display", "table-row" ), ( "position", "static" ) ] ]
+        [ td [ class "p0", colspan 6 ]
+            [ div [ class "modal-dialog modal-content metadata-editor m0", style [ ( "z-index", "1050" ), ( "width", "auto" ) ] ]
+                [ Grid.view identity (editConfig context.config.toolTips stats) Grid.initialUnsorted (Remote.succeed [ columnInEdit ])
+                , div [ class "text-left m10" ] [ viewRemoteError model.saveResult ]
+                , div [ class "modal-footer" ]
+                    [ button [ class "btn btn-link btn-sm", onClick CancelColumnEdit ] [ text "Discard" ]
+                    , saveButton
+                    ]
+                ]
+            , div [ class "modal-backdrop in", onClick CancelColumnEdit ] []
+            ]
+        ]
+
+
+viewEditModeOverlay : Maybe ColumnMetadata -> Html Msg
+viewEditModeOverlay editColumn =
+    if isJust editColumn then
+        div [ class "modal-backdrop in", onClick CancelColumnEdit ] []
+    else
+        div [] []
 
 
 viewTargetAndKeyColumns : ContextModel -> Model -> Html Msg
@@ -428,7 +506,7 @@ viewTargetAndKeyColumns context model =
                     let
                         keyGroup =
                             resp.metadata
-                                |> DictX.find (\_ m -> m.role == Columns.Key)
+                                |> Dict.find (\_ m -> m.role == Columns.Key)
                                 |> Maybe.map (viewKeyFormGroup << Tuple.second)
                                 |> Maybe.withDefault (div [] [])
                     in
@@ -478,7 +556,7 @@ viewTargetFormGroup context model =
                 Maybe.withDefault model.targetQuery model.previewTarget
         in
         div [ class "form-group" ]
-            [ label [ class "control-label col-sm-3 mr0 pr0" ] (text "Target" :: helpIcon context.config.toolTips "Target")
+            [ label [ class "control-label col-sm-3 mr0 pr0" ] (text "Target " :: helpIcon context.config.toolTips "Target")
             , div [ class "col-sm-8" ]
                 [ input [ type_ "text", class "form-control", value queryText, onInput SetQuery ] []
                 , viewIf
@@ -486,6 +564,7 @@ viewTargetFormGroup context model =
                         div [ class "autocomplete-menu" ] [ Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata)) ]
                     )
                     model.showAutocomplete
+                , viewRemoteError model.saveResult
                 ]
             ]
     else
@@ -525,25 +604,95 @@ filterColumnsToDisplay columnListing =
         |> List.take columnListing.pageSize
 
 
-config : Dict String String -> ColumnStatsDict -> Grid.Config ColumnMetadata Msg
-config toolTips stats =
+config : Dict String String -> ColumnStatsDict -> (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> Grid.Config ColumnMetadata Msg
+config toolTips stats buildEditTable columnInEdit =
     let
         makeIcon =
             helpIcon toolTips
+
+        columns =
+            nameColumn
+                :: ([ ( typeColumn makeIcon, \c -> c.dataType |> toString )
+                    , ( roleColumn makeIcon, \c -> c.role |> toString )
+                    , ( imputationColumn makeIcon, \c -> c.imputation |> toString )
+                    ]
+                        |> List.map (\( c, f ) -> { c | viewData = lockedDropdownCell f })
+                   )
+                ++ [ statsColumn stats
+                   , histogramColumn stats
+                   ]
     in
     Grid.configCustom
         { toId = \c -> c.name
         , toMsg = SetTableState
-        , columns =
-            [ nameColumn
+        , columns = columns |> List.map Grid.veryCustomColumn
+        , customizations =
+            \defaults ->
+                { defaults
+                    | rowAttrs = customRowAttributes
+                    , rowOverride = rowOverride buildEditTable columnInEdit
+                    , tableAttrs = metadataTableAttrs
+                }
+        }
+
+
+editConfig : Dict String String -> ColumnStatsDict -> Grid.Config ColumnMetadata Msg
+editConfig toolTips stats =
+    let
+        makeIcon =
+            helpIcon toolTips
+
+        columns =
+            [ { nameColumn | sorter = Grid.unsortable }
             , typeColumn makeIcon
             , roleColumn makeIcon
             , imputationColumn makeIcon
             , statsColumn stats
             , histogramColumn stats
             ]
-        , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
+    in
+    Grid.configCustom
+        { toId = \c -> c.name
+        , toMsg = SetTableState
+        , columns = columns |> List.map Grid.veryCustomColumn
+        , customizations = \defaults -> { defaults | tableAttrs = [ class "table table-striped mb0" ] }
         }
+
+
+metadataTableAttrs : List (Attribute msg)
+metadataTableAttrs =
+    [ id "metadata", class "table table-striped" ]
+
+
+rowOverride : (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> ( ColumnMetadata -> Bool, ColumnMetadata -> Html Msg )
+rowOverride buildEditTable columnInEdit =
+    case columnInEdit of
+        Just column ->
+            ( \c -> c.name == column.name, \c -> buildEditTable c )
+
+        Nothing ->
+            ( \_ -> False, \_ -> div [] [] )
+
+
+lockedDropdownCell : (ColumnMetadata -> String) -> ColumnMetadata -> Grid.HtmlDetails Msg
+lockedDropdownCell getValue column =
+    if column.role == Key then
+        if getValue column == "Key" then
+            Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [ option [] [ text "Key" ] ] ]
+        else
+            emptyDropdown
+    else
+        Grid.HtmlDetails [ class "form-group" ]
+            [ select
+                [ class "form-control"
+                , Html.Events.onWithOptions "mousedown"
+                    { preventDefault = True
+                    , stopPropagation = False
+                    }
+                    (Decode.succeed NoOpMsg)
+                ]
+                [ option [] [ text <| getValue column ] ]
+            ]
 
 
 customRowAttributes : ColumnMetadata -> List (Attribute Msg)
@@ -551,43 +700,46 @@ customRowAttributes column =
     if column.role == Key then
         [ id "key" ]
     else
-        []
+        [ id <| String.classify <| "column_" ++ column.name, onClick <| SelectColumnForEdit column ]
 
 
-nameColumn : Grid.Column ColumnMetadata Msg
+nameColumn :
+    { headAttributes : List (Attribute Msg)
+    , headHtml : List a
+    , name : String
+    , sorter : Grid.Sorter { b | name : comparable }
+    , viewData : { c | name : String } -> Grid.HtmlDetails Msg
+    }
 nameColumn =
-    Grid.veryCustomColumn
-        { name = "Column Name"
-        , viewData = columnNameCell
-        , sorter = Grid.increasingOrDecreasingBy (\c -> c.name)
-        , headAttributes = [ class "left per25" ]
-        , headHtml = []
+    { name = "Column Name"
+    , viewData = \c -> Grid.HtmlDetails [ class "name" ] [ text <| formatDisplayName c.name ]
+    , sorter = Grid.increasingOrDecreasingBy (\c -> c.name)
+    , headAttributes = [ class "left per25" ]
+    , headHtml = []
+    }
+
+
+typeColumn :
+    (String -> List (Html msg))
+    ->
+        { headAttributes : List (Attribute msg1)
+        , headHtml : List (Html msg)
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
-
-
-columnNameCell : ColumnMetadata -> Grid.HtmlDetails Msg
-columnNameCell column =
-    Grid.HtmlDetails [ class "name" ]
-        [ text <| formatDisplayName column.name ]
-
-
-typeColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
 typeColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Type"
-        , viewData = dataTypeCell
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = text "Type " :: makeIcon "Type"
-        }
+    { name = "Type"
+    , viewData = dataTypeCell
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per10" ]
+    , headHtml = text "Type " :: makeIcon "Type"
+    }
 
 
 dataTypeCell : ColumnMetadata -> Grid.HtmlDetails Msg
 dataTypeCell column =
-    if column.role == Key then
-        emptyDropdown
-    else
-        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType (TypeSelectionChanged column) column.dataType ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType TypeSelectionChanged column.dataType ]
 
 
 emptyDropdown : Grid.HtmlDetails Msg
@@ -595,58 +747,68 @@ emptyDropdown =
     Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [] ]
 
 
-roleColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
-roleColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Role"
-        , viewData = roleCell
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = text "Role " :: makeIcon "Role"
+roleColumn :
+    (String -> List (Html msg))
+    ->
+        { headAttributes : List (Attribute msg1)
+        , headHtml : List (Html msg)
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
+roleColumn makeIcon =
+    { name = "Role"
+    , viewData = roleCell
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per10" ]
+    , headHtml = text "Role " :: makeIcon "Role"
+    }
 
 
 roleCell : ColumnMetadata -> Grid.HtmlDetails Msg
 roleCell column =
-    if column.role == Key then
-        Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [ option [] [ text "Key" ] ] ]
-    else
-        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole (RoleSelectionChanged column) column.role ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole RoleSelectionChanged column.role ]
 
 
-enumOption : e -> e -> Html Msg
-enumOption roleOption roleModel =
-    option [ selected (roleOption == roleModel) ] [ text (toString roleOption) ]
-
-
-imputationColumn : (String -> List (Html Msg)) -> Grid.Column ColumnMetadata Msg
-imputationColumn makeIcon =
-    Grid.veryCustomColumn
-        { name = "Imputation"
-        , viewData = imputationCell
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = text "Imputation " :: makeIcon "Imputation"
+imputationColumn :
+    (String -> List (Html msg))
+    ->
+        { headAttributes : List (Attribute msg1)
+        , headHtml : List (Html msg)
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
+imputationColumn makeIcon =
+    { name = "Imputation"
+    , viewData = imputationCell
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per10" ]
+    , headHtml = text "Imputation " :: makeIcon "Imputation"
+    }
 
 
 imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
-    if column.role == Key then
-        emptyDropdown
-    else
-        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy (ImputationSelectionChanged column) column.imputation ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy ImputationSelectionChanged column.imputation ]
 
 
-statsColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
-statsColumn stats =
-    Grid.veryCustomColumn
-        { name = "Stats"
-        , viewData = statsCell stats
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per20" ]
-        , headHtml = []
+statsColumn :
+    ColumnStatsDict
+    ->
+        { headAttributes : List (Attribute msg)
+        , headHtml : List a
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
+statsColumn stats =
+    { name = "Stats"
+    , viewData = statsCell stats
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per20" ]
+    , headHtml = []
+    }
 
 
 statsCell : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
@@ -702,15 +864,22 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
-histogramColumn stats =
-    Grid.veryCustomColumn
-        { name = "Distribution"
-        , viewData = histogram stats
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = []
+histogramColumn :
+    ColumnStatsDict
+    ->
+        { headAttributes : List (Attribute msg)
+        , headHtml : List a
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
+histogramColumn stats =
+    { name = "Distribution"
+    , viewData = histogram stats
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per10" ]
+    , headHtml = []
+    }
 
 
 histogram : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg

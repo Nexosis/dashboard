@@ -17,7 +17,6 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Html.Keyed
 import Http
 import Json.Encode
 import List exposing (filter, foldr, head)

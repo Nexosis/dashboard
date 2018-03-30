@@ -4,6 +4,7 @@ module View.Grid
         , Config
         , HtmlDetails
         , ReadOnlyTableMsg(..)
+        , Sorter
         , State
         , config
         , configCustom
@@ -162,7 +163,12 @@ type alias Customizations data msg =
     , tfoot : Maybe (HtmlDetails msg)
     , tbodyAttrs : List (Attribute msg)
     , rowAttrs : data -> List (Attribute msg)
+    , rowOverride : RowOverrideFunctions data msg
     }
+
+
+type alias RowOverrideFunctions data msg =
+    ( data -> Bool, data -> Html msg )
 
 
 toTableAttrs : List (Attribute msg)
@@ -418,6 +424,7 @@ defaultCustomizations =
     , tfoot = Nothing
     , tbodyAttrs = []
     , rowAttrs = simpleRowAttrs
+    , rowOverride = ( \d -> False, \d -> div [] [] )
     }
 
 
@@ -513,7 +520,7 @@ viewTable (Config { toId, toMsg, columns, customizations, isRemote }) state data
 
         tbody =
             Keyed.node "tbody" customizations.tbodyAttrs <|
-                List.map (viewRow toId columns customizations.rowAttrs) sortedData
+                List.map (viewRow toId columns customizations.rowAttrs customizations.rowOverride) sortedData
 
         withFoot =
             case customizations.tfoot of
@@ -570,16 +577,19 @@ onClick name direction toMsg =
             Json.map2 SortParameters (Json.succeed name) (Json.succeed direction)
 
 
-viewRow : (data -> String) -> List (ColumnData data msg) -> (data -> List (Attribute msg)) -> data -> ( String, Html msg )
-viewRow toId columns toRowAttrs data =
+viewRow : (data -> String) -> List (ColumnData data msg) -> (data -> List (Attribute msg)) -> RowOverrideFunctions data msg -> data -> ( String, Html msg )
+viewRow toId columns toRowAttrs rowOverride data =
     ( toId data
-    , lazy3 viewRowHelp columns toRowAttrs data
+    , lazy3 (viewRowHelp rowOverride) columns toRowAttrs data
     )
 
 
-viewRowHelp : List (ColumnData data msg) -> (data -> List (Attribute msg)) -> data -> Html msg
-viewRowHelp columns toRowAttrs data =
-    Html.tr (toRowAttrs data) (List.map (viewCell data) columns)
+viewRowHelp : RowOverrideFunctions data msg -> List (ColumnData data msg) -> (data -> List (Attribute msg)) -> data -> Html msg
+viewRowHelp ( rowTest, rowRender ) columns toRowAttrs data =
+    if rowTest data then
+        rowRender data
+    else
+        Html.tr (toRowAttrs data) (List.map (viewCell data) columns)
 
 
 viewCell : data -> ColumnData data msg -> Html msg
