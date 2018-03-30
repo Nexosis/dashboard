@@ -11,6 +11,7 @@ import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
+import '../vega-tooltip.css'
 import '../docs.js'
 import { initLocalStoragePort } from './js/localStoragePort';
 import 'nexosis-styles/bootstrap-custom.css';

@@ -37,7 +37,7 @@ distributionHistogram data =
         , height 60
         , padding (PEdges 0 0 0 0)
         , autosize [ ANone ]
-        , dataFromRows [] <| List.concatMap distributionItemToRow data
+        , dataFromRows [] <| List.concatMap (\d -> distributionItemToRow axisField d) data
         , mark Bar []
         , enc []
         , config []
@@ -60,17 +60,17 @@ distributionItemField shape =
             "Value"
 
 
-distributionItemToRow : DistributionShape -> List DataRow
-distributionItemToRow shape =
+distributionItemToRow : String -> DistributionShape -> List DataRow
+distributionItemToRow itemLabel shape =
     case shape of
         Data.DataSet.Counts label count ->
-            dataRow [ ( "Value", Str label ), ( "Count", Number (toFloat count) ) ] []
+            dataRow [ ( itemLabel, Str label ), ( "Count", Number (toFloat count) ) ] []
 
         Data.DataSet.Ranges min max count ->
             if min == max then
-                dataRow [ ( "Value", Str min ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str min ), ( "Count", Number (toFloat count) ) ] []
             else
-                dataRow [ ( "Range", Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
