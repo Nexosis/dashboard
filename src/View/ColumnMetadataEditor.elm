@@ -477,7 +477,7 @@ buildEditTable context stats model column =
         [ td [ class "p0", colspan 6 ]
             [ div [ class "modal-dialog modal-content metadata-editor m0", style [ ( "z-index", "1050" ), ( "width", "auto" ) ] ]
                 [ Grid.view identity (editConfig context.config.toolTips stats) Grid.initialUnsorted (Remote.succeed [ columnInEdit ])
-                , div [ class "text-left m10" ] [ viewRemoteError model.saveResult ]
+                , div [ class "text-left mr10 ml10" ] [ viewRemoteError model.saveResult ]
                 , div [ class "modal-footer" ]
                     [ button [ class "btn btn-link btn-sm", onClick CancelColumnEdit ] [ text "Discard" ]
                     , saveButton
