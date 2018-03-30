@@ -143,13 +143,6 @@ update msg model context =
 
                         cmd =
                             case session.predictionDomain of
-                                PredictionDomain.Regression ->
-                                    "result-vis"
-                                        => Charts.regressionResults results session model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
-
                                 PredictionDomain.Forecast ->
                                     timeSeriesDataRequest session.predictionDomain
 
@@ -200,27 +193,7 @@ update msg model context =
         DataSetLoaded response ->
             case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
-                    let
-                        renderGraph graph =
-                            "result-vis"
-                                => graph results session data model.windowWidth
-                                |> List.singleton
-                                |> Json.Encode.object
-                                |> Ports.drawVegaChart
-
-                        cmd =
-                            case session.predictionDomain of
-                                PredictionDomain.Impact ->
-                                    renderGraph Charts.impactResults
-
-                                PredictionDomain.Forecast ->
-                                    renderGraph Charts.forecastResults
-
-                                _ ->
-                                    Cmd.none
-                    in
-                    { model | dataSetResponse = response }
-                        => cmd
+                    { model | dataSetResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -729,8 +702,48 @@ viewSessionId session =
 
 viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
-    div [ class "col-sm-12" ]
-        [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+    let
+        graphSpec =
+            graphModel model
+    in
+    case graphSpec of
+        Just spec ->
+            div [ class "col-sm-12" ]
+                [ div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ]
+
+        Nothing ->
+            div [ class "col-sm-12" ]
+                [ div [] [] ]
+
+
+graphModel : Model -> Maybe String
+graphModel model =
+    let
+        toResult graph =
+            graph |> Json.Encode.encode 0 |> Just
+    in
+    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse ) of
+        ( Remote.Success session, Remote.Success results, Remote.Success data ) ->
+            case session.predictionDomain of
+                PredictionDomain.Forecast ->
+                    Charts.forecastResults results session data model.windowWidth |> toResult
+
+                PredictionDomain.Impact ->
+                    Charts.impactResults results session data model.windowWidth |> toResult
+
+                _ ->
+                    Nothing
+
+        ( Remote.Success session, Remote.Success results, _ ) ->
+            case session.predictionDomain of
+                PredictionDomain.Regression ->
+                    Charts.regressionResults results session model.windowWidth |> toResult
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 viewResultsTable : Model -> Html Msg

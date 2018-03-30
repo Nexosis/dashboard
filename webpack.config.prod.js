@@ -36,7 +36,7 @@ export default {
             template: 'src/index.ejs',
             favicon: 'src/favicon.ico',
             minify: {
-                removeComments: true,
+                removeComments: false,
                 collapseWhitespace: true,
                 removeRedundantAttributes: true,
                 useShortDoctype: true,
