@@ -24,44 +24,29 @@ distributionHistogram data =
                 << configuration (View [ Stroke (Just "transparent") ])
                 << configuration (MarkStyle [ MFill "#2bb7ec" ])
 
-        axisField =
-            data |> List.head |> distributionItemField
-
         enc =
             encoding
-                << position X [ PName (normalizeFieldName axisField), PmType Ordinal, PSort [] ]
-                << position Y [ PName (normalizeFieldName "Count"), PmType Quantitative ]
+                << position X [ PName "Value", PmType Ordinal, PSort [] ]
+                << position Y [ PName "Count", PmType Quantitative ]
     in
     toVegaLite
         [ width 150
         , height 60
         , padding (PEdges 0 0 0 0)
         , autosize [ ANone ]
-        , dataFromRows [] <| List.concatMap (\d -> distributionItemToRow axisField d) data
+        , dataFromRows [] <| List.concatMap distributionItemToRow data
         , mark Bar []
         , enc []
         , config []
         ]
 
 
-distributionItemField : Maybe DistributionShape -> String
-distributionItemField shape =
-    case shape of
-        Just (Data.DataSet.Counts _ _) ->
+distributionItemToRow : DistributionShape -> List DataRow
+distributionItemToRow shape =
+    let
+        itemLabel =
             "Value"
-
-        Just (Data.DataSet.Ranges min max _) ->
-            if min == max then
-                "Value"
-            else
-                "Range"
-
-        _ ->
-            "Value"
-
-
-distributionItemToRow : String -> DistributionShape -> List DataRow
-distributionItemToRow itemLabel shape =
+    in
     case shape of
         Data.DataSet.Counts label count ->
             dataRow [ ( itemLabel, Str label ), ( "Count", Number (toFloat count) ) ] []
