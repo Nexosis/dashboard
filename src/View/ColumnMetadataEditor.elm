@@ -11,7 +11,6 @@ import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onFocus, onInput)
-import Json.Encode exposing (encode)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -723,7 +722,7 @@ histogram stats column =
         Just stats ->
             Grid.HtmlDetails []
                 [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
-                , node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] []
+                , stats.distribution |> distributionHistogram
                 ]
 
         Nothing ->

@@ -7,14 +7,20 @@ import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData, DistributionShape)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
-import Html exposing (Html, a, div, h3, span, table, tbody, td, tr)
+import Html exposing (Html, a, div, h3, node, span, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
+import Json.Encode
 import List.Extra exposing (find)
 import String.Extra exposing (replace)
 import VegaLite exposing (..)
 
 
-distributionHistogram : List DistributionShape -> Spec
+renderChart : Spec -> Html msg
+renderChart spec =
+    node "vega-chart" [ attribute "spec" (Json.Encode.encode 0 spec) ] []
+
+
+distributionHistogram : List DistributionShape -> Html msg
 distributionHistogram data =
     let
         config =
@@ -39,6 +45,7 @@ distributionHistogram data =
         , enc []
         , config []
         ]
+        |> renderChart
 
 
 distributionItemToRow : DistributionShape -> List DataRow
@@ -58,7 +65,7 @@ distributionItemToRow shape =
                 dataRow [ ( itemLabel, Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
-forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg
 forecastResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
@@ -107,13 +114,13 @@ forecastResults sessionResults session dataSet windowWidth =
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
-impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg
 impactResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
@@ -203,10 +210,10 @@ impactResults sessionResults session dataSet windowWidth =
                     , boxSpec
                     ]
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
 axisLabelFormat : SessionData -> String
@@ -219,7 +226,7 @@ axisLabelFormat session =
             "%x"
 
 
-regressionResults : SessionResults -> SessionData -> Int -> Spec
+regressionResults : SessionResults -> SessionData -> Int -> Html msg
 regressionResults sessionResults session windowWidth =
     let
         targetColumn =
@@ -356,10 +363,10 @@ regressionResults sessionResults session windowWidth =
                     , lineSpec
                     ]
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
 resultsToPredictedObserved : String -> Dict String String -> ( Float, Float )

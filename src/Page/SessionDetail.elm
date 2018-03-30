@@ -18,9 +18,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Html.Keyed
 import Http
-import Json.Encode
 import List exposing (filter, foldr, head)
 import List.Extra as List
 import Page.Helpers exposing (..)
@@ -725,27 +723,23 @@ viewResultsGraph model =
     case graphSpec of
         Just spec ->
             div [ class "col-sm-12" ]
-                [ div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ]
+                [ div [ id "result-vis" ] [ spec ] ]
 
         Nothing ->
             div [ class "col-sm-12" ]
                 [ div [] [] ]
 
 
-graphModel : Model -> Maybe String
+graphModel : Model -> Maybe (Html msg)
 graphModel model =
-    let
-        toResult graph =
-            graph |> Json.Encode.encode 0 |> Just
-    in
     case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse ) of
         ( Remote.Success session, Remote.Success results, Remote.Success data ) ->
             case session.predictionDomain of
                 PredictionDomain.Forecast ->
-                    Charts.forecastResults results session data model.windowWidth |> toResult
+                    Charts.forecastResults results session data model.windowWidth |> Just
 
                 PredictionDomain.Impact ->
-                    Charts.impactResults results session data model.windowWidth |> toResult
+                    Charts.impactResults results session data model.windowWidth |> Just
 
                 _ ->
                     Nothing
@@ -753,7 +747,7 @@ graphModel model =
         ( Remote.Success session, Remote.Success results, _ ) ->
             case session.predictionDomain of
                 PredictionDomain.Regression ->
-                    Charts.regressionResults results session model.windowWidth |> toResult
+                    Charts.regressionResults results session model.windowWidth |> Just
 
                 _ ->
                     Nothing
