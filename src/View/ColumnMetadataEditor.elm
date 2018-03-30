@@ -11,14 +11,17 @@ import Dict.Extra as DictX
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onFocus, onInput)
+import Json.Encode exposing (encode)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
+import String.Extra as String
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, styledNumber)
-import VegaLite exposing (Spec)
+import VegaLite exposing (Spec, combineSpecs)
+import View.Charts exposing (distributionHistogram)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid exposing (defaultCustomizations)
 import View.PageSize as PageSize
@@ -537,6 +540,7 @@ config toolTips stats =
             , roleColumn makeIcon
             , imputationColumn makeIcon
             , statsColumn stats
+            , histogramColumn stats
             ]
         , customizations = \defaults -> { defaults | rowAttrs = customRowAttributes }
         }
@@ -640,7 +644,7 @@ statsColumn stats =
         { name = "Stats"
         , viewData = statsCell stats
         , sorter = Grid.unsortable
-        , headAttributes = [ class "per20", colspan 2 ]
+        , headAttributes = [ class "per20" ]
         , headHtml = []
         }
 
@@ -670,14 +674,14 @@ statsDisplay columnStats =
                     , strong [] [ text "Std Dev: " ]
                     , styledNumber <| formatFloatToString stats.stddev
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "Errors: " ]
+                    , strong [] [ text "Errors: " ]
                     , styledNumber <| commaFormatInteger stats.errorCount
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
                     [ strong [] [ text "Value Count: " ]
                     , styledNumber <| commaFormatInteger stats.totalCount
                     , br [] []
-                    , strong [ class "text-danger" ] [ text "# Missing: " ]
+                    , strong [] [ text "# Missing: " ]
                     , styledNumber <| commaFormatInteger stats.missingCount
                     , br [] []
                     , strong [] [ text "Mean: " ]
@@ -698,18 +702,29 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn : Grid.Column ColumnMetadata Msg
-histogramColumn =
+histogramColumn : ColumnStatsDict -> Grid.Column ColumnMetadata Msg
+histogramColumn stats =
     Grid.veryCustomColumn
         { name = "Distribution"
-        , viewData = histogram
+        , viewData = histogram stats
         , sorter = Grid.unsortable
         , headAttributes = [ class "per10" ]
         , headHtml = []
         }
 
 
-histogram : ColumnMetadata -> Grid.HtmlDetails Msg
-histogram column =
-    Grid.HtmlDetails []
-        [ div [ id ("histogram_" ++ column.name) ] [] ]
+histogram : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+histogram stats column =
+    let
+        columnStats =
+            Dict.get column.name stats
+    in
+    case columnStats of
+        Just stats ->
+            Grid.HtmlDetails []
+                [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
+                , node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] []
+                ]
+
+        Nothing ->
+            Grid.HtmlDetails [] [ div [] [] ]

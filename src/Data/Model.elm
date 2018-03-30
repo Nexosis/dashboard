@@ -1,6 +1,7 @@
 module Data.Model exposing (Algorithm, ModelData, ModelList, PredictionResult, decodeModel, decodeModelList, decodePredictions)
 
 import Data.Columns exposing (ColumnMetadata, decodeColumnMetadata)
+import Data.DataSet exposing (decodeData)
 import Data.DisplayDate exposing (dateDecoder)
 import Data.Link exposing (Link, linkDecoder)
 import Data.Message exposing (Message, decodeMessage)
@@ -85,5 +86,5 @@ decodeModel =
 decodePredictions : Decoder PredictionResult
 decodePredictions =
     decode PredictionResult
-        |> required "data" (list <| dict string)
+        |> required "data" decodeData
         |> required "messages" (list decodeMessage)

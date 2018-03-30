@@ -151,13 +151,6 @@ update msg model context =
 
                         cmd =
                             case session.predictionDomain of
-                                PredictionDomain.Regression ->
-                                    "result-vis"
-                                        => Charts.regressionResults results session model.windowWidth
-                                        |> List.singleton
-                                        |> Json.Encode.object
-                                        |> Ports.drawVegaChart
-
                                 PredictionDomain.Forecast ->
                                     timeSeriesDataRequest session.predictionDomain
 
@@ -208,27 +201,7 @@ update msg model context =
         DataSetLoaded response ->
             case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
                 Remote.Success ( results, session, data ) ->
-                    let
-                        renderGraph graph =
-                            "result-vis"
-                                => graph results session data model.windowWidth
-                                |> List.singleton
-                                |> Json.Encode.object
-                                |> Ports.drawVegaChart
-
-                        cmd =
-                            case session.predictionDomain of
-                                PredictionDomain.Impact ->
-                                    renderGraph Charts.impactResults
-
-                                PredictionDomain.Forecast ->
-                                    renderGraph Charts.forecastResults
-
-                                _ ->
-                                    Cmd.none
-                    in
-                    { model | dataSetResponse = response }
-                        => cmd
+                    { model | dataSetResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -442,7 +415,8 @@ viewSessionDetails model context =
                     [ viewPendingSession session ]
     in
     div [ class "row", id "details" ]
-        [ div [ class "col-sm-3" ]
+        [ loadingOr <| viewWaitTimeExplainer context
+        , div [ class "col-sm-3" ]
             [ loadingOr pendingOrCompleted ]
 
         --, p []
@@ -457,6 +431,11 @@ viewSessionDetails model context =
             , loadingOr viewStatusHistory
             ]
         ]
+
+
+viewWaitTimeExplainer : ContextModel -> Model -> SessionData -> Html Msg
+viewWaitTimeExplainer context model session =
+    viewIf (\() -> div [ class "help alert alert-info" ] [ explainer context.config "session_start_timing" ]) <| not <| Data.Session.sessionIsCompleted session
 
 
 viewSessionInfo : Model -> SessionData -> Html Msg
@@ -739,8 +718,48 @@ viewSessionId session =
 
 viewResultsGraph : Model -> Html Msg
 viewResultsGraph model =
-    div [ class "col-sm-12" ]
-        [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [] ) ] ]
+    let
+        graphSpec =
+            graphModel model
+    in
+    case graphSpec of
+        Just spec ->
+            div [ class "col-sm-12" ]
+                [ div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ]
+
+        Nothing ->
+            div [ class "col-sm-12" ]
+                [ div [] [] ]
+
+
+graphModel : Model -> Maybe String
+graphModel model =
+    let
+        toResult graph =
+            graph |> Json.Encode.encode 0 |> Just
+    in
+    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse ) of
+        ( Remote.Success session, Remote.Success results, Remote.Success data ) ->
+            case session.predictionDomain of
+                PredictionDomain.Forecast ->
+                    Charts.forecastResults results session data model.windowWidth |> toResult
+
+                PredictionDomain.Impact ->
+                    Charts.impactResults results session data model.windowWidth |> toResult
+
+                _ ->
+                    Nothing
+
+        ( Remote.Success session, Remote.Success results, _ ) ->
+            case session.predictionDomain of
+                PredictionDomain.Regression ->
+                    Charts.regressionResults results session model.windowWidth |> toResult
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
 
 
 viewResultsTable : Model -> Html Msg
@@ -793,8 +812,8 @@ viewModelTrainingResults model sessionData =
             div [ class "row" ]
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row" ]
-                        [ div [ class "col-sm-9" ] [ h3 [] [ text "Test Data" ] ]
-                        , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+                        [ div [ class "col-sm-6" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-sm-6" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ], renderExplanatoryButton sessionData ] ]
                         ]
                     , table [ class "table table-striped" ]
                         [ thead []
@@ -811,6 +830,18 @@ viewModelTrainingResults model sessionData =
 
         Nothing ->
             div [] []
+
+
+renderExplanatoryButton : SessionData -> Html Msg
+renderExplanatoryButton session =
+    if session.predictionDomain == PredictionDomain.Regression then
+        div [ style [ ( "margin-top", "5px" ) ] ]
+            [ a [ href "https://docs.nexosis.com/guides/analyzing-regression-results", target "_blank" ]
+                [ button [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ]
+                ]
+            ]
+    else
+        span [] []
 
 
 viewAnomalyResults : Model -> SessionData -> Html Msg

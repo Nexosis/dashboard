@@ -11,6 +11,7 @@ import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../elm-datepicker.css'
 import '../elm-autocomplete.css'
+import '../vega-tooltip.css'
 import '../docs.js'
 import { initLocalStoragePort } from './js/localStoragePort';
 import 'nexosis-styles/bootstrap-custom.css';
@@ -18,6 +19,7 @@ import 'nexosis-styles/nexosis.css';
 import 'nexosis-styles/api-styles.css';
 import 'nexosis-styles/docs-styles.css';
 import 'nexosis-styles/hubspot-forms.css';
+import './elements/vega-chart';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -100,17 +102,6 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             app.ports.prismHighlight.subscribe(function () {
                 requestAnimationFrame(() => {
                     Prism.highlightAll();
-                });
-            });
-
-
-            app.ports.drawVegaChart.subscribe(function (specObject) {
-                requestAnimationFrame(() => {
-                    for (let name of Object.keys(specObject)) {
-                        vegaEmbed(`#${name}`, specObject[name], {
-                            actions: false, logLevel: vega.Warn
-                        }).catch(console.warn);
-                    }
                 });
             });
 

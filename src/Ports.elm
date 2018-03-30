@@ -1,8 +1,7 @@
-port module Ports exposing (drawVegaChart, fileContentRead, fileSaved, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setPageTitle, storeObject, uploadFileSelected)
+port module Ports exposing (fileContentRead, fileSaved, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setPageTitle, storeObject, uploadFileSelected)
 
 import Json.Decode
 import Json.Encode
-import VegaLite exposing (Spec)
 
 
 port log : String -> Cmd msg
@@ -15,9 +14,6 @@ port responseReceived : (Json.Encode.Value -> msg) -> Sub msg
 
 
 port prismHighlight : () -> Cmd msg
-
-
-port drawVegaChart : Spec -> Cmd msg
 
 
 port uploadFileSelected : String -> Cmd msg
