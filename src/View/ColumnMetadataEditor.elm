@@ -429,7 +429,6 @@ view context model =
         stats =
             model.statsResponse
                 |> Remote.map (\sr -> sr.columns)
-                |> Remote.withDefault Dict.empty
 
         mergedMetadata =
             model.columnMetadata
@@ -458,7 +457,7 @@ view context model =
         ]
 
 
-buildEditTable : ContextModel -> ColumnStatsDict -> Model -> ColumnMetadata -> Html Msg
+buildEditTable : ContextModel -> Remote.WebData ColumnStatsDict -> Model -> ColumnMetadata -> Html Msg
 buildEditTable context stats model column =
     let
         saveButton =
@@ -604,7 +603,7 @@ filterColumnsToDisplay columnListing =
         |> List.take columnListing.pageSize
 
 
-config : Dict String String -> ColumnStatsDict -> (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> Grid.Config ColumnMetadata Msg
+config : Dict String String -> Remote.WebData ColumnStatsDict -> (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> Grid.Config ColumnMetadata Msg
 config toolTips stats buildEditTable columnInEdit =
     let
         makeIcon =
@@ -636,7 +635,7 @@ config toolTips stats buildEditTable columnInEdit =
         }
 
 
-editConfig : Dict String String -> ColumnStatsDict -> Grid.Config ColumnMetadata Msg
+editConfig : Dict String String -> Remote.WebData ColumnStatsDict -> Grid.Config ColumnMetadata Msg
 editConfig toolTips stats =
     let
         makeIcon =
@@ -794,7 +793,7 @@ imputationCell column =
 
 
 statsColumn :
-    ColumnStatsDict
+    Remote.WebData ColumnStatsDict
     ->
         { headAttributes : List (Attribute msg)
         , headHtml : List a
@@ -811,53 +810,84 @@ statsColumn stats =
     }
 
 
-statsCell : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+statsClass : Remote.WebData a -> String
+statsClass statsData =
+    case statsData of
+        Remote.Loading ->
+            "stats loading"
+
+        _ ->
+            "stats"
+
+
+statsCell : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 statsCell stats column =
     let
         columnStats =
-            Dict.get column.name stats
+            stats
+                |> Remote.map (\s -> Dict.get column.name s)
     in
-    Grid.HtmlDetails [ class "stats" ]
+    Grid.HtmlDetails [ class <| statsClass stats ]
         [ statsDisplay columnStats ]
 
 
-statsDisplay : Maybe ColumnStats -> Html Msg
+statsDisplay : Remote.WebData (Maybe ColumnStats) -> Html Msg
 statsDisplay columnStats =
     case columnStats of
-        Just stats ->
+        Remote.Loading ->
             div [ class "row m0" ]
                 [ div [ class "col-sm-6 pl0 pr0" ]
-                    [ strong [] [ text "Min: " ]
-                    , styledNumber <| stats.min
-                    , br [] []
-                    , strong [] [ text "Max: " ]
-                    , styledNumber <| stats.max
-                    , br [] []
-                    , strong [] [ text "Std Dev: " ]
-                    , styledNumber <| formatFloatToString stats.stddev
-                    , br [] []
-                    , strong [] [ text "Errors: " ]
-                    , styledNumber <| commaFormatInteger stats.errorCount
+                    [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
+                    , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
                 , div [ class "col-sm-6 pl0 pr0" ]
-                    [ strong [] [ text "Value Count: " ]
-                    , styledNumber <| commaFormatInteger stats.totalCount
-                    , br [] []
-                    , strong [] [ text "# Missing: " ]
-                    , styledNumber <| commaFormatInteger stats.missingCount
-                    , br [] []
-                    , strong [] [ text "Mean: " ]
-                    , styledNumber <| formatFloatToString stats.mean
-                    , br [] []
-                    , strong [] [ text "Median: " ]
-                    , styledNumber <| formatFloatToString stats.median
-                    , br [] []
-                    , strong [] [ text "Mode: " ]
-                    , styledNumber <| stats.mode
+                    [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
+                    , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
                 ]
 
-        Nothing ->
+        Remote.Success maybeStats ->
+            case maybeStats of
+                Just stats ->
+                    div [ class "row m0" ]
+                        [ div [ class "col-sm-6 pl0 pr0" ]
+                            [ strong [] [ text "Min: " ]
+                            , styledNumber <| stats.min
+                            , br [] []
+                            , strong [] [ text "Max: " ]
+                            , styledNumber <| stats.max
+                            , br [] []
+                            , strong [] [ text "Std Dev: " ]
+                            , styledNumber <| formatFloatToString stats.stddev
+                            , br [] []
+                            , strong [] [ text "Errors: " ]
+                            , styledNumber <| commaFormatInteger stats.errorCount
+                            ]
+                        , div [ class "col-sm-6 pl0 pr0" ]
+                            [ strong [] [ text "Value Count: " ]
+                            , styledNumber <| commaFormatInteger stats.totalCount
+                            , br [] []
+                            , strong [] [ text "# Missing: " ]
+                            , styledNumber <| commaFormatInteger stats.missingCount
+                            , br [] []
+                            , strong [] [ text "Mean: " ]
+                            , styledNumber <| formatFloatToString stats.mean
+                            , br [] []
+                            , strong [] [ text "Median: " ]
+                            , styledNumber <| formatFloatToString stats.median
+                            , br [] []
+                            , strong [] [ text "Mode: " ]
+                            , styledNumber <| stats.mode
+                            ]
+                        ]
+
+                Nothing ->
+                    div [ class "row m0" ]
+                        [ div [ class "col-sm-6 pl0 pr0" ] []
+                        , div [ class "col-sm-6 pl0 pr0" ] []
+                        ]
+
+        _ ->
             div [ class "row m0" ]
                 [ div [ class "col-sm-6 pl0 pr0" ] []
                 , div [ class "col-sm-6 pl0 pr0" ] []
@@ -865,7 +895,7 @@ statsDisplay columnStats =
 
 
 histogramColumn :
-    ColumnStatsDict
+    Remote.WebData ColumnStatsDict
     ->
         { headAttributes : List (Attribute msg)
         , headHtml : List a
@@ -882,18 +912,28 @@ histogramColumn stats =
     }
 
 
-histogram : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+histogram : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 histogram stats column =
     let
         columnStats =
-            Dict.get column.name stats
+            stats
+                |> Remote.map (\s -> Dict.get column.name s)
     in
     case columnStats of
-        Just stats ->
-            Grid.HtmlDetails []
-                [ div [ id ("histogram_" ++ column.name |> String.classify) ] []
-                , node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] []
+        Remote.Loading ->
+            Grid.HtmlDetails [ class "stats loading" ]
+                [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
+                , span [ class "sr-only" ] [ text "Calculating..." ]
                 ]
 
-        Nothing ->
+        Remote.Success maybeStats ->
+            case maybeStats of
+                Just stats ->
+                    Grid.HtmlDetails [ class "stats" ]
+                        [ node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] [] ]
+
+                Nothing ->
+                    Grid.HtmlDetails [] [ div [] [] ]
+
+        _ ->
             Grid.HtmlDetails [] [ div [] [] ]
