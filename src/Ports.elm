@@ -1,4 +1,4 @@
-port module Ports exposing (fileContentRead, fileSaved, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setPageTitle, storeObject, uploadFileSelected)
+port module Ports exposing (fileContentRead, fileSaved, highlightIds, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setPageTitle, storeObject, uploadFileSelected)
 
 import Json.Decode
 import Json.Encode
@@ -48,3 +48,6 @@ port setPageTitle : String -> Cmd msg
 
 
 port scrollIntoView : String -> Cmd msg
+
+
+port highlightIds : List String -> Cmd msg

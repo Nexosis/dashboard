@@ -228,6 +228,18 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                     }
                 });
             });
+
+            app.ports.highlightIds.subscribe(function(elementIds){
+                requestAnimationFrame(() => {
+                    elementIds.forEach(e => {
+                        const elem = document.getElementById(e);
+                        if(elem){
+                            elem.addEventListener("animationend", () => { elem.classList.remove('save-success'); })
+                            elem.classList.add('save-success');
+                        }
+                    });
+                });
+            });
         });
     });
 });
