@@ -17,14 +17,12 @@ import Http exposing (encodeUri)
 import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Log as Log exposing (logHttpError)
 import Request.Session exposing (getForDataset)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
-import View.Error as Error
 
 
 ---- MODEL ----
@@ -36,7 +34,6 @@ type alias Model =
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionResponse : Remote.WebData SessionList
-    , updateResponse : Remote.WebData ()
     , tabs : Ziplist ( Tab, String )
     , dataSetDataModel : DataSetData.Model
     }
@@ -66,7 +63,7 @@ init context dataSetName =
         ( dataSetModel, _ ) =
             DataSetData.init context dataSetName
     in
-    Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked Remote.NotAsked initTabs dataSetModel
+    Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked initTabs dataSetModel
         ! [ loadData
           , loadRelatedSessions context.config dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -213,8 +210,7 @@ view model context =
         , viewDetailsRow context model
         , div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ viewError model
-                , viewTabControl model
+                [ viewTabControl model
                 , viewTabContent context model
                 ]
             ]
@@ -236,19 +232,6 @@ viewNameRow model =
             [ a [ AppRoutes.href (AppRoutes.SessionStart model.dataSetName), class "btn btn-danger mt10" ] [ text "Start Session" ]
             ]
         ]
-
-
-viewError : Model -> Html Msg
-viewError model =
-    case model.updateResponse of
-        Remote.Failure error ->
-            div [ class "alert alert-danger" ] [ Error.viewHttpError error ]
-
-        Remote.Success resp ->
-            div [ class "alert alert-success" ] [ text "metadata updated" ]
-
-        _ ->
-            span [] []
 
 
 viewDetailsRow : ContextModel -> Model -> Html Msg

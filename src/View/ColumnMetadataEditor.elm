@@ -13,6 +13,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onFocus, onInput)
 import Json.Decode as Decode
 import Json.Encode exposing (encode)
+import Ports
 import RemoteData as Remote
 import Request.DataSet
 import Request.Log exposing (logHttpError)
@@ -267,7 +268,9 @@ update msg model context pendingSaveCommand =
 
         SaveMetadata result ->
             if Remote.isSuccess result then
-                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => Updated (Dict.values model.modifiedMetadata)
+                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing }
+                    => Ports.highlightIds (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
+                    => Updated (Dict.values model.modifiedMetadata)
             else
                 { model | saveResult = result } => Cmd.none => NoOp
 
@@ -697,7 +700,7 @@ customRowAttributes column =
     if column.role == Key then
         [ id "key" ]
     else
-        [ onClick <| SelectColumnForEdit column ]
+        [ id <| String.classify <| "column_" ++ column.name, onClick <| SelectColumnForEdit column ]
 
 
 nameColumn :
