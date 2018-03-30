@@ -20,7 +20,6 @@ import 'nexosis-styles/docs-styles.css';
 import 'nexosis-styles/hubspot-forms.css';
 import './elements/vega-chart';
 
-
 if (!Intercept.isWired()) {
     Intercept.wire();
 }
