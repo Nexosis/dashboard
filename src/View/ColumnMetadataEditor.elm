@@ -619,8 +619,8 @@ config toolTips stats buildEditTable columnInEdit =
                         |> List.map (\( c, f ) -> { c | viewData = lockedDropdownCell f })
                    )
                 ++ [ statsColumn stats
-                    , histogramColumn stats
-                    ]
+                   , histogramColumn stats
+                   ]
     in
     Grid.configCustom
         { toId = \c -> c.name
@@ -792,6 +792,7 @@ imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
     Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy ImputationSelectionChanged column.imputation ]
 
+
 statsColumn :
     ColumnStatsDict
     ->
@@ -863,21 +864,22 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn
-    : ColumnStatsDict
-    -> { headAttributes : List (Attribute msg)
-    , headHtml : List a
-    , name : String
-    , sorter : Grid.Sorter data
-    , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-    }
-histogramColumn stats =
-        { name = "Distribution"
-        , viewData = histogram stats
-        , sorter = Grid.unsortable
-        , headAttributes = [ class "per10" ]
-        , headHtml = []
+histogramColumn :
+    ColumnStatsDict
+    ->
+        { headAttributes : List (Attribute msg)
+        , headHtml : List a
+        , name : String
+        , sorter : Grid.Sorter data
+        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
         }
+histogramColumn stats =
+    { name = "Distribution"
+    , viewData = histogram stats
+    , sorter = Grid.unsortable
+    , headAttributes = [ class "per10" ]
+    , headHtml = []
+    }
 
 
 histogram : ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
