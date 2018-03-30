@@ -709,7 +709,7 @@ viewResultsGraph model =
     case graphSpec of
         Just spec ->
             div [ class "col-sm-12" ]
-                [ Html.Keyed.node "div" [ class "center" ] [ ( "result-vis", div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ) ] ]
+                [ div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ]
 
         Nothing ->
             div [ class "col-sm-12" ]
