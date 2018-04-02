@@ -828,124 +828,104 @@ statsDisplay columnStats =
         Remote.Success maybeStats ->
             case maybeStats of
                 ( Just stats, dataType ) ->
-                    case dataType of
-                        String ->
-                            div [ class "row m0" ]
-                                [ div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Min: " ]
-                                    , styledNumber <| stats.min
-                                    , br [] []
-                                    , strong [] [ text "Max: " ]
-                                    , styledNumber <| stats.max
-                                    , br [] []
-                                    , strong [] [ text "Count: " ]
-                                    , styledNumber <| commaFormatInteger stats.totalCount
-                                    ]
-                                , div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "# Missing: " ]
-                                    , styledNumber <| commaFormatInteger stats.missingCount
-                                    , br [] []
-                                    , strong [] [ text "Mean: " ]
-                                    , styledNumber <| formatFloatToString stats.mean
-                                    , br [] []
-                                    , strong [] [ text "Mode: " ]
-                                    , styledNumber <| stats.mode
-                                    ]
-                                ]
+                    let
+                        errorStyle =
+                            if stats.errorCount == 0 then
+                                ""
+                            else if (toFloat stats.errorCount / toFloat stats.totalCount) * 100 < 10 then
+                                "text-danger"
+                            else
+                                "label label-danger"
 
-                        Logical ->
-                            div [ class "row m0" ]
-                                [ div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Min: " ]
-                                    , styledNumber <| stats.min
-                                    , br [] []
-                                    , strong [] [ text "Max: " ]
-                                    , styledNumber <| stats.max
-                                    , br [] []
-                                    , strong [] [ text "Mode: " ]
-                                    , styledNumber <| stats.mode
-                                    ]
-                                , div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Count: " ]
-                                    , styledNumber <| commaFormatInteger stats.totalCount
-                                    , br [] []
-                                    , strong [] [ text "Errors: " ]
-                                    , styledNumber <| commaFormatInteger stats.errorCount
-                                    , br [] []
-                                    , strong [] [ text "# Missing: " ]
-                                    , styledNumber <| commaFormatInteger stats.missingCount
-                                    ]
-                                ]
+                        missingStyle =
+                            if stats.missingCount == 0 then
+                                ""
+                            else if (toFloat stats.missingCount / toFloat stats.totalCount) * 100 < 10 then
+                                "text-danger"
+                            else
+                                "label label-danger"
 
-                        Date ->
-                            div [ class "row m0" ]
-                                [ div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Min: " ]
-                                    , styledNumber stats.min
-                                    , br [] []
-                                    , strong [] [ text "Max: " ]
-                                    , styledNumber stats.max
-                                    , br [] []
-                                    , strong [] [ text "Mode: " ]
-                                    , styledNumber stats.mode
-                                    ]
-                                , div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Count: " ]
-                                    , styledNumber <| commaFormatInteger stats.totalCount
-                                    , br [] []
-                                    , strong [] [ text "Errors: " ]
-                                    , styledNumber <| commaFormatInteger stats.errorCount
-                                    , br [] []
-                                    , strong [] [ text "# Missing: " ]
-                                    , styledNumber <| commaFormatInteger stats.missingCount
-                                    ]
-                                ]
+                        min =
+                            [ strong [] [ text "Min: " ]
+                            , styledNumber <| stats.min
+                            ]
 
-                        Text ->
-                            div [ class "row m0" ]
-                                [ div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Count: " ]
-                                    , styledNumber <| commaFormatInteger stats.totalCount
-                                    , br [] []
-                                    , strong [] [ text "# Missing: " ]
-                                    , styledNumber <| commaFormatInteger stats.missingCount
-                                    ]
-                                , div [ class "col-sm-6 pl0 pr0" ]
-                                    []
-                                ]
+                        max =
+                            [ strong [] [ text "Max: " ]
+                            , styledNumber <| stats.max
+                            ]
 
-                        _ ->
-                            div [ class "row m0" ]
-                                [ div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Min: " ]
-                                    , styledNumber <| stats.min
-                                    , br [] []
-                                    , strong [] [ text "Max: " ]
-                                    , styledNumber <| stats.max
-                                    , br [] []
-                                    , strong [] [ text "Std Dev: " ]
-                                    , styledNumber <| formatFloatToString stats.stddev
-                                    , br [] []
-                                    , strong [] [ text "Errors: " ]
-                                    , styledNumber <| commaFormatInteger stats.errorCount
-                                    , br [] []
-                                    , strong [] [ text "Variance: " ]
-                                    , styledNumber <| formatFloatToString stats.variance
-                                    ]
-                                , div [ class "col-sm-6 pl0 pr0" ]
-                                    [ strong [] [ text "Count: " ]
-                                    , styledNumber <| commaFormatInteger stats.totalCount
-                                    , br [] []
-                                    , strong [] [ text "# Missing: " ]
-                                    , styledNumber <| commaFormatInteger stats.missingCount
-                                    , br [] []
-                                    , strong [] [ text "Mean: " ]
-                                    , styledNumber <| formatFloatToString stats.mean
-                                    , br [] []
-                                    , strong [] [ text "Mode: " ]
-                                    , styledNumber <| stats.mode
-                                    ]
+                        count =
+                            [ strong [] [ text "Count: " ]
+                            , styledNumber <| commaFormatInteger stats.totalCount
+                            ]
+
+                        missing =
+                            [ span [ class missingStyle ]
+                                [ strong [] [ text "# Missing: " ]
+                                , styledNumber <| commaFormatInteger stats.missingCount
                                 ]
+                            ]
+
+                        mean =
+                            [ strong [] [ text "Mean: " ]
+                            , styledNumber <| formatFloatToString stats.mean
+                            ]
+
+                        mode =
+                            [ strong [] [ text "Mode: " ]
+                            , styledNumber <| stats.mode
+                            ]
+
+                        errors =
+                            [ span [ class errorStyle ]
+                                [ strong [] [ text "Errors: " ]
+                                , styledNumber <| commaFormatInteger stats.errorCount
+                                ]
+                            ]
+
+                        stdDev =
+                            [ strong [] [ text "Std Dev: " ]
+                            , styledNumber <| formatFloatToString stats.stddev
+                            ]
+
+                        variance =
+                            [ strong [] [ text "Variance: " ]
+                            , styledNumber <| formatFloatToString stats.variance
+                            ]
+
+                        ( statsLeft, statsRight ) =
+                            case dataType of
+                                String ->
+                                    [ min, max, count ] => [ missing, mean, mode ]
+
+                                Text ->
+                                    [ count, missing ] => []
+
+                                Logical ->
+                                    [ min, max, mode ] => [ count, errors, missing ]
+
+                                Date ->
+                                    [ min, max, mode ] => [ count, errors, missing ]
+
+                                Numeric ->
+                                    [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
+
+                                Measure ->
+                                    [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
+                    in
+                    div [ class "row m0" ]
+                        [ div [ class "col-sm-6 pl0 pr0" ]
+                            (statsLeft
+                                |> List.intersperse [ br [] [] ]
+                                |> List.concat
+                            )
+                        , div [ class "col-sm-6 pl0 pr0" ]
+                            (statsRight
+                                |> List.intersperse [ br [] [] ]
+                                |> List.concat
+                            )
+                        ]
 
                 ( Nothing, _ ) ->
                     div [ class "row m0" ]
