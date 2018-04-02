@@ -702,13 +702,16 @@ customRowAttributes column =
         [ id <| String.classify <| "column_" ++ column.name, onClick <| SelectColumnForEdit column ]
 
 
-nameColumn :
+type alias ColumnDisplayProperties =
     { headAttributes : List (Attribute Msg)
-    , headHtml : List a
+    , headHtml : List (Html Msg)
     , name : String
-    , sorter : Grid.Sorter { b | name : comparable }
-    , viewData : { c | name : String } -> Grid.HtmlDetails Msg
+    , sorter : Grid.Sorter ColumnMetadata
+    , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
     }
+
+
+nameColumn : ColumnDisplayProperties
 nameColumn =
     { name = "Column Name"
     , viewData = \c -> Grid.HtmlDetails [ class "name" ] [ text <| formatDisplayName c.name ]
@@ -718,15 +721,7 @@ nameColumn =
     }
 
 
-typeColumn :
-    (String -> List (Html msg))
-    ->
-        { headAttributes : List (Attribute msg1)
-        , headHtml : List (Html msg)
-        , name : String
-        , sorter : Grid.Sorter data
-        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-        }
+typeColumn : (String -> List (Html Msg)) -> ColumnDisplayProperties
 typeColumn makeIcon =
     { name = "Type"
     , viewData = dataTypeCell
@@ -746,15 +741,7 @@ emptyDropdown =
     Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [] ]
 
 
-roleColumn :
-    (String -> List (Html msg))
-    ->
-        { headAttributes : List (Attribute msg1)
-        , headHtml : List (Html msg)
-        , name : String
-        , sorter : Grid.Sorter data
-        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-        }
+roleColumn : (String -> List (Html Msg)) -> ColumnDisplayProperties
 roleColumn makeIcon =
     { name = "Role"
     , viewData = roleCell
@@ -769,15 +756,7 @@ roleCell column =
     Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole RoleSelectionChanged column.role ]
 
 
-imputationColumn :
-    (String -> List (Html msg))
-    ->
-        { headAttributes : List (Attribute msg1)
-        , headHtml : List (Html msg)
-        , name : String
-        , sorter : Grid.Sorter data
-        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-        }
+imputationColumn : (String -> List (Html Msg)) -> ColumnDisplayProperties
 imputationColumn makeIcon =
     { name = "Imputation"
     , viewData = imputationCell
@@ -792,15 +771,7 @@ imputationCell column =
     Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy ImputationSelectionChanged column.imputation ]
 
 
-statsColumn :
-    Remote.WebData ColumnStatsDict
-    ->
-        { headAttributes : List (Attribute msg)
-        , headHtml : List a
-        , name : String
-        , sorter : Grid.Sorter data
-        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-        }
+statsColumn : Remote.WebData ColumnStatsDict -> ColumnDisplayProperties
 statsColumn stats =
     { name = "Stats"
     , viewData = statsCell stats
@@ -810,28 +781,36 @@ statsColumn stats =
     }
 
 
-statsClass : Remote.WebData a -> String
-statsClass statsData =
-    case statsData of
-        Remote.Loading ->
-            "stats loading"
-
-        _ ->
-            "stats"
-
-
 statsCell : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 statsCell stats column =
-    let
-        columnStats =
-            stats
-                |> Remote.map (\s -> Dict.get column.name s)
-    in
-    Grid.HtmlDetails [ class <| statsClass stats ]
-        [ statsDisplay columnStats ]
+    if column.role == Key then
+        Grid.HtmlDetails [ class "stats" ]
+            [ div [ class "row m0" ]
+                [ div [ class "col-sm-6 pl0 pr0" ]
+                    [ text "N/A" ]
+                , div [ class "col-sm-6 pl0 pr0" ]
+                    [ text "N/A" ]
+                ]
+            ]
+    else
+        let
+            statsClass =
+                case stats of
+                    Remote.Loading ->
+                        "stats loading"
+
+                    _ ->
+                        "stats"
+
+            columnStats =
+                stats
+                    |> Remote.map (\s -> ( Dict.get column.name s, column.dataType ))
+        in
+        Grid.HtmlDetails [ class statsClass ]
+            [ statsDisplay columnStats ]
 
 
-statsDisplay : Remote.WebData (Maybe ColumnStats) -> Html Msg
+statsDisplay : Remote.WebData ( Maybe ColumnStats, DataType ) -> Html Msg
 statsDisplay columnStats =
     case columnStats of
         Remote.Loading ->
@@ -848,40 +827,127 @@ statsDisplay columnStats =
 
         Remote.Success maybeStats ->
             case maybeStats of
-                Just stats ->
-                    div [ class "row m0" ]
-                        [ div [ class "col-sm-6 pl0 pr0" ]
-                            [ strong [] [ text "Min: " ]
-                            , styledNumber <| stats.min
-                            , br [] []
-                            , strong [] [ text "Max: " ]
-                            , styledNumber <| stats.max
-                            , br [] []
-                            , strong [] [ text "Std Dev: " ]
-                            , styledNumber <| formatFloatToString stats.stddev
-                            , br [] []
-                            , strong [] [ text "Errors: " ]
-                            , styledNumber <| commaFormatInteger stats.errorCount
-                            ]
-                        , div [ class "col-sm-6 pl0 pr0" ]
-                            [ strong [] [ text "Value Count: " ]
-                            , styledNumber <| commaFormatInteger stats.totalCount
-                            , br [] []
-                            , strong [] [ text "# Missing: " ]
-                            , styledNumber <| commaFormatInteger stats.missingCount
-                            , br [] []
-                            , strong [] [ text "Mean: " ]
-                            , styledNumber <| formatFloatToString stats.mean
-                            , br [] []
-                            , strong [] [ text "Median: " ]
-                            , styledNumber <| formatFloatToString stats.median
-                            , br [] []
-                            , strong [] [ text "Mode: " ]
-                            , styledNumber <| stats.mode
-                            ]
-                        ]
+                ( Just stats, dataType ) ->
+                    case dataType of
+                        String ->
+                            div [ class "row m0" ]
+                                [ div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Min: " ]
+                                    , styledNumber <| stats.min
+                                    , br [] []
+                                    , strong [] [ text "Max: " ]
+                                    , styledNumber <| stats.max
+                                    , br [] []
+                                    , strong [] [ text "Count: " ]
+                                    , styledNumber <| commaFormatInteger stats.totalCount
+                                    ]
+                                , div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "# Missing: " ]
+                                    , styledNumber <| commaFormatInteger stats.missingCount
+                                    , br [] []
+                                    , strong [] [ text "Mean: " ]
+                                    , styledNumber <| formatFloatToString stats.mean
+                                    , br [] []
+                                    , strong [] [ text "Mode: " ]
+                                    , styledNumber <| stats.mode
+                                    ]
+                                ]
 
-                Nothing ->
+                        Logical ->
+                            div [ class "row m0" ]
+                                [ div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Min: " ]
+                                    , styledNumber <| stats.min
+                                    , br [] []
+                                    , strong [] [ text "Max: " ]
+                                    , styledNumber <| stats.max
+                                    , br [] []
+                                    , strong [] [ text "Mode: " ]
+                                    , styledNumber <| stats.mode
+                                    ]
+                                , div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Count: " ]
+                                    , styledNumber <| commaFormatInteger stats.totalCount
+                                    , br [] []
+                                    , strong [] [ text "Errors: " ]
+                                    , styledNumber <| commaFormatInteger stats.errorCount
+                                    , br [] []
+                                    , strong [] [ text "# Missing: " ]
+                                    , styledNumber <| commaFormatInteger stats.missingCount
+                                    ]
+                                ]
+
+                        Date ->
+                            div [ class "row m0" ]
+                                [ div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Min: " ]
+                                    , styledNumber stats.min
+                                    , br [] []
+                                    , strong [] [ text "Max: " ]
+                                    , styledNumber stats.max
+                                    , br [] []
+                                    , strong [] [ text "Mode: " ]
+                                    , styledNumber stats.mode
+                                    ]
+                                , div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Count: " ]
+                                    , styledNumber <| commaFormatInteger stats.totalCount
+                                    , br [] []
+                                    , strong [] [ text "Errors: " ]
+                                    , styledNumber <| commaFormatInteger stats.errorCount
+                                    , br [] []
+                                    , strong [] [ text "# Missing: " ]
+                                    , styledNumber <| commaFormatInteger stats.missingCount
+                                    ]
+                                ]
+
+                        Text ->
+                            div [ class "row m0" ]
+                                [ div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Count: " ]
+                                    , styledNumber <| commaFormatInteger stats.totalCount
+                                    , br [] []
+                                    , strong [] [ text "# Missing: " ]
+                                    , styledNumber <| commaFormatInteger stats.missingCount
+                                    ]
+                                , div [ class "col-sm-6 pl0 pr0" ]
+                                    []
+                                ]
+
+                        _ ->
+                            div [ class "row m0" ]
+                                [ div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Min: " ]
+                                    , styledNumber <| stats.min
+                                    , br [] []
+                                    , strong [] [ text "Max: " ]
+                                    , styledNumber <| stats.max
+                                    , br [] []
+                                    , strong [] [ text "Std Dev: " ]
+                                    , styledNumber <| formatFloatToString stats.stddev
+                                    , br [] []
+                                    , strong [] [ text "Errors: " ]
+                                    , styledNumber <| commaFormatInteger stats.errorCount
+                                    , br [] []
+                                    , strong [] [ text "Variance: " ]
+                                    , styledNumber <| formatFloatToString stats.variance
+                                    ]
+                                , div [ class "col-sm-6 pl0 pr0" ]
+                                    [ strong [] [ text "Count: " ]
+                                    , styledNumber <| commaFormatInteger stats.totalCount
+                                    , br [] []
+                                    , strong [] [ text "# Missing: " ]
+                                    , styledNumber <| commaFormatInteger stats.missingCount
+                                    , br [] []
+                                    , strong [] [ text "Mean: " ]
+                                    , styledNumber <| formatFloatToString stats.mean
+                                    , br [] []
+                                    , strong [] [ text "Mode: " ]
+                                    , styledNumber <| stats.mode
+                                    ]
+                                ]
+
+                ( Nothing, _ ) ->
                     div [ class "row m0" ]
                         [ div [ class "col-sm-6 pl0 pr0" ] []
                         , div [ class "col-sm-6 pl0 pr0" ] []
@@ -894,15 +960,7 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn :
-    Remote.WebData ColumnStatsDict
-    ->
-        { headAttributes : List (Attribute msg)
-        , headHtml : List a
-        , name : String
-        , sorter : Grid.Sorter data
-        , viewData : ColumnMetadata -> Grid.HtmlDetails Msg
-        }
+histogramColumn : Remote.WebData ColumnStatsDict -> ColumnDisplayProperties
 histogramColumn stats =
     { name = "Distribution"
     , viewData = histogram stats
@@ -914,26 +972,30 @@ histogramColumn stats =
 
 histogram : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 histogram stats column =
-    let
-        columnStats =
-            stats
-                |> Remote.map (\s -> Dict.get column.name s)
-    in
-    case columnStats of
-        Remote.Loading ->
-            Grid.HtmlDetails [ class "stats loading" ]
-                [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
-                , span [ class "sr-only" ] [ text "Calculating..." ]
-                ]
+    if column.role == Key then
+        Grid.HtmlDetails [ class "stats" ]
+            [ text "N/A" ]
+    else
+        let
+            columnStats =
+                stats
+                    |> Remote.map (\s -> Dict.get column.name s)
+        in
+        case columnStats of
+            Remote.Loading ->
+                Grid.HtmlDetails [ class "stats loading" ]
+                    [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
+                    , span [ class "sr-only" ] [ text "Calculating..." ]
+                    ]
 
-        Remote.Success maybeStats ->
-            case maybeStats of
-                Just stats ->
-                    Grid.HtmlDetails [ class "stats" ]
-                        [ node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] [] ]
+            Remote.Success maybeStats ->
+                case maybeStats of
+                    Just stats ->
+                        Grid.HtmlDetails [ class "stats" ]
+                            [ node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] [] ]
 
-                Nothing ->
-                    Grid.HtmlDetails [] [ div [] [] ]
+                    Nothing ->
+                        Grid.HtmlDetails [] [ div [] [] ]
 
-        _ ->
-            Grid.HtmlDetails [] [ div [] [] ]
+            _ ->
+                Grid.HtmlDetails [] [ div [] [] ]
