@@ -1,5 +1,5 @@
 ##### How to import from a AWS S3
-If you have a `CSV` or `JSON` file hosted out on <a href="https://aws.amazon.com/s3">AWS S3</a>, you can tell the Nexosis Platform to import that data into a Dataset. 
+If you have a `CSV` or `JSON` file hosted out on <a href="https://aws.amazon.com/s3" target="_blank">AWS S3</a>, you can tell the Nexosis Platform to import that data into a Dataset. 
 
 An import allows you to load any size file as opposed to the 1MB limit on uploaded files. The import will run in the background via the Nexosis API and should complete within a minute or two depending on file size. Gzipped files are supported.
 

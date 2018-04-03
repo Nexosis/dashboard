@@ -21,7 +21,7 @@ import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
 import Request.DataSet exposing (PutUploadRequest, createDataSetWithKey, put)
-import Request.Import exposing (PostS3Request, PostUrlRequest)
+import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
@@ -71,6 +71,13 @@ type alias S3ImportEntry =
     }
 
 
+type alias AzureImportEntry =
+    { connectionString : String
+    , container : String
+    , blob : String
+    }
+
+
 type Step
     = ChooseUploadType
     | SetKey
@@ -80,12 +87,14 @@ type Tab
     = FileUploadTab FileUploadEntry
     | UrlImportTab UrlImportEntry
     | S3ImportTab S3ImportEntry
+    | AzureImportTab AzureImportEntry
 
 
 type AddDataSetRequest
     = PutUpload PutUploadRequest
     | ImportUrl PostUrlRequest
     | ImportS3 PostS3Request
+    | ImportAzure PostAzureRequest
 
 
 initFileUploadTab : FileUploadEntry
@@ -95,6 +104,11 @@ initFileUploadTab =
     , fileUploadType = DataFormat.Other
     , fileUploadErrorOccurred = Nothing
     }
+
+
+initAzureImportTab : AzureImportEntry
+initAzureImportTab =
+    { connectionString = "", container = "", blob = "" }
 
 
 initImportUrlTab : UrlImportEntry
@@ -113,6 +127,7 @@ initTabs =
         ( FileUploadTab <| initFileUploadTab, "Upload" )
         [ ( UrlImportTab <| initImportUrlTab, "Import from URL" )
         , ( S3ImportTab <| initImportS3Tab, "Import from AWS S3" )
+        , ( AzureImportTab <| initAzureImportTab, "Import from Azure Blob Storage" )
         ]
 
 
@@ -164,11 +179,14 @@ type Field
     = DataSetNameField
     | UrlField
     | FileSelectionField
-    | PathField
-    | BucketField
-    | RegionField
-    | AccessTokenIdField
-    | SecretAccessKeyField
+    | AwsPathField
+    | AwsBucketField
+    | AwsRegionField
+    | AwsAccessTokenIdField
+    | AwsSecretAccessKeyField
+    | AzureConnectionStringField
+    | AzureContainerField
+    | AzureBlobField
 
 
 type alias FieldError =
@@ -189,6 +207,10 @@ validateModel model =
         ( S3ImportTab s3ImportEntry, _ ) ->
             validateS3ImportModel model s3ImportEntry
                 |> Result.map ImportS3
+
+        ( AzureImportTab azureImportEntry, _ ) ->
+            validateAzureImportModel model azureImportEntry
+                |> Result.map ImportAzure
 
 
 validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
@@ -211,11 +233,20 @@ validateS3ImportModel : Model -> Validator FieldError S3ImportEntry PostS3Reques
 validateS3ImportModel model =
     Verify.ok PostS3Request
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .bucket (notBlank (BucketField => "Bucket required."))
-        |> Verify.verify .path (notBlank (PathField => "Path required."))
+        |> Verify.verify .bucket (notBlank (AwsBucketField => "Bucket required."))
+        |> Verify.verify .path (notBlank (AwsPathField => "Path required."))
         |> Verify.keep .region
         |> Verify.keep .accessKeyId
         |> Verify.keep .secretAccessKey
+
+
+validateAzureImportModel : Model -> Validator FieldError AzureImportEntry PostAzureRequest
+validateAzureImportModel model =
+    Verify.ok PostAzureRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .connectionString (notBlank (AzureConnectionStringField => "Connection String required."))
+        |> Verify.verify .container (notBlank (AzureContainerField => "Container required."))
+        |> Verify.verify .blob (notBlank (AzureBlobField => "Blob required."))
 
 
 verifyFileType : error -> Validator error DataFormat.DataFormat String
@@ -284,6 +315,9 @@ type TabMsg
     | S3RegionChange String
     | S3AccessKeyIdChange String
     | S3SecretAccessKeyChange String
+    | AzureConnectionStringChange String
+    | AzureContainerChange String
+    | AzureBlobChange String
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -355,6 +389,15 @@ update msg model context =
                     let
                         importRequest =
                             Request.Import.postS3 context.config request
+                                |> Remote.sendRequest
+                                |> Cmd.map ImportResponse
+                    in
+                    { model | importResponse = Remote.Loading } => importRequest
+
+                ImportAzure request ->
+                    let
+                        importRequest =
+                            Request.Import.postAzure context.config request
                                 |> Remote.sendRequest
                                 |> Cmd.map ImportResponse
                     in
@@ -498,6 +541,20 @@ updateTabContents model msg =
 
                         _ ->
                             ( S3ImportTab s3Tab, id )
+
+                ( ( AzureImportTab azureTab, id ), changeMsg ) ->
+                    case changeMsg of
+                        AzureConnectionStringChange connectionString ->
+                            ( AzureImportTab { azureTab | connectionString = connectionString }, id )
+
+                        AzureContainerChange container ->
+                            ( AzureImportTab { azureTab | container = container }, id )
+
+                        AzureBlobChange blob ->
+                            ( AzureImportTab { azureTab | blob = blob }, id )
+
+                        _ ->
+                            ( AzureImportTab azureTab, id )
 
                 ( _, _ ) ->
                     model.tabs.current
@@ -671,6 +728,12 @@ viewEntryReview model =
                     , ( "Access Key Id", Maybe.withDefault "" s3Import.accessKeyId )
                     , ( "Secret Access Key", Maybe.withDefault "" s3Import.secretAccessKey )
                     ]
+
+                ( AzureImportTab azureImport, _ ) ->
+                    [ ( "Connection String", azureImport.connectionString )
+                    , ( "Container", azureImport.container )
+                    , ( "Blob", azureImport.blob )
+                    ]
     in
     dataSetName
         :: properties
@@ -720,6 +783,9 @@ viewTabContent context model =
 
                 ( S3ImportTab s3ImportEntry, _ ) ->
                     viewImportS3Tab context.config s3ImportEntry model
+
+                ( AzureImportTab azureImportEntry, _ ) ->
+                    viewImportAzureTab context.config azureImportEntry model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -796,32 +862,60 @@ viewImportS3Tab config tabModel model =
             [ div [ class "form-group col-sm-8" ]
                 [ label [] [ text "Bucket Name", span [ class "text-danger" ] [ text "*" ] ]
                 , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3BucketChange c), value tabModel.bucket, onBlur InputBlur ] []
-                , viewFieldError model.errors BucketField
+                , viewFieldError model.errors AwsBucketField
                 ]
             , div [ class "form-group col-sm-8" ]
                 [ label [] [ text "File Path", span [ class "text-danger" ] [ text "*" ] ]
                 , input [ class "form-control", required True, onInput <| \c -> TabMsg (S3PathChange c), value tabModel.path, onBlur InputBlur ] []
-                , viewFieldError model.errors PathField
+                , viewFieldError model.errors AwsPathField
                 ]
             , div [ class "form-group col-sm-8" ]
                 [ label [] [ text "AWS Region" ]
                 , viewRegions model tabModel.region
-                , viewFieldError model.errors RegionField
+                , viewFieldError model.errors AwsRegionField
                 ]
             , div [ class "form-group col-sm-8" ]
                 [ label [] [ text "Access Key Id" ]
                 , input [ class "form-control", onInput <| \c -> TabMsg (S3AccessKeyIdChange c), value <| Maybe.withDefault "" tabModel.accessKeyId, onBlur InputBlur ] []
-                , viewFieldError model.errors AccessTokenIdField
+                , viewFieldError model.errors AwsAccessTokenIdField
                 ]
             , div [ class "form-group col-sm-8" ]
                 [ label [] [ text "Secret Access Key" ]
                 , input [ class "form-control", onInput <| \c -> TabMsg (S3SecretAccessKeyChange c), value <| Maybe.withDefault "" tabModel.secretAccessKey, onBlur InputBlur ] []
-                , viewFieldError model.errors SecretAccessKeyField
+                , viewFieldError model.errors AwsSecretAccessKeyField
                 ]
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
                 [ explainer config "how_upload_s3"
+                ]
+            ]
+        ]
+
+
+viewImportAzureTab : Config -> AzureImportEntry -> Model -> Html Msg
+viewImportAzureTab config tabModel model =
+    div [ class "row" ]
+        [ div [ class "col-sm-6" ]
+            [ div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Connection String", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (AzureConnectionStringChange c), value tabModel.connectionString, onBlur InputBlur ] []
+                , viewFieldError model.errors AzureConnectionStringField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Container", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (AzureContainerChange c), value tabModel.container, onBlur InputBlur ] []
+                , viewFieldError model.errors AzureContainerField
+                ]
+            , div [ class "form-group col-sm-8" ]
+                [ label [] [ text "Blob", span [ class "text-danger" ] [ text "*" ] ]
+                , input [ class "form-control", required True, onInput <| \c -> TabMsg (AzureBlobChange c), value tabModel.blob, onBlur InputBlur ] []
+                , viewFieldError model.errors AzureBlobField
+                ]
+            ]
+        , div [ class "col-sm-6" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer config "how_upload_azure"
                 ]
             ]
         ]

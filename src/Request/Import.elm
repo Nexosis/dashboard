@@ -1,4 +1,4 @@
-module Request.Import exposing (PostS3Request, PostUrlRequest, get, postS3, postUrl)
+module Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest, get, postAzure, postS3, postUrl)
 
 import Data.Config exposing (Config, withAuthorization)
 import Data.Import exposing (ImportDetail, decodeImportDetail)
@@ -25,6 +25,14 @@ type alias PostS3Request =
     }
 
 
+type alias PostAzureRequest =
+    { dataSetName : String
+    , connectionString : String
+    , container : String
+    , blob : String
+    }
+
+
 postUrl : Config -> PostUrlRequest -> Http.Request ImportDetail
 postUrl config { dataSetName, url, key } =
     (config.baseUrl ++ "/imports/url")
@@ -40,6 +48,16 @@ postS3 config request =
     (config.baseUrl ++ "/imports/s3")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportS3 request))
+        |> withAuthorization config
+        |> withExpectJson decodeImportDetail
+        |> HttpBuilder.toRequest
+
+
+postAzure : Config -> PostAzureRequest -> Http.Request ImportDetail
+postAzure config request =
+    (config.baseUrl ++ "/imports/azure")
+        |> HttpBuilder.post
+        |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportAzure request))
         |> withAuthorization config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
@@ -87,4 +105,14 @@ encodeImportS3 request =
         , ( "region", encodeMaybe <| request.region )
         , ( "accessKeyId", encodeMaybe <| request.accessKeyId )
         , ( "secretAccessKey", encodeMaybe <| request.secretAccessKey )
+        ]
+
+
+encodeImportAzure : PostAzureRequest -> Json.Encode.Value
+encodeImportAzure request =
+    Json.Encode.object
+        [ ( "dataSetName", Json.Encode.string <| request.dataSetName )
+        , ( "connectionString", Json.Encode.string <| request.connectionString )
+        , ( "container", Json.Encode.string <| request.container )
+        , ( "blob", Json.Encode.string <| request.blob )
         ]
