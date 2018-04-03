@@ -121,9 +121,9 @@ update msg model context =
 
 view : Model -> ContextModel -> List GlobalMessage -> Html Msg
 view model context messages =
-    div [ id "page-header", class "row" ]
-        [ h2 [] [ text "API Dashboard" ]
-        , hr [] []
+    div []
+        [ div [ id "page-header", class "row" ]
+            [ h2 [] [ text "API Dashboard" ] ]
         , div [ class "row" ]
             [ div [ class "col-sm-12 col-md-8 col-lg-9 col-xl-9" ]
                 [ viewRecentPanel "Dataset" (dataSetListView context model) (AppRoutes.DataSets => Just AppRoutes.DataSetAdd)
