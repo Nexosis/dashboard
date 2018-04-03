@@ -250,8 +250,8 @@ verifySessionTypeSelected model =
 verifyHasDate : Model -> Result (List FieldError) String
 verifyHasDate model =
     let
-        ( min, max ) =
-            getMinMaxValueFromCandidate model
+        metadata =
+            dateColumnCandidate <| getMetaDataColumns model
 
         isTimeSeries =
             case model.selectedSessionType of
@@ -264,7 +264,7 @@ verifyHasDate model =
                 _ ->
                     False
     in
-    if isTimeSeries && max == "" then
+    if isTimeSeries && metadata.dataType /= Columns.Date then
         Err [ SessionTypeField => "The selected session type requires time-series data, but this dataset does not have a date field from which to provide a time-series forecast. Please select a dataset which has time-series information, or select a different type of session to build." ]
     else
         Ok ""
