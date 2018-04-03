@@ -967,13 +967,14 @@ histogram stats column =
                     , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
 
-        Remote.Success maybeStats ->
-            case maybeStats of
-                Just stats ->
-                    Grid.HtmlDetails [ class "stats" ]
-                        [ stats.distribution |> distributionHistogram ]
-                Nothing ->
-                    Grid.HtmlDetails [] [ div [] [] ]
+            Remote.Success maybeStats ->
+                case maybeStats of
+                    Just stats ->
+                        Grid.HtmlDetails [ class "stats" ]
+                            [ stats.distribution |> distributionHistogram ]
+
+                    Nothing ->
+                        Grid.HtmlDetails [] [ div [] [] ]
 
             _ ->
                 Grid.HtmlDetails [] [ div [] [] ]

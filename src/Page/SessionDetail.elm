@@ -367,7 +367,7 @@ view model context =
         , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , maybeDisplayHR model --TODO: remove when anomalies have visualization
+        , hr [] []
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -376,24 +376,6 @@ view model context =
             }
             |> Html.map DeleteDialogMsg
         ]
-
-
-
---HACK: Until we have graphs for anomalies...
-
-
-maybeDisplayHR : Model -> Html Msg
-maybeDisplayHR model =
-    let
-        domain =
-            Maybe.withDefault PredictionDomain.Forecast model.predictionDomain
-    in
-    case domain of
-        PredictionDomain.Anomalies ->
-            span [] []
-
-        _ ->
-            hr [] []
 
 
 viewSessionDetails : Model -> ContextModel -> Html Msg
