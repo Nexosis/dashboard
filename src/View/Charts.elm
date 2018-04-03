@@ -417,19 +417,14 @@ anomalyResults sessionResults session metric windowWidth =
             in
             ( q1, median, q3 )
 
+        filterDistance distances filter =
+            distances |> List.filter filter |> List.map (\i -> i.distance ^ (1 / 3)) |> List.sort
+
         inliersQuartiles =
-            let
-                sorted =
-                    distanceValues |> List.filter (\i -> i.anomaly >= 0) |> List.map .distance |> List.sort
-            in
-            quartiles sorted
+            quartiles (filterDistance distanceValues (\i -> i.anomaly >= 0))
 
         outliersQuartiles =
-            let
-                sorted =
-                    distanceValues |> List.filter (\i -> i.anomaly < 0) |> List.map .distance |> List.sort
-            in
-            quartiles sorted
+            quartiles (filterDistance distanceValues (\i -> i.anomaly < 0))
 
         metricToDataRow : DistanceValue -> List DataRow
         metricToDataRow item =
@@ -490,56 +485,42 @@ anomalyResults sessionResults session metric windowWidth =
         valuesProps =
             [ (encoding
                 << position X [ PName "Category", PmType Nominal ]
-                << position Y [ PName "Value", PmType Quantitative ]
+                << position Y [ PName "Value", PmType Quantitative, PAxis [ AxTitle "Values" ] ]
                 << color [ MString "#2bb7ec" ]
               )
                 []
             , mark Circle [ MSize 150, MOpacity 0.25 ]
             ]
 
-        inliersTransform =
+        valuesTransform quartiles categoryLabel =
             let
                 ( maybeQ1, _, maybeQ3 ) =
-                    inliersQuartiles
+                    quartiles
 
                 q1 =
-                    Maybe.withDefault 0 maybeQ1 |> String.fromFloat
+                    Maybe.withDefault 0 maybeQ1
 
                 q3 =
-                    Maybe.withDefault 0 maybeQ3 |> String.fromFloat
+                    Maybe.withDefault 0 maybeQ3
+
+                iqr =
+                    q3 - q1
+
+                top =
+                    q3 + iqr * 1.5
+
+                bottom =
+                    q1 - iqr * 1.5
             in
             transform
                 << filter
-                    (FCompose
-                        (Or (And (Expr "datum.Category == 'Outliers'") (Expr ("datum.Value > " ++ q1)))
-                            (And (Expr "datum.Category == 'Outliers'") (Expr ("datum.Value < " ++ q3)))
-                        )
-                    )
+                    (FExpr ("(datum.Category == '" ++ categoryLabel ++ "' && datum.Value > " ++ String.fromFloat top ++ ") || (datum.Category == '" ++ categoryLabel ++ "' && datum.Value < " ++ String.fromFloat bottom ++ ")"))
 
         inliersSpec =
-            asSpec <| inliersTransform [] :: valuesProps
-
-        outliersTransform =
-            let
-                ( maybeQ1, _, maybeQ3 ) =
-                    outliersQuartiles
-
-                q1 =
-                    Maybe.withDefault 0 maybeQ1 |> String.fromFloat
-
-                q3 =
-                    Maybe.withDefault 0 maybeQ3 |> String.fromFloat
-            in
-            transform
-                << filter
-                    (FCompose
-                        (Or (And (Expr "datum.Category == 'Inliers'") (Expr ("datum.Value > " ++ q1)))
-                            (And (Expr "datum.Category == 'Inliers'") (Expr ("datum.Value < " ++ q3)))
-                        )
-                    )
+            asSpec <| valuesTransform inliersQuartiles "Inliers" [] :: valuesProps
 
         outliersSpec =
-            asSpec <| outliersTransform [] :: valuesProps
+            asSpec <| valuesTransform outliersQuartiles "Outliers" [] :: valuesProps
 
         ( chartWidth, chartHeight ) =
             widthToSize windowWidth
