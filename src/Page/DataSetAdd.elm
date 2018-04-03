@@ -381,24 +381,25 @@ update msg model context =
             { model | key = keyValue } => Cmd.none
 
         ( SetKey, CreateDataSet createRequest ) ->
+            let
+                setKeyRequest name =
+                    case model.key of
+                        Just key ->
+                            createDataSetWithKey context.config name key
+                                |> Http.toTask
+
+                        Nothing ->
+                            Task.succeed ()
+            in
             case createRequest of
                 PutUpload request ->
                     let
-                        setKeyRequest =
-                            case model.key of
-                                Just key ->
-                                    createDataSetWithKey context.config request.name key
-                                        |> Http.toTask
-
-                                Nothing ->
-                                    Task.succeed ()
-
                         putDataRequest =
                             put context.config request
                                 |> Http.toTask
 
                         putRequest =
-                            setKeyRequest
+                            setKeyRequest request.name
                                 |> Task.andThen (always putDataRequest)
                                 |> Remote.asCmd
                                 |> Cmd.map UploadDataSetResponse
@@ -407,27 +408,42 @@ update msg model context =
 
                 ImportUrl request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postUrl context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
                 ImportS3 request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postS3 context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
                 ImportAzure request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postAzure context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
