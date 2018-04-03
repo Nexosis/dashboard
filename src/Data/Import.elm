@@ -69,7 +69,7 @@ decodeImportType =
                     "url" ->
                         succeed Url
 
-                    "Azure" ->
+                    "azure" ->
                         succeed Azure
 
                     unknown ->
