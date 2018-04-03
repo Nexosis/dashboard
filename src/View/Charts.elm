@@ -5,14 +5,14 @@ import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData, DistributionShape)
-import Data.DistanceMetric exposing (DistanceMetrics, fromDistanceMetrics)
+import Data.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, a, div, h3, node, span, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
 import Json.Encode
-import List.Extra exposing (find)
-import String.Extra exposing (replace)
+import List.Extra as List exposing (find)
+import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
 
 
@@ -387,7 +387,178 @@ resultsToPredictedObserved target result =
 
 anomalyResults : SessionResults -> SessionData -> DistanceMetrics -> Int -> Html msg
 anomalyResults sessionResults session metric windowWidth =
-    div [] []
+    let
+        distanceValues =
+            fromDistanceMetrics metric
+
+        quartiles list =
+            let
+                findMedian list =
+                    let
+                        splitIndex =
+                            List.length list // 2
+
+                        ( bottom, top ) =
+                            list |> List.splitAt splitIndex
+                    in
+                    ( bottom
+                    , bottom |> List.drop (splitIndex - 1) |> List.getAt 0
+                    , top
+                    )
+
+                ( lower, median, upper ) =
+                    findMedian list
+
+                ( _, q1, _ ) =
+                    findMedian lower
+
+                ( _, q3, _ ) =
+                    findMedian upper
+            in
+            ( q1, median, q3 )
+
+        inliersQuartiles =
+            let
+                sorted =
+                    distanceValues |> List.filter (\i -> i.anomaly >= 0) |> List.map .distance |> List.sort
+            in
+            quartiles sorted
+
+        outliersQuartiles =
+            let
+                sorted =
+                    distanceValues |> List.filter (\i -> i.anomaly < 0) |> List.map .distance |> List.sort
+            in
+            quartiles sorted
+
+        metricToDataRow : DistanceValue -> List DataRow
+        metricToDataRow item =
+            if item.anomaly < 0 then
+                dataRow [ ( "Category", Str "Outliers" ), ( "Value", Number (item.distance ^ (1 / 3)) ) ] []
+            else
+                dataRow [ ( "Category", Str "Inliers" ), ( "Value", Number (item.distance ^ (1 / 3)) ) ] []
+
+        data =
+            distanceValues |> List.map metricToDataRow
+
+        transformAggregate =
+            transform
+                << aggregate [ opAs Q1 "Value" "Q1", opAs Median "Value" "Q2", opAs Q3 "Value" "Q3" ] [ "Category" ]
+                << calculateAs "datum.Q3 - datum.Q1" "IQR"
+                << calculateAs "datum.Q1 - datum.IQR * 1.5" "lowerWhisker"
+                << calculateAs "datum.Q3 + datum.IQR * 1.5" "upperWhisker"
+
+        whiskerSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "lowerWhisker", PmType Quantitative, PScale [ SZero False ] ]
+                    << position Y2 [ PName "upperWhisker", PmType Quantitative ]
+                  )
+                    []
+                , mark Rule [ MStyle [ "boxWhisker" ] ]
+                , transformAggregate []
+                ]
+
+        boxSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "Q1", PmType Quantitative ]
+                    << position Y2 [ PName "Q3", PmType Quantitative ]
+                    << size [ MNumber 75 ]
+                    << color [ MString "#2bb7ec" ]
+                  )
+                    []
+                , mark Bar [ MStyle [ "box" ] ]
+                , transformAggregate []
+                ]
+
+        tickSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "Q2", PmType Quantitative ]
+                    << size [ MNumber 75 ]
+                    << color [ MString "white" ]
+                  )
+                    []
+                , mark Tick [ MStyle [ "boxMid" ] ]
+                , transformAggregate []
+                ]
+
+        valuesProps =
+            [ (encoding
+                << position X [ PName "Category", PmType Nominal ]
+                << position Y [ PName "Value", PmType Quantitative ]
+                << color [ MString "#2bb7ec" ]
+              )
+                []
+            , mark Circle [ MSize 150, MOpacity 0.25 ]
+            ]
+
+        inliersTransform =
+            let
+                ( maybeQ1, _, maybeQ3 ) =
+                    inliersQuartiles
+
+                q1 =
+                    Maybe.withDefault 0 maybeQ1 |> String.fromFloat
+
+                q3 =
+                    Maybe.withDefault 0 maybeQ3 |> String.fromFloat
+            in
+            transform
+                << filter
+                    (FCompose
+                        (Or (And (Expr "datum.Category == 'Outliers'") (Expr ("datum.Value > " ++ q1)))
+                            (And (Expr "datum.Category == 'Outliers'") (Expr ("datum.Value < " ++ q3)))
+                        )
+                    )
+
+        inliersSpec =
+            asSpec <| inliersTransform [] :: valuesProps
+
+        outliersTransform =
+            let
+                ( maybeQ1, _, maybeQ3 ) =
+                    outliersQuartiles
+
+                q1 =
+                    Maybe.withDefault 0 maybeQ1 |> String.fromFloat
+
+                q3 =
+                    Maybe.withDefault 0 maybeQ3 |> String.fromFloat
+            in
+            transform
+                << filter
+                    (FCompose
+                        (Or (And (Expr "datum.Category == 'Inliers'") (Expr ("datum.Value > " ++ q1)))
+                            (And (Expr "datum.Category == 'Inliers'") (Expr ("datum.Value < " ++ q3)))
+                        )
+                    )
+
+        outliersSpec =
+            asSpec <| outliersTransform [] :: valuesProps
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    toVegaLite
+        [ title "Results"
+        , width chartWidth
+        , height chartHeight
+        , autosize [ AFit, APadding ]
+        , dataFromRows [] <| List.concat data
+        , layer
+            [ whiskerSpec
+            , boxSpec
+            , tickSpec
+            , inliersSpec
+            , outliersSpec
+            ]
+        ]
+        |> renderChart
 
 
 normalizeFieldName : String -> String
