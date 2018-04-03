@@ -7,6 +7,7 @@ import webpack from 'webpack';
 import webpackDevMiddleware from 'webpack-dev-middleware';
 import webpackHotMiddleware from 'webpack-hot-middleware';
 import config from '../webpack.config.dev';
+import compress from 'compression';
 
 const bundler = webpack(config);
 
@@ -43,6 +44,7 @@ browserSync({
 
             // bundler should be the same as above
             webpackHotMiddleware(bundler),
+            compress(),
         ]
     },
 

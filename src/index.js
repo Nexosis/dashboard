@@ -6,7 +6,7 @@ import 'balloon-css';
 import Elm from './Main.elm';
 import StackTrace from 'stacktrace-js';
 import '../config.json';
-import * as toolTips from '../tooltips.json';
+import toolTips from '../tooltips.json';
 import { _LTracker } from 'loggly-jslogger';
 import { getCookie } from './js/cookies';
 import '../elm-datepicker.css'
@@ -116,8 +116,8 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 var file = node.files[0];
                 if (file !== undefined) {
-                    if(file.size > 1000000) {
-                        app.ports.fileContentRead.send({ status : 'FileTooLarge'});
+                    if (file.size > 1000000) {
+                        app.ports.fileContentRead.send({ status: 'FileTooLarge' });
                     } else {
 
                         var reader = new FileReader();
@@ -180,16 +180,16 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
                     }
-                    
+
                     let responseText = '';
-                    if (xhr.response){
+                    if (xhr.response) {
                         responseText = JSON.stringify(JSON.parse(xhr.response), null, 2);
                     }
 
                     let xhrInfo = {
                         status: xhr.status,
                         statusText: xhr.statusText,
-                        response: responseText, 
+                        response: responseText,
                         method: xhr.method,
                         url: xhr.url,
                         quotas: quotas,
@@ -220,20 +220,20 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 document.title = `${title} - Nexosis API`;
             });
 
-            app.ports.scrollIntoView.subscribe(function(elementId){
+            app.ports.scrollIntoView.subscribe(function (elementId) {
                 requestAnimationFrame(() => {
                     let elem = document.getElementById(elementId);
-                    if(elem){
+                    if (elem) {
                         elem.scrollIntoView(true);
                     }
                 });
             });
 
-            app.ports.highlightIds.subscribe(function(elementIds){
+            app.ports.highlightIds.subscribe(function (elementIds) {
                 requestAnimationFrame(() => {
                     elementIds.forEach(e => {
                         const elem = document.getElementById(e);
-                        if(elem){
+                        if (elem) {
                             elem.addEventListener("animationend", () => { elem.classList.remove('save-success'); })
                             elem.classList.add('save-success');
                         }

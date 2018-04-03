@@ -3,6 +3,7 @@
 
 import browserSync from 'browser-sync';
 import { chalkProcessing } from './chalkConfig';
+import compress from 'compression';
 
 /* eslint-disable no-console */
 
@@ -15,7 +16,8 @@ browserSync({
         port: 4001
     },
     server: {
-        baseDir: ['dist']
+        baseDir: ['dist'],
+        middleware: [compress()],
     },
 
     rewriteRules: [
