@@ -23,7 +23,7 @@
         crossorigin="anonymous"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.7.0"></script>
-    <link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/fetch-inject@1.9.1/dist/fetch-inject.umd.min.js">
+    <script defer src="//js.hsforms.net/forms/v2.js"></script>
 
     <style>
         .line-height {
@@ -272,11 +272,13 @@
         </div>
     </footer>
     <script>
-        hbspt.forms.create({
-            css: '',
-            portalId: '2307117',
-            formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84',
-            target: '#hs-footer'
+        document.addEventListener('DOMContentLoaded', function () {
+            hbspt.forms.create({
+                css: '',
+                portalId: '2307117',
+                formId: '5a6dab94-7f9c-4d50-a5d0-9541632e1d84',
+                target: '#hs-footer'
+            });
         });
     </script>
 </body>

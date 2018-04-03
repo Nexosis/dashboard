@@ -33,7 +33,7 @@ export default {
         new webpack.DefinePlugin(GLOBALS),
 
         new MiniCssExtractPlugin({
-            filename: "[name].[chunkhash:8].css"
+            filename: "[name].[contenthash].css"
         }),
 
         new HtmlWebpackPlugin({
@@ -60,7 +60,7 @@ export default {
         concatenateModules: true,
         minimizer: [
             new OptimizeCssAssetsPlugin(),
-            new UglifyJsPlugin({ sourceMap: true })
+            new UglifyJsPlugin({ sourceMap: true, parallel: true }),
         ],
         splitChunks: {
             cacheGroups: {
