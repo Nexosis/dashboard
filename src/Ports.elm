@@ -1,4 +1,4 @@
-port module Ports exposing (fileContentRead, fileSaved, highlightIds, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setPageTitle, storeObject, uploadFileSelected)
+port module Ports exposing (HeaderValues, fileContentRead, fileSaved, highlightIds, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setHeaderValues, setPageTitle, storeObject, uploadFileSelected)
 
 import Json.Decode
 import Json.Encode
@@ -51,3 +51,14 @@ port scrollIntoView : String -> Cmd msg
 
 
 port highlightIds : List String -> Cmd msg
+
+
+type alias HeaderValues =
+    { userName : String
+    , overviewLink : String
+    , referLink : String
+    , logoutLink : String
+    }
+
+
+port setHeaderValues : HeaderValues -> Cmd msg
