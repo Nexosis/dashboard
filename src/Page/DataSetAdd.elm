@@ -240,7 +240,7 @@ validateDirectDataModel : Model -> Validator FieldError DirectDataEntry PutUploa
 validateDirectDataModel model =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .content (notBlank (DataField => "Must provide some data"))
+        |> Verify.verify .content (verifyContentLength model DataField)
         |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
 
 
@@ -288,6 +288,14 @@ verifyFileType error input =
 
         _ ->
             Ok <| DataFormat.dataFormatToContentType input
+
+
+verifyContentLength : Model -> field -> Validator ( field, String ) String String
+verifyContentLength model field input =
+    if ((String.length input * 2) |> Debug.log "length") > maxSize model then
+        Err [ field => ("Data must be less than " ++ (maxSize model |> dataSizeWithSuffix) ++ " in size") ]
+    else
+        Ok <| input
 
 
 verifyRegex : Regex.Regex -> error -> Validator error String String
@@ -886,6 +894,16 @@ viewTabContent context model =
         ]
 
 
+maxSize : Model -> Int
+maxSize model =
+    let
+        default =
+            1024 * 1024
+    in
+    Maybe.withDefault default (model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
+        |> Basics.min default
+
+
 viewUploadTab : Config -> FileUploadEntry -> Model -> Html Msg
 viewUploadTab config tabModel model =
     let
@@ -894,13 +912,6 @@ viewUploadTab config tabModel model =
                 "Select your file"
             else
                 tabModel.fileName
-
-        default =
-            1024 * 1024
-
-        maxSize =
-            Maybe.withDefault default (model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
-                |> Basics.min default
     in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
@@ -918,7 +929,7 @@ viewUploadTab config tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ dataSizeWithSuffix maxSize ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
+                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize model |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
