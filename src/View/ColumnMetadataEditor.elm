@@ -446,8 +446,8 @@ view context model =
     in
     div []
         [ div [ class "row mb25" ]
-            [ div [ class "col-sm-3" ]
-                [ h3 [] [ text "Columns" ] ]
+            [ div [ class "col-sm-3 pleft0" ]
+                [ h3 [] [ text "Column metadata" ] ]
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
                 [ PageSize.view ChangePageSize context.userPageSize ]
             ]
