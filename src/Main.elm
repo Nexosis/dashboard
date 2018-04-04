@@ -5,7 +5,7 @@ import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
 import Data.Message as Message
 import Data.Metric exposing (Metric)
-import Data.Response as Response
+import Data.Response as Response exposing (Quotas)
 import Dom.Scroll as Scroll exposing (toTop)
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -64,6 +64,7 @@ type alias App =
     , enabledFeatures : List Feature
     , context : ContextModel
     , pageLoadFailed : Maybe ( Page, Http.Error )
+    , quotas : Maybe Quotas
     }
 
 
@@ -172,7 +173,7 @@ setRoute route app =
                         Just ( AppRoutes.DataSetAdd, title ) ->
                             let
                                 ( pageModel, initCmd ) =
-                                    DataSetAdd.init app.context.config
+                                    DataSetAdd.init app.context.config app.quotas
                             in
                             { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd => title
 
@@ -232,7 +233,7 @@ update msg model =
                                     { mbctx | config = initState.config }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -320,9 +321,9 @@ updatePage page msg app =
 
         ( ResponseReceived (Ok response), _ ) ->
             let
-                quotaUpdatedMsg : Home.Msg
-                quotaUpdatedMsg =
-                    Home.QuotasUpdated (getQuotas (Just response))
+                quotaUpdatedMsg : (Maybe Quotas -> msg) -> msg
+                quotaUpdatedMsg message =
+                    message (getQuotas (Just response))
 
                 messagesToKeep =
                     response.messages
@@ -337,8 +338,12 @@ updatePage page msg app =
                         |> flip List.append app.messages
                         |> List.take 5
             in
-            { app | messages = messagesToKeep }
-                => Cmd.batch [ Ports.prismHighlight (), Task.perform HomeMsg (Task.succeed quotaUpdatedMsg) ]
+            { app | messages = messagesToKeep, quotas = getQuotas (Just response) }
+                => Cmd.batch
+                    [ Ports.prismHighlight ()
+                    , Task.perform HomeMsg (Task.succeed <| quotaUpdatedMsg Home.QuotasUpdated)
+                    , Task.perform DataSetAddMsg (Task.succeed <| quotaUpdatedMsg DataSetAdd.QuotasUpdated)
+                    ]
 
         ( ResponseReceived (Err err), _ ) ->
             { app | lastResponse = Nothing }

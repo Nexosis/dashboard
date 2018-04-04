@@ -77,7 +77,7 @@ update msg model context =
             { model | activeTab = tab } => prismHighlight ()
 
         FileSelected ->
-            model => Ports.uploadFileSelected "upload-dataset"
+            model => Ports.uploadFileSelected ( "upload-dataset", Nothing )
 
         FileContentRead readResult ->
             let

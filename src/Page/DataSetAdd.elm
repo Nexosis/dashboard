@@ -1,4 +1,4 @@
-module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
+module Page.DataSetAdd exposing (Model, Msg(..), init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
@@ -7,6 +7,7 @@ import Data.DataFormat as DataFormat
 import Data.DataSet
 import Data.File as File
 import Data.Import
+import Data.Response as Response exposing (Quotas)
 import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
@@ -25,7 +26,7 @@ import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
+import Util exposing ((=>), dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
 import Verify exposing (Validator, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
@@ -42,6 +43,7 @@ type alias Model =
     , importResponse : Remote.WebData Data.Import.ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
+    , quotas : Maybe Quotas
     }
 
 
@@ -146,8 +148,8 @@ initTabs =
         ]
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
+init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
+init config quotas =
     let
         steps =
             Ziplist.create [] ChooseUploadType [ SetKey ]
@@ -161,6 +163,7 @@ init config =
         Remote.NotAsked
         listAwsRegions
         []
+        quotas
         => Cmd.none
 
 
@@ -333,6 +336,7 @@ type Msg
     | CreateDataSet AddDataSetRequest
     | UploadDataSetResponse (Remote.WebData ())
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
+    | QuotasUpdated (Maybe Quotas)
 
 
 type TabMsg
@@ -365,7 +369,7 @@ update msg model context =
             { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
-            model => Ports.uploadFileSelected "upload-dataset"
+            model => Ports.uploadFileSelected ( "upload-dataset", model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing )
 
         ( ChooseUploadType, TabMsg tabMsg ) ->
             updateTabContents model tabMsg => Cmd.none
@@ -498,6 +502,9 @@ update msg model context =
                 { model | errors = validateStep model } => Cmd.none
             else
                 model => Cmd.none
+
+        ( _, QuotasUpdated quotas ) ->
+            { model | quotas = quotas } => Cmd.none
 
         _ ->
             model => Cmd.none
@@ -887,6 +894,13 @@ viewUploadTab config tabModel model =
                 "Select your file"
             else
                 tabModel.fileName
+
+        default =
+            1024 * 1024
+
+        maxSize =
+            Maybe.withDefault default (model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
+                |> Basics.min default
     in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
@@ -904,7 +918,7 @@ viewUploadTab config tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text "Files uploaded through the browser must be less than 1 MB in size.  Larger files may be uploaded via one of the other import methods." ]
+                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ dataSizeWithSuffix maxSize ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]

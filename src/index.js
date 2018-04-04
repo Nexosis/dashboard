@@ -108,8 +108,11 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             initLocalStoragePort(app);
 
-            app.ports.uploadFileSelected.subscribe(function (id) {
+            app.ports.uploadFileSelected.subscribe(function (info) {
 
+                const id = info[0]
+                const maxSize = info[1]
+            
                 var node = document.getElementById(id);
                 if (node === null) {
                     return;
@@ -117,7 +120,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 var file = node.files[0];
                 if (file !== undefined) {
-                    if (file.size > 1000000) {
+                    if (file.size > (Math.min(maxSize, 1024*1024))) {
                         app.ports.fileContentRead.send({ status: 'FileTooLarge' });
                     } else {
 

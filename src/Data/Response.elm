@@ -25,6 +25,7 @@ type alias Quotas =
     { dataSets : Quota
     , sessions : Quota
     , predictions : Quota
+    , dataSetSize : Quota
     }
 
 
@@ -83,6 +84,7 @@ decodeQuotas =
         |> required "dataSets" decodeQuota
         |> required "sessions" decodeQuota
         |> required "predictions" decodeQuota
+        |> required "dataSetSize" decodeQuota
 
 
 decodeQuota : Decoder Quota
