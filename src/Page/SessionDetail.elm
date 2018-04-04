@@ -580,7 +580,7 @@ viewPendingSession session =
             [ statusDisplay session.status
             , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
             ]
-        , div [ class "p15" ] [ button [ class "btn btn-xs btn-default", onClick HowLongButtonClicked ] [ text "How long will my session run?" ] ] --viewIf (\() -> ) <| not <| Data.Session.sessionIsCompleted session
+        , div [ class "p15" ] [ button [ class "btn btn-xs btn-default", onClick HowLongButtonClicked ] [ text "How long will my session run?" ] ]
         ]
 
 
