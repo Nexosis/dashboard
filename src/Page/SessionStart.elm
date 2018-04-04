@@ -870,15 +870,10 @@ viewStartEndDateExplainer context model =
         ( min, max ) =
             getMinMaxValueFromCandidate model
     in
-    if model.startDate == Nothing then
-        div [ class "help col-sm-6 pull-right" ]
-            [ viewFieldError model.errors TimeSeriesField
-            ]
-    else
-        div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
-                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
-            ]
+    div [ class "help col-sm-6 pull-right" ]
+        [ div [ class "alert alert-info" ]
+            [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
+        ]
 
 
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
