@@ -747,6 +747,9 @@ viewSetKey config model =
                 ( FileUploadTab _, _ ) ->
                     viewRemoteError model.uploadResponse
 
+                ( DirectDataTab _, _ ) ->
+                    viewRemoteError model.uploadResponse
+
                 _ ->
                     case model.importResponse of
                         Remote.Success importDetail ->
