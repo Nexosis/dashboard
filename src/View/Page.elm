@@ -1,7 +1,6 @@
 module View.Page exposing (ActivePage(..), basicLayout, emptyLayout, layoutShowingResponses)
 
 import AppRoutes
-import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.Response as Response exposing (GlobalMessage, Response)
 import Feature exposing (Feature)
@@ -38,10 +37,8 @@ type alias PageValues a =
 emptyLayout : ActivePage -> Html msg -> Html msg
 emptyLayout page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader Nothing headerLinks
-        , div [ class "layout-row layout-row-content" ]
-            [ content
-            ]
+        [ div [ class "layout-row layout-row-content" ]
+            [ content ]
         ]
 
 
@@ -53,10 +50,8 @@ isLoading can be used to show loading during slow transitions
 layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
 layoutShowingResponses pageValues page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader (Just pageValues.context.config) headerLinks
-        , div [ class "layout-row layout-row-content" ]
-            [ content
-            ]
+        [ div [ class "layout-row layout-row-content" ]
+            [ content ]
 
         --todo - put messages back in
         --, div [] [ viewMessages pageValues.messages ]
@@ -74,102 +69,8 @@ headerLinks =
 basicLayout : ActivePage -> Html msg -> Html msg
 basicLayout page content =
     div [ id "docs-container", class "layout" ]
-        [ viewHeader Nothing []
-        , div [ class "layout-row layout-row-content" ]
-            [ div [] [ content ]
-            ]
-        ]
-
-
-viewHeader : Maybe Config -> List (Html msg) -> Html msg
-viewHeader config navLinks =
-    div [ class "layout-row" ]
-        [ div [ class "zone-header layout" ]
-            [ header [ id "topnav" ]
-                [ nav [ class "nav navbar-fixed-top", attribute "role" "navigation" ]
-                    [ div [ class "container" ]
-                        [ div [ class "navbar-header" ]
-                            [ button
-                                [ class "navbar-toggle collapsed"
-                                , attribute "data-toggle" "collapse"
-                                , attribute "data-target" "#topnav-collapse"
-                                , attribute "aria-expanded" "false"
-                                ]
-                                [ span [ class "sr-only" ] [ text "Toggle navigation" ]
-                                , i [ class "fa fa-bars fa-lg" ] []
-                                ]
-                            , a [ AppRoutes.href AppRoutes.Home, class "navbar-brand" ]
-                                [ img [ src "https://nexosis.com/assets/img/logo-horizontal.png", alt "" ] []
-                                , div [ class "badge badge-danger badge-logo" ] [ text "API" ]
-                                ]
-                            ]
-                        , div [ id "topnav-collapse", class "collapse navbar-collapse" ]
-                            [ ul [ class "nav navbar-nav navbar-left" ]
-                                (navLinks
-                                    ++ [ li []
-                                            [ a
-                                                [ href "#"
-                                                , class "dropdown-toggle"
-                                                , attribute "data-toggle" "dropdown"
-                                                , attribute "role" "button"
-                                                , attribute "aria-haspopup" "true"
-                                                , attribute "aria-expanded" "false"
-                                                ]
-                                                [ text "Developers ", span [ class "caret" ] [] ]
-                                            , div [ class "nub" ] []
-                                            , ul [ class "dropdown-menu developers" ]
-                                                [ div [ class "row" ]
-                                                    [ div [ class "col-sm-12" ]
-                                                        [ h3 [] [ a [ href "https://docs.nexosis.com" ] [ text "Documentation" ] ] ]
-                                                    , div [ class "col-sm-6" ]
-                                                        [ p [] [ a [ href "https://docs.nexosis.com/guides/quick-start-guides" ] [ text "Quickstart ", i [ class "fa fa-angle-right" ] [] ] ]
-                                                        , p [] [ a [ href "https://docs.nexosis.com/guides/" ] [ text "Guides ", i [ class "fa fa-angle-right" ] [] ] ]
-                                                        , p [] [ a [ href "https://docs.nexosis.com/tutorials/" ] [ text "Tutorials ", i [ class "fa fa-angle-right" ] [] ] ]
-                                                        , p [] [ a [ href "https://docs.nexosis.com/clients/" ] [ text "API Clients ", i [ class "fa fa-angle-right" ] [] ] ]
-                                                        , p [] [ a [ href "https://developers.nexosis.com/docs/services/98847a3fbbe64f73aa959d3cededb3af/" ] [ text "API Reference ", i [ class "fa fa-angle-right" ] [] ] ]
-                                                        ]
-                                                    , div [ class "col-sm-5 community" ]
-                                                        [ a [ href "https://community.nexosis.com", target "_blank" ]
-                                                            [ img [ src "https://nexosis.com/assets/img/community.png", class "responsive small" ] []
-                                                            , p [ class "center" ] [ text "Join the community!" ]
-                                                            ]
-                                                        ]
-                                                    , div [ class "col-sm-12" ] [ hr [ class "mt10 mb5" ] [] ]
-                                                    , div [ class "col-sm-11 support" ]
-                                                        [ div [ class "center" ] [ a [ href "https://support.nexosis.com" ] [ i [ class "fa fa-life-ring mr5" ] [], text "Support" ] ] ]
-                                                    ]
-                                                , li [] [ a [ href "https://docs.nexosis.com" ] [ text "Documentation" ] ]
-                                                , li [] [ a [ href "https://docs.nexosis.com/guides/quick-start-guides" ] [ text "Quickstart" ] ]
-                                                , li [] [ a [ href "https://docs.nexosis.com/guides/" ] [ text "Guides" ] ]
-                                                , li [] [ a [ href "https://docs.nexosis.com/tutorials/" ] [ text "Tutorials" ] ]
-                                                , li [] [ a [ href "https://docs.nexosis.com/clients/" ] [ text "API Clients" ] ]
-                                                , li [] [ a [ href "https://developers.nexosis.com/docs/services/98847a3fbbe64f73aa959d3cededb3af/" ] [ text "API Reference" ] ]
-                                                , li [] [ a [ href "https://community.nexosis.com", target "_blank" ] [ text "Community" ] ]
-                                                ]
-                                            ]
-                                       , li []
-                                            [ a [ href "https://support.nexosis.com", target "_blank" ] [ text "Help" ] ]
-                                       ]
-                                )
-                            , ul [ class "nav navbar-nav navbar-right mr10", attribute "role" "navigation", attribute "aria-label" "Account menu" ]
-                                [ viewJust
-                                    (\c ->
-                                        li [ class "dropdown" ]
-                                            [ a [ href "#", class "dropdown-toggle", attribute "data-toggle" "dropdown", attribute "aria-expanded" "false" ] [ text <| Maybe.withDefault "Account" <| Maybe.map .name c.identityToken, b [ class "caret" ] [] ]
-                                            , ul [ class "dropdown-menu" ]
-                                                [ li [] [ a [ href <| c.accountSiteUrl ++ "/apiaccount/accountstatus" ] [ text "Overview" ] ]
-                                                , li [] [ a [ href <| c.accountSiteUrl ++ "/apiaccount/referAFriend" ] [ text "Refer a friend" ] ]
-                                                , li [] [ a [ href <| c.accountSiteUrl ++ "/account/logout?returnUrl=" ++ c.apiManagerUrl ++ "/signout" ] [ text "Sign Out" ] ]
-                                                ]
-                                            ]
-                                    )
-                                    config
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ]
+        [ div [ class "layout-row layout-row-content" ]
+            [ div [] [ content ] ]
         ]
 
 

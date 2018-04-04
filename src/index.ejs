@@ -71,79 +71,146 @@
 </head>
 
 <body>
-    <div id="main" class="layout">
-        <div class="layout-row">
-            <div class="zone-header layout">
-                <!-- Start Header Section -->
-                <header id="topnav">
-                    <nav class="nav navbar-fixed-top" role="navigation">
-                        <div class="container">
-                            <!-- Brand and toggle get grouped for better mobile display -->
-                            <div class="navbar-header">
-                                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#topnav-collapse" aria-expanded="false">
-                                    <span class="sr-only">Toggle navigation</span>
-                                    <i class="fa fa-bars fa-lg"></i>
-                                </button>
-                                <a href="dashboard.html" class="navbar-brand">
-                                    <img src="https://nexosis.com/assets/img/logo-horizontal.png" alt="" height="50%">
-                                    <div class="badge badge-danger badge-logo">API</div>
-                                </a>
-                            </div>
-                            <!-- Toggle Elements -->
-                            <div id="topnav-collapse" class="collapse navbar-collapse">
-                                <ul class="nav navbar-nav navbar-left">
-                                    <li>
-                                        <a href="#/data">Datasets</i>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="#/sessions">Sessions</i>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="#/models">Models</i>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Developers
-                                            <span class="caret"></span>
-                                        </a>
-                                        <ul class="dropdown-menu">
-                                        </ul>
-                                    </li>
-                                    <li>
-                                        <a href="https://support.nexosis.com" target="_blank">Help</a>
-                                    </li>
-                                </ul>
-                                <ul class="nav navbar-nav navbar-right mr10" role="navigation" aria-label="Account menu">
-                                    <li class="dropdown">
-                                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">Account
-                                            <b class="caret"></b>
-                                        </a>
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a href="https://account.nexosis.com/apiaccount/accountstatus">Overview</a>
-                                            </li>
-                                            <li>
-                                                <a href="https://account.nexosis.com/apiAccount/referAFriend">Refer a friend</a>
-                                            </li>
-                                            <li>
-                                                <a href="https://developers.nexosis.com/signout">Sign Out</a>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                </ul>
-                            </div>
-                            <!-- /.navbar-collapse -->
+    <div class="layout-row">
+        <div class="zone-header layout">
+            <header id="topnav">
+                <nav class="nav navbar-fixed-top" role="navigation">
+                    <div class="container">
+                        <div class="navbar-header">
+                            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#topnav-collapse" aria-expanded="false">
+                                <span class="sr-only">Toggle navigation</span>
+                                <i class="fa fa-bars fa-lg"></i>
+                            </button>
+                            <a href="dashboard.html" class="navbar-brand">
+                                <img src="https://nexosis.com/assets/img/logo-horizontal.png" alt="" height="50%">
+                                <div class="badge badge-danger badge-logo">API</div>
+                            </a>
                         </div>
-                        <!-- /.container-fluid -->
-                    </nav>
-                </header>
-                <!-- End Header Section -->
-            </div>
+                        <div id="topnav-collapse" class="collapse navbar-collapse">
+                            <ul class="nav navbar-nav navbar-left">
+                                <li>
+                                    <a href="#/data">Datasets</i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#/sessions">Sessions</i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#/models">Models</i>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Developers
+                                        <span class="caret"></span>
+                                    </a>
+                                    <div class="nub"></div>
+                                    <ul class="dropdown-menu developers">
+                                        <div class="row">
+                                            <div class="col-sm-12">
+                                                <h3>
+                                                    <a href="http://docs.nexosis.com">Documentation</a>
+                                                </h3>
+                                            </div>
+                                            <div class="col-sm-6">
+                                                <p>
+                                                    <a href="http://docs.nexosis.com/guides/quick-start-guides">Quickstart
+                                                        <i class="fa fa-angle-right"></i>
+                                                    </a>
+                                                </p>
+                                                <p>
+                                                    <a href="http://docs.nexosis.com/guides/">Guides
+                                                        <i class="fa fa-angle-right"></i>
+                                                    </a>
+                                                </p>
+                                                <p>
+                                                    <a href="http://docs.nexosis.com/tutorials/">Tutorials
+                                                        <i class="fa fa-angle-right"></i>
+                                                    </a>
+                                                </p>
+                                                <p>
+                                                    <a href="http://docs.nexosis.com/clients/">API Clients
+                                                        <i class="fa fa-angle-right"></i>
+                                                    </a>
+                                                </p>
+                                                <p>
+                                                    <a href="https://developers.nexosis.com/docs/services/98847a3fbbe64f73aa959d3cededb3af/">API Reference
+                                                        <i class="fa fa-angle-right"></i>
+                                                    </a>
+                                                </p>
+                                            </div>
+                                            <div class="col-sm-5 community">
+                                                <a href="https://community.nexosis.com" target="_blank">
+                                                    <img src="https://nexosis.com/assets/img/community.png" class="responsive small">
+                                                    <p class="center">Join the community!</p>
+                                                </a>
+                                            </div>
+                                            <div class="col-sm-12">
+                                                <hr class="mt10 mb5">
+                                            </div>
+                                            <div class="col-sm-11 support">
+                                                <div class="center">
+                                                    <a href="https://support.nexosis.com">
+                                                        <i class="fa fa-life-ring mr5"></i>Support</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <li>
+                                            <a href="http://docs.nexosis.com">Documentation</a>
+                                        </li>
+                                        <li>
+                                            <a href="http://docs.nexosis.com/guides/quick-start-guides">Quickstart</a>
+                                        </li>
+                                        <li>
+                                            <a href="http://docs.nexosis.com/guides/">Guides</a>
+                                        </li>
+                                        <li>
+                                            <a href="http://docs.nexosis.com/tutorials/">Tutorials</a>
+                                        </li>
+                                        <li>
+                                            <a href="http://docs.nexosis.com/clients/">API Clients</a>
+                                        </li>
+                                        <li>
+                                            <a href="https://developers.nexosis.com/docs/services/98847a3fbbe64f73aa959d3cededb3af/">API Reference</a>
+                                        </li>
+                                        <li>
+                                            <a href="https://community.nexosis.com" target="blank">Community</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li>
+                                    <a href="https://support.nexosis.com" target="_blank">Help</a>
+                                </li>
+                            </ul>
+                            <ul class="nav navbar-nav navbar-right mr10" role="navigation" aria-label="Account menu">
+                                <li class="dropdown">
+                                    <a id="header_username" href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">Account
+                                        <b class="caret"></b>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a id="header_overview" href="https://account.nexosis.com/apiaccount/accountstatus">Overview</a>
+                                        </li>
+                                        <li>
+                                            <a id="header_refer" href="https://account.nexosis.com/apiAccount/referAFriend">Refer a friend</a>
+                                        </li>
+                                        <li>
+                                            <a id="header_signout" href="https://account.nexosis.com/account/logout?returnUrl=https://developers.nexosis.com/signout">Sign Out</a>
+                                        </li>
+                                    </ul>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </nav>
+            </header>
         </div>
     </div>
-    <!-- FOOTER  -->
+    <div id="main" class="layout">
+        <div style="position:absolute; height:100%;width:100%;display:flex;justify-content:center;align-items:center;">
+            <img src="https://nexosis.com/assets/img/nexosis-brain.png" alt="Loading..." />
+        </div>
+    </div>
     <div class="footer-nav">
         <div class="footer-nav-top">
             <img src="https://apimgmtstfgcbs4expsd9y4r.blob.core.windows.net/content/MediaLibrary/Test/footer-nav-top.png" class="responsive">

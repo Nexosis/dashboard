@@ -92,6 +92,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             }
 
             const mountNode = document.getElementById('main');
+            mountNode.innerHTML = '';
             const app = Elm.Main.embed(main, config);
 
             app.ports.log.subscribe(function (logString) {
@@ -239,6 +240,26 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         }
                     });
                 });
+            });
+
+            app.ports.setHeaderValues.subscribe(function (headerValues) {
+                const userName = document.getElementById('header_username');
+                const overview = document.getElementById('header_overview');
+                const refer = document.getElementById('header_refer');
+                const signout = document.getElementById('header_signout');
+
+                if (userName) {
+                    userName.innerHTML = headerValues.userName + '<b class="caret"></b>';
+                }
+                if (overview) {
+                    overview.href = headerValues.overviewLink;
+                }
+                if (refer) {
+                    refer.href = headerValues.referLink;
+                }
+                if (signout) {
+                    signout.href = headerValues.logoutLink;
+                }
             });
         });
     });

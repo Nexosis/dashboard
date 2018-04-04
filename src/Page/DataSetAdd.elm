@@ -53,6 +53,12 @@ type alias FileUploadEntry =
     }
 
 
+type alias DirectDataEntry =
+    { content : String
+    , contentType : DataFormat.DataFormat
+    }
+
+
 type alias UrlImportEntry =
     { importUrl : String }
 
@@ -85,6 +91,7 @@ type Step
 
 type Tab
     = FileUploadTab FileUploadEntry
+    | DirectDataTab DirectDataEntry
     | UrlImportTab UrlImportEntry
     | S3ImportTab S3ImportEntry
     | AzureImportTab AzureImportEntry
@@ -103,6 +110,13 @@ initFileUploadTab =
     , fileName = ""
     , fileUploadType = DataFormat.Other
     , fileUploadErrorOccurred = Nothing
+    }
+
+
+initDirectDataTab : DirectDataEntry
+initDirectDataTab =
+    { content = ""
+    , contentType = DataFormat.Other
     }
 
 
@@ -125,7 +139,8 @@ initTabs : Ziplist ( Tab, String )
 initTabs =
     Ziplist.create []
         ( FileUploadTab <| initFileUploadTab, "Upload" )
-        [ ( UrlImportTab <| initImportUrlTab, "Import from URL" )
+        [ ( DirectDataTab <| initDirectDataTab, "Enter" )
+        , ( UrlImportTab <| initImportUrlTab, "Import from URL" )
         , ( S3ImportTab <| initImportS3Tab, "Import from AWS S3" )
         , ( AzureImportTab <| initAzureImportTab, "Import from Azure Blob Storage" )
         ]
@@ -179,6 +194,7 @@ type Field
     = DataSetNameField
     | UrlField
     | FileSelectionField
+    | DataField
     | AwsPathField
     | AwsBucketField
     | AwsRegionField
@@ -200,6 +216,10 @@ validateModel model =
             validateFileUploadModel model fileUploadEntry
                 |> Result.map PutUpload
 
+        ( DirectDataTab directDataEntry, _ ) ->
+            validateDirectDataModel model directDataEntry
+                |> Result.map PutUpload
+
         ( UrlImportTab urlImportEntry, _ ) ->
             validateUrlImportModel model urlImportEntry
                 |> Result.map ImportUrl
@@ -211,6 +231,14 @@ validateModel model =
         ( AzureImportTab azureImportEntry, _ ) ->
             validateAzureImportModel model azureImportEntry
                 |> Result.map ImportAzure
+
+
+validateDirectDataModel : Model -> Validator FieldError DirectDataEntry PutUploadRequest
+validateDirectDataModel model =
+    Verify.ok PutUploadRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.verify .content (notBlank (DataField => "Must provide some data"))
+        |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
 
 
 validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
@@ -309,6 +337,7 @@ type Msg
 
 type TabMsg
     = FileContentRead Json.Decode.Value
+    | DataChange String
     | ImportUrlInputChange String
     | S3PathChange String
     | S3BucketChange String
@@ -352,24 +381,25 @@ update msg model context =
             { model | key = keyValue } => Cmd.none
 
         ( SetKey, CreateDataSet createRequest ) ->
+            let
+                setKeyRequest name =
+                    case model.key of
+                        Just key ->
+                            createDataSetWithKey context.config name key
+                                |> Http.toTask
+
+                        Nothing ->
+                            Task.succeed ()
+            in
             case createRequest of
                 PutUpload request ->
                     let
-                        setKeyRequest =
-                            case model.key of
-                                Just key ->
-                                    createDataSetWithKey context.config request.name key
-                                        |> Http.toTask
-
-                                Nothing ->
-                                    Task.succeed ()
-
                         putDataRequest =
                             put context.config request
                                 |> Http.toTask
 
                         putRequest =
-                            setKeyRequest
+                            setKeyRequest request.name
                                 |> Task.andThen (always putDataRequest)
                                 |> Remote.asCmd
                                 |> Cmd.map UploadDataSetResponse
@@ -378,27 +408,42 @@ update msg model context =
 
                 ImportUrl request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postUrl context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
                 ImportS3 request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postS3 context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
                 ImportAzure request ->
                     let
-                        importRequest =
+                        doImport =
                             Request.Import.postAzure context.config request
-                                |> Remote.sendRequest
+                                |> Http.toTask
+
+                        importRequest =
+                            setKeyRequest request.dataSetName
+                                |> Task.andThen (always doImport)
+                                |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
                     { model | importResponse = Remote.Loading } => importRequest
@@ -556,6 +601,33 @@ updateTabContents model msg =
                         _ ->
                             ( AzureImportTab azureTab, id )
 
+                ( ( DirectDataTab dataTab, id ), changeMsg ) ->
+                    case changeMsg of
+                        DataChange data ->
+                            let
+                                trimmed =
+                                    data |> String.trim
+
+                                value =
+                                    if String.isEmpty trimmed then
+                                        Nothing
+                                    else
+                                        Just trimmed
+
+                                -- uses first non-whitespace character to see if it's JSON
+                                inputType =
+                                    if trimmed |> String.startsWith "{" then
+                                        DataFormat.Json
+                                    else if trimmed |> String.contains "," then
+                                        DataFormat.Csv
+                                    else
+                                        DataFormat.Other
+                            in
+                            ( DirectDataTab { dataTab | content = data, contentType = inputType }, id )
+
+                        _ ->
+                            ( DirectDataTab dataTab, id )
+
                 ( _, _ ) ->
                     model.tabs.current
 
@@ -635,6 +707,14 @@ finalStepButton model =
         buttonContent =
             case model.tabs.current of
                 ( FileUploadTab _, _ ) ->
+                    case model.uploadResponse of
+                        Remote.Loading ->
+                            [ spinner ]
+
+                        _ ->
+                            [ text "Create DataSet" ]
+
+                ( DirectDataTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
                             [ spinner ]
@@ -734,6 +814,9 @@ viewEntryReview model =
                     , ( "Container", azureImport.container )
                     , ( "Blob", azureImport.blob )
                     ]
+
+                ( DirectDataTab direct, _ ) ->
+                    []
     in
     dataSetName
         :: properties
@@ -786,6 +869,9 @@ viewTabContent context model =
 
                 ( AzureImportTab azureImportEntry, _ ) ->
                     viewImportAzureTab context.config azureImportEntry model
+
+                ( DirectDataTab directDataEntry, _ ) ->
+                    viewDirectDataTab context.config directDataEntry model
     in
     div [ class "tab-content" ]
         [ div [ class "tab-pane active" ]
@@ -832,6 +918,24 @@ viewUploadTab config tabModel model =
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
                 [ explainer config "how_upload_csv"
+                ]
+            ]
+        ]
+
+
+viewDirectDataTab : Config -> DirectDataEntry -> Model -> Html Msg
+viewDirectDataTab config tabModel model =
+    div [ class "row" ]
+        [ div [ class "col-sm-6" ]
+            [ div [ class "form-group col-sm-12" ]
+                [ label [] [ text "Data" ]
+                , textarea [ class "form-control", rows 20, cols 100, onInput <| \c -> TabMsg (DataChange c), value tabModel.content, onBlur InputBlur ] []
+                , viewFieldError model.errors DataField
+                ]
+            ]
+        , div [ class "col-sm-6" ]
+            [ div [ class "alert alert-info" ]
+                [ explainer config "how_paste_data"
                 ]
             ]
         ]
@@ -938,13 +1042,3 @@ viewRegions model selectedRegion =
     in
     select [ class "form-control", onInput <| \c -> TabMsg (S3RegionChange c) ]
         (List.map optionize model.awsRegions.regions)
-
-
-viewPasteInTab : Model -> Html Msg
-viewPasteInTab model =
-    div [ class "row" ]
-        [ div [ class "col-sm-6" ]
-            []
-        , div [ class "col-sm-6" ]
-            []
-        ]

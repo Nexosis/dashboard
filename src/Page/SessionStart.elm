@@ -33,6 +33,7 @@ import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone
 import Time.TimeZones exposing (fromName, utc)
 import Time.ZonedDateTime as ZonedDateTime exposing (ZonedDateTime, fromDateTime)
+import Tuple2 as Tuple
 import Util exposing ((=>), dateToUtcDateTime, formatDisplayName, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 import Verify exposing (Validator)
 import View.Breadcrumb as Breadcrumb
@@ -250,8 +251,8 @@ verifySessionTypeSelected model =
 verifyHasDate : Model -> Result (List FieldError) String
 verifyHasDate model =
     let
-        ( min, max ) =
-            getMinMaxValueFromCandidate model
+        metadata =
+            dateColumnCandidate <| getMetaDataColumns model
 
         isTimeSeries =
             case model.selectedSessionType of
@@ -264,7 +265,7 @@ verifyHasDate model =
                 _ ->
                     False
     in
-    if isTimeSeries && max == "" then
+    if isTimeSeries && metadata.dataType /= Columns.Date then
         Err [ SessionTypeField => "The selected session type requires time-series data, but this dataset does not have a date field from which to provide a time-series forecast. Please select a dataset which has time-series information, or select a different type of session to build." ]
     else
         Ok ""
@@ -869,16 +870,18 @@ viewStartEndDateExplainer context model =
     let
         ( min, max ) =
             getMinMaxValueFromCandidate model
+                |> Tuple.mapBoth
+                    (\date ->
+                        if String.isBlank date then
+                            "(Unknown)"
+                        else
+                            tryParseAndFormat date
+                    )
     in
-    if model.startDate == Nothing then
-        div [ class "help col-sm-6 pull-right" ]
-            [ viewFieldError model.errors TimeSeriesField
-            ]
-    else
-        div [ class "help col-sm-6 pull-right" ]
-            [ div [ class "alert alert-info" ]
-                [ explainerFormat context.config "session_forecast_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
-            ]
+    div [ class "help col-sm-6 pull-right" ]
+        [ div [ class "alert alert-info" ]
+            [ explainerFormat context.config "session_forecast_start_end" [ min, max ] ]
+        ]
 
 
 viewImpactStartEndDates : ContextModel -> Model -> Html Msg
@@ -886,11 +889,18 @@ viewImpactStartEndDates context model =
     let
         ( min, max ) =
             getMinMaxValueFromCandidate model
+                |> Tuple.mapBoth
+                    (\date ->
+                        if String.isBlank date then
+                            "(Unknown)"
+                        else
+                            tryParseAndFormat date
+                    )
     in
     div [ class "col-sm-12" ]
         [ div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainerFormat context.config "session_impact_start_end" [ tryParseAndFormat min, tryParseAndFormat max ] ]
+                [ explainerFormat context.config "session_impact_start_end" [ min, max ] ]
             ]
         , div [ class "form-group col-sm-3" ]
             [ label [] [ text "Event name" ]

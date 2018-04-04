@@ -1,20 +1,27 @@
-module View.Charts exposing (distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
 import Data.Columns as Columns exposing (ColumnMetadata)
 import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
 import Data.DataSet exposing (DataSetData, DistributionShape)
+import Data.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
-import Html exposing (Html, a, div, h3, span, table, tbody, td, tr)
+import Html exposing (Html, a, div, h3, node, span, table, tbody, td, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
-import List.Extra exposing (find)
-import String.Extra exposing (replace)
+import Json.Encode
+import List.Extra as List exposing (find)
+import String.Extra as String exposing (replace)
 import VegaLite exposing (..)
 
 
-distributionHistogram : List DistributionShape -> Spec
+renderChart : Spec -> Html msg
+renderChart spec =
+    node "vega-chart" [ attribute "spec" (Json.Encode.encode 0 spec) ] []
+
+
+distributionHistogram : List DistributionShape -> Html msg
 distributionHistogram data =
     let
         config =
@@ -39,6 +46,7 @@ distributionHistogram data =
         , enc []
         , config []
         ]
+        |> renderChart
 
 
 distributionItemToRow : DistributionShape -> List DataRow
@@ -58,7 +66,7 @@ distributionItemToRow shape =
                 dataRow [ ( itemLabel, Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
 
 
-forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg
 forecastResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
@@ -107,13 +115,13 @@ forecastResults sessionResults session dataSet windowWidth =
                 , VegaLite.mark Line [ MInterpolate Monotone ]
                 , enc []
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
-impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Spec
+impactResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg
 impactResults sessionResults session dataSet windowWidth =
     let
         targetColumn =
@@ -203,10 +211,10 @@ impactResults sessionResults session dataSet windowWidth =
                     , boxSpec
                     ]
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
 axisLabelFormat : SessionData -> String
@@ -219,7 +227,7 @@ axisLabelFormat session =
             "%x"
 
 
-regressionResults : SessionResults -> SessionData -> Int -> Spec
+regressionResults : SessionResults -> SessionData -> Int -> Html msg
 regressionResults sessionResults session windowWidth =
     let
         targetColumn =
@@ -356,10 +364,10 @@ regressionResults sessionResults session windowWidth =
                     , lineSpec
                     ]
                 ]
+                |> renderChart
 
         _ ->
-            toVegaLite
-                []
+            span [] []
 
 
 resultsToPredictedObserved : String -> Dict String String -> ( Float, Float )
@@ -375,6 +383,163 @@ resultsToPredictedObserved target result =
         |> Maybe.withDefault ( "0", "0" )
         |> Tuple.mapFirst (String.toFloat >> Result.withDefault 0)
         |> Tuple.mapSecond (String.toFloat >> Result.withDefault 0)
+
+
+anomalyResults : SessionResults -> SessionData -> DistanceMetrics -> Int -> Html msg
+anomalyResults sessionResults session metric windowWidth =
+    let
+        distanceValues =
+            fromDistanceMetrics metric
+
+        quartiles list =
+            let
+                findMedian list =
+                    let
+                        splitIndex =
+                            List.length list // 2
+
+                        ( bottom, top ) =
+                            list |> List.splitAt splitIndex
+                    in
+                    ( bottom
+                    , bottom |> List.drop (splitIndex - 1) |> List.getAt 0
+                    , top
+                    )
+
+                ( lower, median, upper ) =
+                    findMedian list
+
+                ( _, q1, _ ) =
+                    findMedian lower
+
+                ( _, q3, _ ) =
+                    findMedian upper
+            in
+            ( q1, median, q3 )
+
+        filterDistance distances filter =
+            distances |> List.filter filter |> List.map (\i -> i.distance ^ (1 / 3)) |> List.sort
+
+        inliersQuartiles =
+            quartiles (filterDistance distanceValues (\i -> i.anomaly >= 0))
+
+        outliersQuartiles =
+            quartiles (filterDistance distanceValues (\i -> i.anomaly < 0))
+
+        metricToDataRow : DistanceValue -> List DataRow
+        metricToDataRow item =
+            if item.anomaly < 0 then
+                dataRow [ ( "Category", Str "Outliers" ), ( "Value", Number (item.distance ^ (1 / 3)) ) ] []
+            else
+                dataRow [ ( "Category", Str "Inliers" ), ( "Value", Number (item.distance ^ (1 / 3)) ) ] []
+
+        data =
+            distanceValues |> List.map metricToDataRow
+
+        transformAggregate =
+            transform
+                << aggregate [ opAs Q1 "Value" "Q1", opAs Median "Value" "Q2", opAs Q3 "Value" "Q3" ] [ "Category" ]
+                << calculateAs "datum.Q3 - datum.Q1" "IQR"
+                << calculateAs "datum.Q1 - datum.IQR * 1.5" "lowerWhisker"
+                << calculateAs "datum.Q3 + datum.IQR * 1.5" "upperWhisker"
+
+        whiskerSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "lowerWhisker", PmType Quantitative, PScale [ SZero False ] ]
+                    << position Y2 [ PName "upperWhisker", PmType Quantitative ]
+                  )
+                    []
+                , mark Rule [ MStyle [ "boxWhisker" ] ]
+                , transformAggregate []
+                ]
+
+        boxSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "Q1", PmType Quantitative ]
+                    << position Y2 [ PName "Q3", PmType Quantitative ]
+                    << size [ MNumber 75 ]
+                    << color [ MString "#2bb7ec" ]
+                  )
+                    []
+                , mark Bar [ MStyle [ "box" ] ]
+                , transformAggregate []
+                ]
+
+        tickSpec =
+            asSpec
+                [ (encoding
+                    << position X [ PName "Category", PmType Nominal ]
+                    << position Y [ PName "Q2", PmType Quantitative ]
+                    << size [ MNumber 75 ]
+                    << color [ MString "white" ]
+                  )
+                    []
+                , mark Tick [ MStyle [ "boxMid" ] ]
+                , transformAggregate []
+                ]
+
+        valuesProps =
+            [ (encoding
+                << position X [ PName "Category", PmType Nominal ]
+                << position Y [ PName "Value", PmType Quantitative, PAxis [ AxTitle "Values" ] ]
+                << color [ MString "#2bb7ec" ]
+              )
+                []
+            , mark Circle [ MSize 150, MOpacity 0.25 ]
+            ]
+
+        valuesTransform quartiles categoryLabel =
+            let
+                ( maybeQ1, _, maybeQ3 ) =
+                    quartiles
+
+                q1 =
+                    Maybe.withDefault 0 maybeQ1
+
+                q3 =
+                    Maybe.withDefault 0 maybeQ3
+
+                iqr =
+                    q3 - q1
+
+                top =
+                    q3 + iqr * 1.5
+
+                bottom =
+                    q1 - iqr * 1.5
+            in
+            transform
+                << filter
+                    (FExpr ("(datum.Category == '" ++ categoryLabel ++ "' && datum.Value > " ++ String.fromFloat top ++ ") || (datum.Category == '" ++ categoryLabel ++ "' && datum.Value < " ++ String.fromFloat bottom ++ ")"))
+
+        inliersSpec =
+            asSpec <| valuesTransform inliersQuartiles "Inliers" [] :: valuesProps
+
+        outliersSpec =
+            asSpec <| valuesTransform outliersQuartiles "Outliers" [] :: valuesProps
+
+        ( chartWidth, chartHeight ) =
+            widthToSize windowWidth
+    in
+    toVegaLite
+        [ title "Results"
+        , width chartWidth
+        , height chartHeight
+        , autosize [ AFit, APadding ]
+        , dataFromRows [] <| List.concat data
+        , layer
+            [ whiskerSpec
+            , boxSpec
+            , tickSpec
+            , inliersSpec
+            , outliersSpec
+            ]
+        ]
+        |> renderChart
 
 
 normalizeFieldName : String -> String

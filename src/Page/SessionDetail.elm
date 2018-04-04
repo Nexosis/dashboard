@@ -9,6 +9,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.DistanceMetric exposing (..)
 import Data.Metric exposing (..)
 import Data.PredictionDomain as PredictionDomain
 import Data.Session exposing (..)
@@ -18,7 +19,6 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http
-import Json.Encode
 import List exposing (filter, foldr, head)
 import List.Extra as List
 import Page.Helpers exposing (..)
@@ -55,6 +55,7 @@ type alias Model =
     , csvDownload : Remote.WebData String
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
     , howLongModalModel : Maybe (Modal.Config Msg)
+    , distanceMetricsResponse : Remote.WebData DistanceMetrics
     }
 
 
@@ -69,7 +70,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -85,6 +86,7 @@ type Msg
     | DownloadResponse (Remote.WebData String)
     | HowLongButtonClicked
     | HowLongCloseClicked
+    | DistanceMetricLoaded (Remote.WebData DistanceMetrics)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -104,6 +106,11 @@ update msg model context =
                                         getConfusionMatrix context.config model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
+
+                                    PredictionDomain.Anomalies ->
+                                        getDistanceMetrics context.config model.sessionId 0 1000
+                                            |> Remote.sendRequest
+                                            |> Cmd.map DistanceMetricLoaded
 
                                     _ ->
                                         Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
@@ -194,8 +201,8 @@ update msg model context =
             { model | confusionMatrixResponse = response } => Cmd.none
 
         DataSetLoaded response ->
-            case Remote.map3 (,,) model.resultsResponse model.loadingResponse response of
-                Remote.Success ( results, session, data ) ->
+            case response of
+                Remote.Success data ->
                     { model | dataSetResponse = response } => Cmd.none
 
                 Remote.Failure err ->
@@ -245,6 +252,14 @@ update msg model context =
 
         HowLongCloseClicked ->
             { model | howLongModalModel = Nothing } => Cmd.none
+
+        DistanceMetricLoaded result ->
+            case result of
+                Remote.Success metrics ->
+                    { model | distanceMetricsResponse = result } => Cmd.none
+
+                _ ->
+                    model => Cmd.none
 
 
 type alias SessionDateData =
@@ -372,7 +387,7 @@ view model context =
         , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , maybeDisplayHR model --TODO: remove when anomalies have visualization
+        , hr [] []
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -382,24 +397,6 @@ view model context =
             |> Html.map DeleteDialogMsg
         , Modal.view model.howLongModalModel
         ]
-
-
-
---HACK: Until we have graphs for anomalies...
-
-
-maybeDisplayHR : Model -> Html Msg
-maybeDisplayHR model =
-    let
-        domain =
-            Maybe.withDefault PredictionDomain.Forecast model.predictionDomain
-    in
-    case domain of
-        PredictionDomain.Anomalies ->
-            span [] []
-
-        _ ->
-            hr [] []
 
 
 viewSessionDetails : Model -> ContextModel -> Html Msg
@@ -724,35 +721,39 @@ viewResultsGraph model =
     case graphSpec of
         Just spec ->
             div [ class "col-sm-12" ]
-                [ div [ id "result-vis" ] [ node "vega-chart" [ attribute "spec" spec ] [] ] ]
+                [ div [ id "result-vis" ] [ spec ] ]
 
         Nothing ->
             div [ class "col-sm-12" ]
                 [ div [] [] ]
 
 
-graphModel : Model -> Maybe String
+graphModel : Model -> Maybe (Html msg)
 graphModel model =
-    let
-        toResult graph =
-            graph |> Json.Encode.encode 0 |> Just
-    in
-    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse ) of
-        ( Remote.Success session, Remote.Success results, Remote.Success data ) ->
+    case ( model.loadingResponse, model.resultsResponse, model.dataSetResponse, model.distanceMetricsResponse ) of
+        ( Remote.Success session, Remote.Success results, Remote.Success data, _ ) ->
             case session.predictionDomain of
                 PredictionDomain.Forecast ->
-                    Charts.forecastResults results session data model.windowWidth |> toResult
+                    Charts.forecastResults results session data model.windowWidth |> Just
 
                 PredictionDomain.Impact ->
-                    Charts.impactResults results session data model.windowWidth |> toResult
+                    Charts.impactResults results session data model.windowWidth |> Just
 
                 _ ->
                     Nothing
 
-        ( Remote.Success session, Remote.Success results, _ ) ->
+        ( Remote.Success session, Remote.Success results, _, Remote.Success metrics ) ->
+            case session.predictionDomain of
+                PredictionDomain.Anomalies ->
+                    Charts.anomalyResults results session metrics model.windowWidth |> Just
+
+                _ ->
+                    Nothing
+
+        ( Remote.Success session, Remote.Success results, _, _ ) ->
             case session.predictionDomain of
                 PredictionDomain.Regression ->
-                    Charts.regressionResults results session model.windowWidth |> toResult
+                    Charts.regressionResults results session model.windowWidth |> Just
 
                 _ ->
                     Nothing

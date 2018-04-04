@@ -237,8 +237,15 @@ update msg model =
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
                                         app
+
+                                headerValues =
+                                    { userName = newContext.config.identityToken |> Maybe.map .name |> Maybe.withDefault "Account"
+                                    , overviewLink = newContext.config.accountSiteUrl ++ "/apiaccount/accountstatus"
+                                    , referLink = newContext.config.accountSiteUrl ++ "/apiaccount/referAFriend"
+                                    , logoutLink = newContext.config.accountSiteUrl ++ "/account/logout?returnUrl=" ++ newContext.config.apiManagerUrl ++ "/signout"
+                                    }
                             in
-                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext ]
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext, Ports.setHeaderValues headerValues ]
 
                 OnAppStateUpdated ctx ->
                     model => Cmd.none
