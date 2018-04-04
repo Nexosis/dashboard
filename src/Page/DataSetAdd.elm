@@ -465,20 +465,20 @@ update msg model context =
 
         ( _, ImportResponse result ) ->
             let
-                cmd =
+                ( importResult, cmd ) =
                     case result of
                         Remote.Success importDetail ->
                             if importDetail.status == Status.Completed then
-                                AppRoutes.newUrl (AppRoutes.DataSetDetail importDetail.dataSetName)
+                                result => AppRoutes.newUrl (AppRoutes.DataSetDetail importDetail.dataSetName)
                             else if importDetail.status == Status.Cancelled || importDetail.status == Status.Failed then
-                                Cmd.none
+                                result => Cmd.none
                             else
-                                delayAndRecheckImport context.config importDetail.importId
+                                Remote.Loading => delayAndRecheckImport context.config importDetail.importId
 
                         _ ->
-                            Cmd.none
+                            result => Cmd.none
             in
-            { model | importResponse = result } => cmd
+            { model | importResponse = importResult } => cmd
 
         ( _, NextStep ) ->
             let

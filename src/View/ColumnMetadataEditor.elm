@@ -3,6 +3,7 @@ module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, su
 import Autocomplete
 import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
+import Data.Config as Config
 import Data.Context exposing (ContextModel)
 import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
@@ -11,6 +12,7 @@ import Dict.Extra as Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onFocus, onInput)
+import Http
 import Json.Decode as Decode
 import Ports
 import RemoteData as Remote
@@ -20,7 +22,8 @@ import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import String.Extra as String
-import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
+import Task
+import Util exposing ((=>), commaFormatInteger, delayTask, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
 import View.Charts exposing (distributionHistogram)
 import View.Error exposing (viewRemoteError)
@@ -33,7 +36,7 @@ import View.Tooltip exposing (helpIcon)
 
 type alias Model =
     { columnMetadata : Remote.WebData ColumnMetadataListing
-    , statsResponse : Remote.WebData DataSetStats
+    , statsResponse : Dict String (Remote.WebData ColumnStats)
     , dataSetName : DataSetName
     , tableState : Grid.State
     , modifiedMetadata : Dict String ColumnMetadata
@@ -64,6 +67,7 @@ type alias ColumnMetadataListing =
 
 type Msg
     = StatsResponse (Remote.WebData DataSetStats)
+    | SingleStatsResponse (Remote.WebData DataSetStats)
     | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
@@ -83,9 +87,13 @@ type Msg
     | SaveMetadata (Remote.WebData ())
 
 
+type alias StatsDict =
+    Dict String (Remote.WebData ColumnStats)
+
+
 init : DataSetName -> Bool -> ( Model, Cmd Msg )
 init dataSetName showTarget =
-    Model Remote.Loading Remote.Loading dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Dict.empty Autocomplete.empty "" Nothing False showTarget Nothing Remote.NotAsked
+    Model Remote.Loading Dict.empty dataSetName (Grid.initialSort "columnName" Ascending) Dict.empty Dict.empty Autocomplete.empty "" Nothing False showTarget Nothing Remote.NotAsked
         => Cmd.none
 
 
@@ -132,16 +140,54 @@ updateDataSetResponse context model dataSetResponse =
            )
 
 
+delayAndRecheckStats : Config.Config -> DataSetName -> Cmd Msg
+delayAndRecheckStats config dataSetName =
+    delayTask 20
+        |> Task.andThen (\_ -> Request.DataSet.getStats config dataSetName |> Http.toTask)
+        |> Remote.asCmd
+        |> Cmd.map StatsResponse
+
+
 update : Msg -> Model -> ContextModel -> (List ColumnMetadata -> Cmd (Remote.WebData ())) -> ( ( Model, Cmd Msg ), ExternalMsg )
 update msg model context pendingSaveCommand =
     case msg of
         StatsResponse resp ->
             case resp of
                 Remote.Success s ->
-                    { model | statsResponse = resp } => Cmd.none => NoOp
+                    let
+                        stats =
+                            s.columns
+                                |> Dict.map (\_ columnStats -> Remote.succeed columnStats)
+
+                        allMetadata =
+                            model.columnMetadata
+                                |> Remote.map (\m -> Dict.size m.metadata)
+                                |> Remote.withDefault 0
+
+                        reFetchStats =
+                            if Dict.size stats < allMetadata then
+                                delayAndRecheckStats context.config model.dataSetName
+                            else
+                                Cmd.none
+                    in
+                    { model | statsResponse = stats } => reFetchStats => NoOp
 
                 Remote.Failure err ->
                     model => logHttpError err => NoOp
+
+                _ ->
+                    model => Cmd.none => NoOp
+
+        SingleStatsResponse resp ->
+            case resp of
+                Remote.Success { columns } ->
+                    let
+                        updatedStats =
+                            columns
+                                |> Dict.map (\_ columnStats -> Remote.succeed columnStats)
+                                |> Dict.union model.statsResponse
+                    in
+                    { model | statsResponse = updatedStats } => Cmd.none => NoOp
 
                 _ ->
                     model => Cmd.none => NoOp
@@ -425,10 +471,6 @@ generateVegaSpec column =
 view : ContextModel -> Model -> Html Msg
 view context model =
     let
-        stats =
-            model.statsResponse
-                |> Remote.map (\sr -> sr.columns)
-
         mergedMetadata =
             model.columnMetadata
                 |> Remote.map
@@ -442,7 +484,7 @@ view context model =
                     )
 
         editTable =
-            buildEditTable context stats model
+            buildEditTable context model.statsResponse model
     in
     div []
         [ div [ class "row mb25" ]
@@ -451,12 +493,12 @@ view context model =
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
                 [ PageSize.view ChangePageSize context.userPageSize ]
             ]
-        , Grid.view filterColumnsToDisplay (config context.config.toolTips stats editTable model.columnInEditMode) model.tableState mergedMetadata
+        , Grid.view filterColumnsToDisplay (config context.config.toolTips model.statsResponse editTable model.columnInEditMode) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
         ]
 
 
-buildEditTable : ContextModel -> Remote.WebData ColumnStatsDict -> Model -> ColumnMetadata -> Html Msg
+buildEditTable : ContextModel -> StatsDict -> Model -> ColumnMetadata -> Html Msg
 buildEditTable context stats model column =
     let
         saveButton =
@@ -602,7 +644,7 @@ filterColumnsToDisplay columnListing =
         |> List.take columnListing.pageSize
 
 
-config : Dict String String -> Remote.WebData ColumnStatsDict -> (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> Grid.Config ColumnMetadata Msg
+config : Dict String String -> StatsDict -> (ColumnMetadata -> Html Msg) -> Maybe ColumnMetadata -> Grid.Config ColumnMetadata Msg
 config toolTips stats buildEditTable columnInEdit =
     let
         makeIcon =
@@ -634,7 +676,7 @@ config toolTips stats buildEditTable columnInEdit =
         }
 
 
-editConfig : Dict String String -> Remote.WebData ColumnStatsDict -> Grid.Config ColumnMetadata Msg
+editConfig : Dict String String -> StatsDict -> Grid.Config ColumnMetadata Msg
 editConfig toolTips stats =
     let
         makeIcon =
@@ -770,7 +812,7 @@ imputationCell column =
     Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy ImputationSelectionChanged column.imputation ]
 
 
-statsColumn : Remote.WebData ColumnStatsDict -> ColumnDisplayProperties
+statsColumn : StatsDict -> ColumnDisplayProperties
 statsColumn stats =
     { name = "Stats"
     , viewData = statsCell stats
@@ -780,7 +822,7 @@ statsColumn stats =
     }
 
 
-statsCell : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+statsCell : StatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 statsCell stats column =
     if column.role == Key then
         Grid.HtmlDetails [ class "stats" ]
@@ -793,23 +835,24 @@ statsCell stats column =
             ]
     else
         let
-            statsClass =
-                case stats of
-                    Remote.Loading ->
-                        "stats loading"
+            columnStat =
+                Dict.get column.name stats
 
-                    _ ->
-                        "stats"
+            statsClass =
+                columnStat
+                    |> Maybe.map (\_ -> "stats")
+                    |> Maybe.withDefault "stats loading"
 
             columnStats =
-                stats
-                    |> Remote.map (\s -> ( Dict.get column.name s, column.dataType ))
+                columnStat
+                    |> Maybe.withDefault Remote.Loading
+                    |> Remote.map (\s -> ( s, column.dataType ))
         in
         Grid.HtmlDetails [ class statsClass ]
             [ statsDisplay columnStats ]
 
 
-statsDisplay : Remote.WebData ( Maybe ColumnStats, DataType ) -> Html Msg
+statsDisplay : Remote.WebData ( ColumnStats, DataType ) -> Html Msg
 statsDisplay columnStats =
     case columnStats of
         Remote.Loading ->
@@ -824,113 +867,105 @@ statsDisplay columnStats =
                     ]
                 ]
 
-        Remote.Success maybeStats ->
-            case maybeStats of
-                ( Just stats, dataType ) ->
-                    let
-                        errorStyle =
-                            if stats.errorCount == 0 then
-                                ""
-                            else if (toFloat stats.errorCount / toFloat stats.totalCount) * 100 < 10 then
-                                "text-danger"
-                            else
-                                "label label-danger"
+        Remote.Success ( stats, dataType ) ->
+            let
+                errorStyle =
+                    if stats.errorCount == 0 then
+                        ""
+                    else if (toFloat stats.errorCount / toFloat stats.totalCount) * 100 < 10 then
+                        "text-danger"
+                    else
+                        "label label-danger"
 
-                        missingStyle =
-                            if stats.missingCount == 0 then
-                                ""
-                            else if (toFloat stats.missingCount / toFloat stats.totalCount) * 100 < 10 then
-                                "text-danger"
-                            else
-                                "label label-danger"
+                missingStyle =
+                    if stats.missingCount == 0 then
+                        ""
+                    else if (toFloat stats.missingCount / toFloat stats.totalCount) * 100 < 10 then
+                        "text-danger"
+                    else
+                        "label label-danger"
 
-                        min =
-                            [ strong [] [ text "Min: " ]
-                            , styledNumber <| stats.min
-                            ]
+                min =
+                    [ strong [] [ text "Min: " ]
+                    , styledNumber <| stats.min
+                    ]
 
-                        max =
-                            [ strong [] [ text "Max: " ]
-                            , styledNumber <| stats.max
-                            ]
+                max =
+                    [ strong [] [ text "Max: " ]
+                    , styledNumber <| stats.max
+                    ]
 
-                        count =
-                            [ strong [] [ text "Count: " ]
-                            , styledNumber <| commaFormatInteger stats.totalCount
-                            ]
+                count =
+                    [ strong [] [ text "Count: " ]
+                    , styledNumber <| commaFormatInteger stats.totalCount
+                    ]
 
-                        missing =
-                            [ span [ class missingStyle ]
-                                [ strong [] [ text "# Missing: " ]
-                                , styledNumber <| commaFormatInteger stats.missingCount
-                                ]
-                            ]
-
-                        mean =
-                            [ strong [] [ text "Mean: " ]
-                            , styledNumber <| formatFloatToString stats.mean
-                            ]
-
-                        mode =
-                            [ strong [] [ text "Mode: " ]
-                            , styledNumber <| stats.mode
-                            ]
-
-                        errors =
-                            [ span [ class errorStyle ]
-                                [ strong [] [ text "Errors: " ]
-                                , styledNumber <| commaFormatInteger stats.errorCount
-                                ]
-                            ]
-
-                        stdDev =
-                            [ strong [] [ text "Std Dev: " ]
-                            , styledNumber <| formatFloatToString stats.stddev
-                            ]
-
-                        variance =
-                            [ strong [] [ text "Variance: " ]
-                            , styledNumber <| formatFloatToString stats.variance
-                            ]
-
-                        ( statsLeft, statsRight ) =
-                            case dataType of
-                                String ->
-                                    [ min, max, count ] => [ missing, mean, mode ]
-
-                                Text ->
-                                    [ count, missing ] => []
-
-                                Logical ->
-                                    [ min, max, mode ] => [ count, errors, missing ]
-
-                                Date ->
-                                    [ min, max, mode ] => [ count, errors, missing ]
-
-                                Numeric ->
-                                    [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
-
-                                Measure ->
-                                    [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
-                    in
-                    div [ class "row m0" ]
-                        [ div [ class "col-sm-6 pl0 pr0" ]
-                            (statsLeft
-                                |> List.intersperse [ br [] [] ]
-                                |> List.concat
-                            )
-                        , div [ class "col-sm-6 pl0 pr0" ]
-                            (statsRight
-                                |> List.intersperse [ br [] [] ]
-                                |> List.concat
-                            )
+                missing =
+                    [ span [ class missingStyle ]
+                        [ strong [] [ text "# Missing: " ]
+                        , styledNumber <| commaFormatInteger stats.missingCount
                         ]
+                    ]
 
-                ( Nothing, _ ) ->
-                    div [ class "row m0" ]
-                        [ div [ class "col-sm-6 pl0 pr0" ] []
-                        , div [ class "col-sm-6 pl0 pr0" ] []
+                mean =
+                    [ strong [] [ text "Mean: " ]
+                    , styledNumber <| formatFloatToString stats.mean
+                    ]
+
+                mode =
+                    [ strong [] [ text "Mode: " ]
+                    , styledNumber <| stats.mode
+                    ]
+
+                errors =
+                    [ span [ class errorStyle ]
+                        [ strong [] [ text "Errors: " ]
+                        , styledNumber <| commaFormatInteger stats.errorCount
                         ]
+                    ]
+
+                stdDev =
+                    [ strong [] [ text "Std Dev: " ]
+                    , styledNumber <| formatFloatToString stats.stddev
+                    ]
+
+                variance =
+                    [ strong [] [ text "Variance: " ]
+                    , styledNumber <| formatFloatToString stats.variance
+                    ]
+
+                ( statsLeft, statsRight ) =
+                    case dataType of
+                        String ->
+                            [ min, max, count ] => [ missing, mean, mode ]
+
+                        Text ->
+                            [ count, missing ] => []
+
+                        Logical ->
+                            [ min, max, mode ] => [ count, errors, missing ]
+
+                        Date ->
+                            [ min, max, mode ] => [ count, errors, missing ]
+
+                        Numeric ->
+                            [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
+
+                        Measure ->
+                            [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
+            in
+            div [ class "row m0" ]
+                [ div [ class "col-sm-6 pl0 pr0" ]
+                    (statsLeft
+                        |> List.intersperse [ br [] [] ]
+                        |> List.concat
+                    )
+                , div [ class "col-sm-6 pl0 pr0" ]
+                    (statsRight
+                        |> List.intersperse [ br [] [] ]
+                        |> List.concat
+                    )
+                ]
 
         _ ->
             div [ class "row m0" ]
@@ -939,7 +974,7 @@ statsDisplay columnStats =
                 ]
 
 
-histogramColumn : Remote.WebData ColumnStatsDict -> ColumnDisplayProperties
+histogramColumn : StatsDict -> ColumnDisplayProperties
 histogramColumn stats =
     { name = "Distribution"
     , viewData = histogram stats
@@ -949,7 +984,7 @@ histogramColumn stats =
     }
 
 
-histogram : Remote.WebData ColumnStatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
+histogram : StatsDict -> ColumnMetadata -> Grid.HtmlDetails Msg
 histogram stats column =
     if column.role == Key then
         Grid.HtmlDetails [ class "stats" ]
@@ -958,7 +993,8 @@ histogram stats column =
         let
             columnStats =
                 stats
-                    |> Remote.map (\s -> Dict.get column.name s)
+                    |> Dict.get column.name
+                    |> Maybe.withDefault Remote.Loading
         in
         case columnStats of
             Remote.Loading ->
@@ -967,14 +1003,9 @@ histogram stats column =
                     , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
 
-            Remote.Success maybeStats ->
-                case maybeStats of
-                    Just stats ->
-                        Grid.HtmlDetails []
-                            [ stats.distribution |> distributionHistogram ]
-
-                    Nothing ->
-                        Grid.HtmlDetails [] [ div [] [] ]
+            Remote.Success stats ->
+                Grid.HtmlDetails []
+                    [ stats.distribution |> distributionHistogram ]
 
             _ ->
                 Grid.HtmlDetails [] [ div [] [] ]
