@@ -77,6 +77,7 @@ update msg model context =
             { model | activeTab = tab } => prismHighlight ()
 
         FileSelected ->
+            --don't pass quotas because we don't have kind of 'batch' upload capability for predictions
             model => Ports.uploadFileSelected ( "upload-dataset", Nothing )
 
         FileContentRead readResult ->
@@ -208,6 +209,16 @@ subscriptions model =
         ]
 
 
+fitsInRequestSize : Maybe String -> Bool
+fitsInRequestSize content =
+    case content of
+        Nothing ->
+            False
+
+        Just c ->
+            (String.length c * 2) < (1024 * 1024)
+
+
 view : Model -> ContextModel -> Html Msg
 view model context =
     let
@@ -228,6 +239,7 @@ view model context =
         canProceedWithPrediction =
             not (Remote.isLoading model.downloadResponse || Remote.isLoading model.uploadResponse)
                 && (model.dataInput |> Maybe.map (\d -> not <| String.isEmpty d) |> Maybe.withDefault False)
+                && (model.dataInput |> fitsInRequestSize)
 
         predictButton =
             div [ class "mt5 right" ] [ button [ class "btn btn-danger", disabled <| not canProceedWithPrediction, onClick PredictionStarted ] [ buttonText ] ]
@@ -342,6 +354,18 @@ viewPasteData context model =
 
                 Nothing ->
                     ""
+
+        tooLargeWarning content =
+            let
+                isTooLarge =
+                    not <| fitsInRequestSize content
+            in
+            case isTooLarge of
+                True ->
+                    div [ class "alert alert-danger" ] [ text "Pasted Data must be less than 1MB in size." ]
+
+                False ->
+                    div [] []
     in
     div [ class "row" ]
         [ div [ class "col-sm-6" ]
@@ -351,6 +375,7 @@ viewPasteData context model =
                 , textarea [ class "form-control", rows 20, cols 75, onInput DataInputChanged ]
                     [ text value ]
                 ]
+            , tooLargeWarning model.dataInput
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]

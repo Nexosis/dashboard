@@ -7,7 +7,7 @@ import Data.DataFormat as DataFormat
 import Data.DataSet
 import Data.File as File
 import Data.Import
-import Data.Response as Response exposing (Quotas)
+import Data.Response as Response exposing (Quotas, maxSize)
 import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
@@ -292,8 +292,8 @@ verifyFileType error input =
 
 verifyContentLength : Model -> field -> Validator ( field, String ) String String
 verifyContentLength model field input =
-    if ((String.length input * 2) |> Debug.log "length") > maxSize model then
-        Err [ field => ("Data must be less than " ++ (maxSize model |> dataSizeWithSuffix) ++ " in size") ]
+    if ((String.length input * 2) |> Debug.log "length") > maxSize model.quotas then
+        Err [ field => ("Data must be less than " ++ (maxSize model.quotas |> dataSizeWithSuffix) ++ " in size") ]
     else
         Ok <| input
 
@@ -894,16 +894,6 @@ viewTabContent context model =
         ]
 
 
-maxSize : Model -> Int
-maxSize model =
-    let
-        default =
-            1024 * 1024
-    in
-    Maybe.withDefault default (model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
-        |> Basics.min default
-
-
 viewUploadTab : Config -> FileUploadEntry -> Model -> Html Msg
 viewUploadTab config tabModel model =
     let
@@ -929,7 +919,7 @@ viewUploadTab config tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize model |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
+                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize model.quotas |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]

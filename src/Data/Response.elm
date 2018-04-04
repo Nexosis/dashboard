@@ -1,4 +1,4 @@
-module Data.Response exposing (GlobalMessage, Quota, Quotas, Response, ResponseError, decodeResponse, decodeXhrResponse, responseErrorDecoder)
+module Data.Response exposing (GlobalMessage, Quota, Quotas, Response, ResponseError, decodeResponse, decodeXhrResponse, maxSize, responseErrorDecoder)
 
 import AppRoutes exposing (Route)
 import Data.Message exposing (Severity, decodeSeverity)
@@ -48,6 +48,16 @@ type alias GlobalMessage =
     , message : String
     , routeToResource : Maybe Route
     }
+
+
+maxSize : Maybe Quotas -> Int
+maxSize quotas =
+    let
+        default =
+            1024 * 1024
+    in
+    Maybe.withDefault default (quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
+        |> Basics.min default
 
 
 decodeXhrResponse : String -> Value -> Result String Response
