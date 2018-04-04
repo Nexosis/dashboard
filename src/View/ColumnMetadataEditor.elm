@@ -12,7 +12,6 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onFocus, onInput)
 import Json.Decode as Decode
-import Json.Encode exposing (encode)
 import Ports
 import RemoteData as Remote
 import Request.DataSet
@@ -972,7 +971,7 @@ histogram stats column =
                 case maybeStats of
                     Just stats ->
                         Grid.HtmlDetails [ class "stats" ]
-                            [ node "vega-chart" [ attribute "spec" (stats.distribution |> distributionHistogram |> encode 0) ] [] ]
+                            [ stats.distribution |> distributionHistogram ]
 
                     Nothing ->
                         Grid.HtmlDetails [] [ div [] [] ]

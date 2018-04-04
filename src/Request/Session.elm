@@ -1,9 +1,10 @@
-module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getForDataset, getOne, postForecast, postImpact, postModel, results, resultsCsv)
+module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getDistanceMetrics, getDistanceMetricsCsv, getForDataset, getOne, postForecast, postImpact, postModel, results, resultsCsv)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.ConfusionMatrix exposing (..)
 import Data.DataSet exposing (DataSetName, dataSetNameToString)
+import Data.DistanceMetric exposing (..)
 import Data.PredictionDomain exposing (PredictionDomain)
 import Data.Session exposing (..)
 import Http
@@ -242,3 +243,32 @@ encodeExtraParameters sessionRequest =
         [ ( "balance", balance )
         , ( "containsAnomalies", anomalies )
         ]
+
+
+getDistanceMetricsCsv : Config -> String -> Int -> Int -> Http.Request String
+getDistanceMetricsCsv config sessionId page pageSize =
+    let
+        params =
+            pageParams page pageSize
+    in
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpectString
+        |> HttpBuilder.withHeader "Accept" "text/csv"
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization config
+        |> HttpBuilder.toRequest
+
+
+getDistanceMetrics : Config -> String -> Int -> Int -> Http.Request DistanceMetrics
+getDistanceMetrics config sessionId page pageSize =
+    let
+        params =
+            pageParams page pageSize
+    in
+    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
+        |> HttpBuilder.get
+        |> HttpBuilder.withExpectJson decodeDistanceMetrics
+        |> HttpBuilder.withQueryParams params
+        |> withAuthorization config
+        |> HttpBuilder.toRequest
