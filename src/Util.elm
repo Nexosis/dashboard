@@ -164,7 +164,7 @@ tryParseAndFormat input =
             toShortDateTimeString date
 
         _ ->
-            "(Unknown)"
+            input
 
 
 delayTask : Int -> Task.Task x ()
