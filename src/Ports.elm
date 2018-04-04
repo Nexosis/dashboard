@@ -16,7 +16,7 @@ port responseReceived : (Json.Encode.Value -> msg) -> Sub msg
 port prismHighlight : () -> Cmd msg
 
 
-port uploadFileSelected : ( String, Maybe Int ) -> Cmd msg
+port uploadFileSelected : ( String, Int ) -> Cmd msg
 
 
 port fileContentRead : (Json.Decode.Value -> msg) -> Sub msg

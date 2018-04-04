@@ -5,6 +5,7 @@ import Data.Context exposing (ContextModel)
 import Data.DataFormat as DataFormat
 import Data.File as File
 import Data.Model exposing (PredictionResult, decodePredictions)
+import Data.Response exposing (maxSize)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -78,7 +79,7 @@ update msg model context =
 
         FileSelected ->
             --don't pass quotas because we don't have kind of 'batch' upload capability for predictions
-            model => Ports.uploadFileSelected ( "upload-dataset", Nothing )
+            model => Ports.uploadFileSelected ( "upload-dataset", maxSize Nothing )
 
         FileContentRead readResult ->
             let

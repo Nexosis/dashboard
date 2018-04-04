@@ -120,7 +120,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 var file = node.files[0];
                 if (file !== undefined) {
-                    if (file.size > (Math.min(maxSize, 1024*1024))) {
+                    if (file.size > maxSize) {
                         app.ports.fileContentRead.send({ status: 'FileTooLarge' });
                     } else {
 

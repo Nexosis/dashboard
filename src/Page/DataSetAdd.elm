@@ -377,7 +377,7 @@ update msg model context =
             { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
-            model => Ports.uploadFileSelected ( "upload-dataset", model.quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing )
+            model => Ports.uploadFileSelected ( "upload-dataset", maxSize model.quotas )
 
         ( ChooseUploadType, TabMsg tabMsg ) ->
             updateTabContents model tabMsg => Cmd.none
