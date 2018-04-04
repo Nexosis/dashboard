@@ -269,7 +269,7 @@ update msg model context pendingSaveCommand =
             if Remote.isSuccess result then
                 { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing }
                     => Ports.highlightIds (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
-                    => Updated (Dict.values model.modifiedMetadata)
+                    => Updated (Dict.values model.changesPendingSave)
             else
                 { model | saveResult = result } => Cmd.none => NoOp
 
