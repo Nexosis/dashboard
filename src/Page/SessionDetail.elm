@@ -37,6 +37,7 @@ import View.DeleteDialog as DeleteDialog
 import View.Error exposing (viewHttpError)
 import View.Extra exposing (viewIf, viewJust)
 import View.Messages as Messages
+import View.Modal as Modal
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
 import View.Tooltip exposing (helpIconFromText)
 import Window
@@ -53,6 +54,7 @@ type alias Model =
     , currentPage : Int
     , csvDownload : Remote.WebData String
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
+    , howLongModalModel : Maybe (Modal.Config Msg)
     }
 
 
@@ -67,7 +69,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -81,6 +83,8 @@ type Msg
     | ChangePage Int
     | DownloadResults
     | DownloadResponse (Remote.WebData String)
+    | HowLongButtonClicked
+    | HowLongCloseClicked
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -236,6 +240,12 @@ update msg model context =
                 _ ->
                     model => Cmd.none
 
+        HowLongButtonClicked ->
+            { model | howLongModalModel = viewHowLongSessionModal context } => Cmd.none
+
+        HowLongCloseClicked ->
+            { model | howLongModalModel = Nothing } => Cmd.none
+
 
 type alias SessionDateData =
     { startDate : Maybe String
@@ -243,6 +253,16 @@ type alias SessionDateData =
     , resultInterval : Maybe ResultInterval
     , predictionDomain : PredictionDomain.PredictionDomain
     }
+
+
+viewHowLongSessionModal : ContextModel -> Maybe (Modal.Config Msg)
+viewHowLongSessionModal context =
+    Just
+        { closeMessage = HowLongCloseClicked
+        , header = Nothing
+        , body = Just (div [ class "help" ] [ explainer context.config "session_start_timing" ])
+        , footer = Just (div [] [ button [ class "btn btn-danger btn-sm", onClick HowLongCloseClicked ] [ text "Dismiss" ] ])
+        }
 
 
 getDataDateRange : SessionDateData -> ( String, String )
@@ -360,6 +380,7 @@ view model context =
             , associatedAssets = []
             }
             |> Html.map DeleteDialogMsg
+        , Modal.view model.howLongModalModel
         ]
 
 
@@ -398,8 +419,7 @@ viewSessionDetails model context =
                     [ viewPendingSession session ]
     in
     div [ class "row", id "details" ]
-        [ loadingOr <| viewWaitTimeExplainer context
-        , div [ class "col-sm-3" ]
+        [ div [ class "col-sm-3" ]
             [ loadingOr pendingOrCompleted ]
 
         --, p []
@@ -414,11 +434,6 @@ viewSessionDetails model context =
             , loadingOr viewStatusHistory
             ]
         ]
-
-
-viewWaitTimeExplainer : ContextModel -> Model -> SessionData -> Html Msg
-viewWaitTimeExplainer context model session =
-    viewIf (\() -> div [ class "help alert alert-info" ] [ explainer context.config "session_start_timing" ]) <| not <| Data.Session.sessionIsCompleted session
 
 
 viewSessionInfo : Model -> SessionData -> Html Msg
@@ -568,6 +583,7 @@ viewPendingSession session =
             [ statusDisplay session.status
             , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
             ]
+        , div [ class "p15" ] [ button [ class "btn btn-xs btn-default", onClick HowLongButtonClicked ] [ text "How long will my session run?" ] ] --viewIf (\() -> ) <| not <| Data.Session.sessionIsCompleted session
         ]
 
 
