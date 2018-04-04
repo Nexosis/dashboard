@@ -25,7 +25,7 @@ import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), delayTask, formatDisplayName, spinner, unwrapErrors)
+import Util exposing ((=>), delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
 import Verify exposing (Validator, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
@@ -810,7 +810,7 @@ viewEntryReview model =
                     ]
 
                 ( AzureImportTab azureImport, _ ) ->
-                    [ ( "Connection String", azureImport.connectionString )
+                    [ ( "Connection String", formatDisplayNameWithWidth 30 azureImport.connectionString )
                     , ( "Container", azureImport.container )
                     , ( "Blob", azureImport.blob )
                     ]
