@@ -169,17 +169,21 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 if (xhr.url.startsWith(config.apiUrl)) {
 
-                    const getQuotaHeader = (xhr, name) => {
-                        return {
-                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
-                            current: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                    const getQuotaHeader = (xhr, name, allottedOnly) => {
+                        const result = {
+                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0')
                         }
+                        if(!allottedOnly) {
+                            result.current = parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                        }
+                        return result;
                     }
 
                     let quotas = {
                         dataSets: getQuotaHeader(xhr, "DataSetCount"),
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
+                        dataSetSize : getQuotaHeader(xhr, "DataSetSize", true)
                     }
 
                     let responseText = '';
