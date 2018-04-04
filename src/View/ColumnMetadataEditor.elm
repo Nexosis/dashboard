@@ -258,10 +258,10 @@ update msg model context pendingSaveCommand =
             updateMetadata model newTarget pendingSaveCommand
 
         SelectColumnForEdit column ->
-            { model | columnInEditMode = Just column } => Cmd.none => NoOp
+            { model | columnInEditMode = Just column, saveResult = Remote.NotAsked } => Cmd.none => NoOp
 
         CancelColumnEdit ->
-            { model | columnInEditMode = Nothing, changesPendingSave = Dict.empty } => Cmd.none => NoOp
+            { model | columnInEditMode = Nothing, changesPendingSave = Dict.empty, saveResult = Remote.NotAsked } => Cmd.none => NoOp
 
         NoOpMsg ->
             model => Cmd.none => NoOp
@@ -563,7 +563,7 @@ viewTargetFormGroup context model =
                         div [ class "autocomplete-menu" ] [ Html.map SetAutoCompleteState (Autocomplete.view viewConfig 5 model.autoState (filterColumnNames model.targetQuery model.columnMetadata)) ]
                     )
                     model.showAutocomplete
-                , viewRemoteError model.saveResult
+                , viewIf (\() -> viewRemoteError model.saveResult) <| not <| isJust model.columnInEditMode
                 ]
             ]
     else
