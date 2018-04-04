@@ -332,7 +332,7 @@ updateMetadata model updatedColumn saveCommand =
     if modifiedMetadata /= Dict.empty then
         { model | changesPendingSave = modifiedMetadata, targetQuery = targetName, saveResult = Remote.Loading } => Cmd.map SaveMetadata (saveCommand <| Dict.values modifiedMetadata) => NoOp
     else
-        { model | modifiedMetadata = modifiedMetadata, columnInEditMode = Nothing, targetQuery = targetName, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => NoOp
+        { model | modifiedMetadata = modifiedMetadata, columnInEditMode = Nothing, targetQuery = targetName, saveResult = Remote.NotAsked, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => NoOp
 
 
 subscriptions : Model -> Sub Msg
@@ -962,7 +962,7 @@ histogram stats column =
         in
         case columnStats of
             Remote.Loading ->
-                Grid.HtmlDetails [ class "stats loading" ]
+                Grid.HtmlDetails [ class "loading" ]
                     [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
                     , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
@@ -970,7 +970,7 @@ histogram stats column =
             Remote.Success maybeStats ->
                 case maybeStats of
                     Just stats ->
-                        Grid.HtmlDetails [ class "stats" ]
+                        Grid.HtmlDetails []
                             [ stats.distribution |> distributionHistogram ]
 
                     Nothing ->
