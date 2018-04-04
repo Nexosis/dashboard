@@ -292,7 +292,7 @@ verifyFileType error input =
 
 verifyContentLength : Model -> field -> Validator ( field, String ) String String
 verifyContentLength model field input =
-    if ((String.length input * 2) |> Debug.log "length") > maxSize model.quotas then
+    if (String.length input * 2) > maxSize model.quotas then
         Err [ field => ("Data must be less than " ++ (maxSize model.quotas |> dataSizeWithSuffix) ++ " in size") ]
     else
         Ok <| input
