@@ -1,8 +1,9 @@
 module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), fileReadStatusDecoder)
 
-import Data.Columns as Columns
+import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata)
 import Dict exposing (Dict)
-import Json.Decode
+import Json.Decode exposing (dict, keyValuePairs, list, string)
+import Json.Decode.Pipeline exposing (decode, optional, required)
 
 
 type FileUploadErrorType
@@ -14,6 +15,29 @@ type FileUploadErrorType
 type FileReadStatus
     = ReadError FileUploadErrorType
     | Success String String
+
+
+type alias CsvFile =
+    { headers : List String
+    , rows : List List String
+    }
+
+
+type alias JsonFile =
+    { columns : List ColumnMetadata
+    , data : List (Dict String String)
+    }
+
+
+jsonFileDecoder : Json.Decode.Decoder JsonFile
+jsonFileDecoder =
+    let
+        row =
+            dict string
+    in
+    decode JsonFile
+        |> required "columns" decodeColumnMetadata
+        |> required "data" (list row)
 
 
 fileReadStatusDecoder : Json.Decode.Decoder FileReadStatus
