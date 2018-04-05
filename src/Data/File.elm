@@ -17,12 +17,6 @@ type FileReadStatus
     | Success String String
 
 
-type alias CsvFile =
-    { headers : List String
-    , rows : List List String
-    }
-
-
 type alias JsonFile =
     { columns : List ColumnMetadata
     , data : List (Dict String String)
