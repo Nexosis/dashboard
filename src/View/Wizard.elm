@@ -23,7 +23,6 @@ type alias WizardConfig a error msg model result =
     , finishedValidation : model -> Result (List error) result
     , finishedButton : model -> HtmlDetails msg
     , finishedMsg : result -> msg
-    , context : ContextModel
     }
 
 

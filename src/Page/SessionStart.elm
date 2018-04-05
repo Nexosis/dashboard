@@ -373,15 +373,14 @@ verifyTarget model =
         Ok ""
 
 
-configWizard : ContextModel -> WizardConfig Step FieldError Msg Model SessionRequest
-configWizard ctx =
+configWizard : WizardConfig Step FieldError Msg Model SessionRequest
+configWizard =
     { nextMessage = NextStep
     , prevMessage = PrevStep
     , stepValidation = perStepValidations
     , finishedButton = \_ -> Wizard.HtmlDetails [] [ text "Start Session" ]
     , finishedValidation = validateModel
     , finishedMsg = StartTheSession
-    , context = ctx
     }
 
 
@@ -657,7 +656,7 @@ view model context =
                 ++ wizardPage context model
                 ++ [ div [ class "col-sm-12" ]
                         [ div [ class "col-sm-12 well well-sm right" ]
-                            [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
+                            [ viewButtons configWizard model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
                         ]
                    ]
             )
@@ -712,7 +711,7 @@ wizardTitle context model title =
     div [ class "col-sm-12 session-step" ]
         [ div [ class "col-sm-6 pl0" ] [ h3 [ class "mt0" ] [ text title ] ]
         , div [ class "col-sm-6 right" ]
-            [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
+            [ viewButtons configWizard model model.steps (Remote.isLoading model.sessionStartRequest) (model.errors == []) ]
         ]
 
 

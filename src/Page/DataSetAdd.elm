@@ -323,7 +323,6 @@ configWizard ctx =
     , finishedButton = finalStepButton
     , finishedValidation = validateModel ctx
     , finishedMsg = CreateDataSet
-    , context = ctx
     }
 
 
