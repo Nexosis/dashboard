@@ -67,7 +67,7 @@ type alias ColumnMetadataListing =
 
 type Msg
     = StatsResponse (Remote.WebData DataSetStats)
-    | SingleStatsResponse (Remote.WebData DataSetStats)
+    | SingleStatsResponse String (Remote.WebData DataSetStats)
     | SetTableState Grid.State
     | ChangePage Int
     | ChangePageSize Int
@@ -178,16 +178,19 @@ update msg model context pendingSaveCommand =
                 _ ->
                     model => Cmd.none => NoOp
 
-        SingleStatsResponse resp ->
+        SingleStatsResponse columnName resp ->
             case resp of
                 Remote.Success { columns } ->
                     let
                         updatedStats =
                             columns
                                 |> Dict.map (\_ columnStats -> Remote.succeed columnStats)
-                                |> Dict.union model.statsResponse
+                                |> flip Dict.union model.statsResponse
                     in
                     { model | statsResponse = updatedStats } => Cmd.none => NoOp
+
+                Remote.Failure err ->
+                    { model | statsResponse = Dict.insert columnName (Remote.Failure err) model.statsResponse } => Cmd.none => NoOp
 
                 _ ->
                     model => Cmd.none => NoOp
@@ -313,8 +316,26 @@ update msg model context pendingSaveCommand =
 
         SaveMetadata result ->
             if Remote.isSuccess result then
-                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing }
-                    => Ports.highlightIds (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
+                let
+                    statsBeingRequested =
+                        model.changesPendingSave
+                            |> Dict.map (\_ _ -> Remote.Loading)
+                            |> flip Dict.union model.statsResponse
+                in
+                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing, statsResponse = statsBeingRequested }
+                    => Cmd.batch
+                        (Ports.highlightIds
+                            (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
+                            :: (model.changesPendingSave
+                                    |> Dict.values
+                                    |> List.map
+                                        (\c ->
+                                            Request.DataSet.getStatsForColumn context.config model.dataSetName c.name c.dataType
+                                                |> Remote.sendRequest
+                                                |> Cmd.map (SingleStatsResponse c.name)
+                                        )
+                               )
+                        )
                     => Updated (Dict.values model.changesPendingSave)
             else
                 { model | saveResult = result } => Cmd.none => NoOp
@@ -508,16 +529,11 @@ buildEditTable context stats model column =
 
                 _ ->
                     button [ class "btn btn-danger btn-sm", onClick CommitMetadataChange ] [ text "Save Changes" ]
-
-        columnInEdit =
-            model.changesPendingSave
-                |> Dict.get column.name
-                |> Maybe.withDefault column
     in
     tr [ class "modal fade in", style [ ( "display", "table-row" ), ( "position", "static" ) ] ]
         [ td [ class "p0", colspan 6 ]
             [ div [ class "modal-dialog modal-content metadata-editor m0", style [ ( "z-index", "1050" ), ( "width", "auto" ) ] ]
-                [ Grid.view identity (editConfig context.config.toolTips stats) Grid.initialUnsorted (Remote.succeed [ columnInEdit ])
+                [ Grid.view identity (editConfig context.config.toolTips stats) Grid.initialUnsorted (Remote.succeed [ column ])
                 , div [ class "text-left mr10 ml10" ] [ viewRemoteError model.saveResult ]
                 , div [ class "modal-footer" ]
                     [ button [ class "btn btn-link btn-sm", onClick CancelColumnEdit ] [ text "Discard" ]
@@ -840,7 +856,7 @@ statsCell stats column =
 
             statsClass =
                 columnStat
-                    |> Maybe.map (\_ -> "stats")
+                    |> Maybe.map (\s -> s |> Remote.map (\_ -> "stats") |> Remote.withDefault "stats loading")
                     |> Maybe.withDefault "stats loading"
 
             columnStats =
