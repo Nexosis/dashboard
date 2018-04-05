@@ -317,24 +317,37 @@ update msg model context pendingSaveCommand =
         SaveMetadata result ->
             if Remote.isSuccess result then
                 let
-                    statsBeingRequested =
+                    columnsWithNewDataType =
                         model.changesPendingSave
-                            |> Dict.map (\_ _ -> Remote.Loading)
+                            |> Dict.values
+                            |> List.filter
+                                (\c ->
+                                    model.columnMetadata
+                                        |> Remote.map (\cm -> cm.metadata)
+                                        |> Remote.withDefault Dict.empty
+                                        |> Dict.union model.modifiedMetadata
+                                        |> Dict.get c.name
+                                        |> Maybe.map (\old -> old.dataType /= c.dataType)
+                                        |> Maybe.withDefault False
+                                )
+
+                    statsBeingRequested =
+                        columnsWithNewDataType
+                            |> List.map (\c -> ( c.name, Remote.Loading ))
+                            |> Dict.fromList
                             |> flip Dict.union model.statsResponse
                 in
                 { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing, statsResponse = statsBeingRequested }
                     => Cmd.batch
                         (Ports.highlightIds
                             (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
-                            :: (model.changesPendingSave
-                                    |> Dict.values
-                                    |> List.map
-                                        (\c ->
-                                            Request.DataSet.getStatsForColumn context.config model.dataSetName c.name c.dataType
-                                                |> Remote.sendRequest
-                                                |> Cmd.map (SingleStatsResponse c.name)
-                                        )
-                               )
+                            :: List.map
+                                (\c ->
+                                    Request.DataSet.getStatsForColumn context.config model.dataSetName c.name c.dataType
+                                        |> Remote.sendRequest
+                                        |> Cmd.map (SingleStatsResponse c.name)
+                                )
+                                columnsWithNewDataType
                         )
                     => Updated (Dict.values model.changesPendingSave)
             else
