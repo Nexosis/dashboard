@@ -2,7 +2,7 @@ module Page.DataSetAdd exposing (Model, Msg(..), init, subscriptions, update, vi
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context as AppContext exposing (ContextModel)
 import Data.DataFormat as DataFormat
 import Data.DataSet
 import Data.File as File
@@ -43,7 +43,6 @@ type alias Model =
     , importResponse : Remote.WebData Data.Import.ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
-    , quotas : Maybe Quotas
     }
 
 
@@ -148,8 +147,8 @@ initTabs =
         ]
 
 
-init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
-init config quotas =
+init : Config -> ( Model, Cmd Msg )
+init config =
     let
         steps =
             Ziplist.create [] ChooseUploadType [ SetKey ]
@@ -163,7 +162,6 @@ init config quotas =
         Remote.NotAsked
         listAwsRegions
         []
-        quotas
         => Cmd.none
 
 
@@ -212,15 +210,15 @@ type alias FieldError =
     ( Field, String )
 
 
-validateModel : Model -> Result (List FieldError) AddDataSetRequest
-validateModel model =
+validateModel : ContextModel -> Model -> Result (List FieldError) AddDataSetRequest
+validateModel context model =
     case model.tabs.current of
         ( FileUploadTab fileUploadEntry, _ ) ->
             validateFileUploadModel model fileUploadEntry
                 |> Result.map PutUpload
 
         ( DirectDataTab directDataEntry, _ ) ->
-            validateDirectDataModel model directDataEntry
+            validateDirectDataModel model context directDataEntry
                 |> Result.map PutUpload
 
         ( UrlImportTab urlImportEntry, _ ) ->
@@ -236,11 +234,11 @@ validateModel model =
                 |> Result.map ImportAzure
 
 
-validateDirectDataModel : Model -> Validator FieldError DirectDataEntry PutUploadRequest
-validateDirectDataModel model =
+validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
+validateDirectDataModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .content (verifyContentLength model DataField)
+        |> Verify.verify .content (verifyContentLength model context DataField)
         |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
 
 
@@ -290,10 +288,10 @@ verifyFileType error input =
             Ok <| DataFormat.dataFormatToContentType input
 
 
-verifyContentLength : Model -> field -> Validator ( field, String ) String String
-verifyContentLength model field input =
-    if (String.length input * 2) > maxSize model.quotas then
-        Err [ field => ("Data must be less than " ++ (maxSize model.quotas |> dataSizeWithSuffix) ++ " in size") ]
+verifyContentLength : Model -> ContextModel -> field -> Validator ( field, String ) String String
+verifyContentLength model context field input =
+    if (String.length input * 2) > maxSize context.quotas then
+        Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
     else
         Ok <| input
 
@@ -312,19 +310,20 @@ urlRegex =
     Regex.regex "^(http|https):\\/\\/[^ \"]+$"
 
 
-perStepValidations : List ( Step, Model -> List FieldError )
-perStepValidations =
-    [ ( ChooseUploadType, validateModel >> unwrapErrors ) ]
+perStepValidations : ContextModel -> List ( Step, Model -> List FieldError )
+perStepValidations ctx =
+    [ ( ChooseUploadType, validateModel ctx >> unwrapErrors ) ]
 
 
-configWizard : WizardConfig Step FieldError Msg Model AddDataSetRequest
-configWizard =
+configWizard : ContextModel -> WizardConfig Step FieldError Msg Model AddDataSetRequest
+configWizard ctx =
     { nextMessage = NextStep
     , prevMessage = PrevStep
-    , stepValidation = perStepValidations
+    , stepValidation = perStepValidations ctx
     , finishedButton = finalStepButton
-    , finishedValidation = validateModel
+    , finishedValidation = validateModel ctx
     , finishedMsg = CreateDataSet
+    , context = ctx
     }
 
 
@@ -344,7 +343,6 @@ type Msg
     | CreateDataSet AddDataSetRequest
     | UploadDataSetResponse (Remote.WebData ())
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
-    | QuotasUpdated (Maybe Quotas)
 
 
 type TabMsg
@@ -377,7 +375,7 @@ update msg model context =
             { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
-            model => Ports.uploadFileSelected ( "upload-dataset", maxSize model.quotas )
+            model => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
 
         ( ChooseUploadType, TabMsg tabMsg ) ->
             updateTabContents model tabMsg => Cmd.none
@@ -495,7 +493,7 @@ update msg model context =
         ( _, NextStep ) ->
             let
                 errors =
-                    validateStep model
+                    validateStep context model
             in
             if errors == [] then
                 { model | steps = Ziplist.advance model.steps } => Cmd.none
@@ -507,22 +505,19 @@ update msg model context =
 
         ( _, InputBlur ) ->
             if model.errors /= [] then
-                { model | errors = validateStep model } => Cmd.none
+                { model | errors = validateStep context model } => Cmd.none
             else
                 model => Cmd.none
-
-        ( _, QuotasUpdated quotas ) ->
-            { model | quotas = quotas } => Cmd.none
 
         _ ->
             model => Cmd.none
 
 
-validateStep : Model -> List FieldError
-validateStep model =
+validateStep : ContextModel -> Model -> List FieldError
+validateStep context model =
     let
         stepValidation =
-            perStepValidations
+            perStepValidations context
                 |> List.find (\s -> Tuple.first s |> (==) model.steps.current)
                 |> Maybe.map Tuple.second
                 |> Maybe.withDefault (\_ -> [])
@@ -673,12 +668,12 @@ view model context =
                     viewChooseUploadType context model
 
                 SetKey ->
-                    viewSetKey context.config model
+                    viewSetKey context model
             ]
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 right" ]
-                [ viewButtons configWizard
+                [ viewButtons (configWizard context)
                     model
                     model.steps
                     (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
@@ -694,7 +689,7 @@ viewChooseUploadType context model =
         [ div [ class "col-sm-12 mb20 session-step" ]
             [ div [ class "col-sm-6 pl0" ] [ h3 [] [ text "Choose Upload type" ] ]
             , div [ class "col-sm-6 right" ]
-                [ viewButtons configWizard
+                [ viewButtons (configWizard context)
                     model
                     model.steps
                     (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
@@ -754,8 +749,8 @@ finalStepButton model =
     Wizard.HtmlDetails [] buttonContent
 
 
-viewSetKey : Config -> Model -> Html Msg
-viewSetKey config model =
+viewSetKey : ContextModel -> Model -> Html Msg
+viewSetKey context model =
     let
         errorDisplay =
             case model.tabs.current of
@@ -777,7 +772,7 @@ viewSetKey config model =
                 ]
             , div
                 [ class "col-sm-4 right" ]
-                [ viewButtons configWizard model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == []) ]
+                [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == []) ]
             ]
         , div
             [ class "col-sm-12" ]
@@ -795,7 +790,7 @@ viewSetKey config model =
                 ]
             , div [ class "col-sm-6 col-sm-offset-2" ]
                 [ div [ class "alert alert-info" ]
-                    [ explainer config "why_choose_key"
+                    [ explainer context.config "why_choose_key"
                     ]
                 ]
             ]
@@ -874,7 +869,7 @@ viewTabContent context model =
         content =
             case model.tabs.current of
                 ( FileUploadTab fileUploadEntry, _ ) ->
-                    viewUploadTab context.config fileUploadEntry model
+                    viewUploadTab context fileUploadEntry model
 
                 ( UrlImportTab urlImportEntry, _ ) ->
                     viewImportUrlTab context.config urlImportEntry model
@@ -894,8 +889,8 @@ viewTabContent context model =
         ]
 
 
-viewUploadTab : Config -> FileUploadEntry -> Model -> Html Msg
-viewUploadTab config tabModel model =
+viewUploadTab : ContextModel -> FileUploadEntry -> Model -> Html Msg
+viewUploadTab context tabModel model =
     let
         uploadButtonText =
             if String.isEmpty tabModel.fileName then
@@ -919,7 +914,7 @@ viewUploadTab config tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize model.quotas |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
+                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
@@ -932,7 +927,7 @@ viewUploadTab config tabModel model =
             ]
         , div [ class "col-sm-6" ]
             [ div [ class "alert alert-info" ]
-                [ explainer config "how_upload_csv"
+                [ explainer context.config "how_upload_csv"
                 ]
             ]
         ]

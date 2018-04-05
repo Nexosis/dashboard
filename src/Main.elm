@@ -64,7 +64,6 @@ type alias App =
     , enabledFeatures : List Feature
     , context : ContextModel
     , pageLoadFailed : Maybe ( Page, Http.Error )
-    , quotas : Maybe Quotas
     }
 
 
@@ -152,7 +151,7 @@ setRoute route app =
                         Just ( AppRoutes.Home, title ) ->
                             let
                                 ( pageModel, initCmd ) =
-                                    Home.init app.context.config (getQuotas app.lastResponse)
+                                    Home.init app.context.config
                             in
                             { app | page = Home pageModel } => Cmd.map HomeMsg initCmd => title
 
@@ -173,7 +172,7 @@ setRoute route app =
                         Just ( AppRoutes.DataSetAdd, title ) ->
                             let
                                 ( pageModel, initCmd ) =
-                                    DataSetAdd.init app.context.config app.quotas
+                                    DataSetAdd.init app.context.config
                             in
                             { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd => title
 
@@ -233,7 +232,7 @@ update msg model =
                                     { mbctx | config = initState.config }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing Nothing
+                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -321,9 +320,8 @@ updatePage page msg app =
 
         ( ResponseReceived (Ok response), _ ) ->
             let
-                quotaUpdatedMsg : (Maybe Quotas -> msg) -> msg
-                quotaUpdatedMsg message =
-                    message (getQuotas (Just response))
+                setQuotas context =
+                    { context | quotas = getQuotas (Just response) }
 
                 messagesToKeep =
                     response.messages
@@ -338,12 +336,7 @@ updatePage page msg app =
                         |> flip List.append app.messages
                         |> List.take 5
             in
-            { app | messages = messagesToKeep, quotas = getQuotas (Just response) }
-                => Cmd.batch
-                    [ Ports.prismHighlight ()
-                    , Task.perform HomeMsg (Task.succeed <| quotaUpdatedMsg Home.QuotasUpdated)
-                    , Task.perform DataSetAddMsg (Task.succeed <| quotaUpdatedMsg DataSetAdd.QuotasUpdated)
-                    ]
+            { app | messages = messagesToKeep, context = setQuotas app.context } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
             { app | lastResponse = Nothing }
