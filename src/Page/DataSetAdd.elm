@@ -1,4 +1,4 @@
-module Page.DataSetAdd exposing (Model, Msg(..), init, subscriptions, update, view)
+module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config)

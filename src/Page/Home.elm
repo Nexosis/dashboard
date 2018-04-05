@@ -1,4 +1,4 @@
-module Page.Home exposing (Model, Msg(..), init, update, view)
+module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
