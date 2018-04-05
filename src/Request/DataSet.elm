@@ -1,6 +1,6 @@
-module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
-import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
+import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
@@ -60,6 +60,16 @@ getStats : Config -> DataSetName -> Http.Request DataSetStats
 getStats config name =
     (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName name ++ "/stats")
         |> HttpBuilder.get
+        |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
+        |> withAuthorization config
+        |> HttpBuilder.toRequest
+
+
+getStatsForColumn : Config -> DataSetName -> String -> DataType -> Http.Request DataSetStats
+getStatsForColumn config dataSetName columnName columnType =
+    (config.baseUrl ++ "/data/" ++ uriEncodeDataSetName dataSetName ++ "/stats/" ++ Http.encodeUri columnName)
+        |> HttpBuilder.get
+        |> HttpBuilder.withQueryParams [ ( "dataType", dataTypeToString columnType ) ]
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
         |> withAuthorization config
         |> HttpBuilder.toRequest
