@@ -1,4 +1,4 @@
---Taken from https://raw.githubusercontent.com/lgastako/elm-select/ but updated to allow a CSS style on select
+--Taken from https://raw.githubusercontent.com/lgastako/elm-select/ but updated to allow any Html attributes on the select
 
 
 module SelectWithStyle exposing (from, fromSelected, fromSelected_, from_)
@@ -46,9 +46,9 @@ string versions of four cardinal directions and which would send messages like
 the drop down. `South` would show up as the currently selected element.
 
 -}
-fromSelected : String -> List a -> (a -> msg) -> a -> Html msg
-fromSelected css xs msg sel =
-    fromSelected_ css xs msg toString toString sel
+fromSelected : List (Html.Attribute msg) -> List a -> (a -> msg) -> a -> Html msg
+fromSelected attributes xs msg sel =
+    fromSelected_ attributes xs msg toString toString sel
 
 
 {-| Convert a list of values and stringifying function for values of that type
@@ -89,8 +89,8 @@ derived using the `toId` and `toLabel` functions provided instead of defaulting
 to `toString` like `from`. `South` would show up as the currently selected element.
 
 -}
-fromSelected_ : String -> List a -> (a -> msg) -> (a -> String) -> (a -> String) -> a -> Html msg
-fromSelected_ css xs msg toId toLabel sel =
+fromSelected_ : List (Html.Attribute msg) -> List a -> (a -> msg) -> (a -> String) -> (a -> String) -> a -> Html msg
+fromSelected_ attributes xs msg toId toLabel sel =
     let
         optionize x =
             option
@@ -103,7 +103,7 @@ fromSelected_ css xs msg toId toLabel sel =
                 )
                 [ (text << toLabel) x ]
     in
-    select ([ onInput (msg << makeFromString_ xs) ] ++ [ class css ])
+    select ([ onInput (msg << makeFromString_ xs) ] ++ attributes)
         (List.map optionize xs)
 
 
