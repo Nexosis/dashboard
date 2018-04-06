@@ -715,7 +715,7 @@ nameColumn =
     { name = "Column Name"
     , viewData = \c -> Grid.HtmlDetails [ class "name" ] [ text <| formatDisplayName c.name ]
     , sorter = Grid.increasingOrDecreasingBy (\c -> c.name)
-    , headAttributes = [ class "left per25" ]
+    , headAttributes = [ class "left per30" ]
     , headHtml = []
     }
 
@@ -775,7 +775,7 @@ statsColumn stats =
     { name = "Stats"
     , viewData = statsCell stats
     , sorter = Grid.unsortable
-    , headAttributes = [ class "per20" ]
+    , headAttributes = [ class "per25" ]
     , headHtml = []
     }
 
@@ -944,7 +944,7 @@ histogramColumn stats =
     { name = "Distribution"
     , viewData = histogram stats
     , sorter = Grid.unsortable
-    , headAttributes = [ class "per10" ]
+    , headAttributes = [ class "per15" ]
     , headHtml = []
     }
 
@@ -970,11 +970,39 @@ histogram stats column =
             Remote.Success maybeStats ->
                 case maybeStats of
                     Just stats ->
-                        Grid.HtmlDetails []
-                            [ stats.distribution |> distributionHistogram ]
+                        if column.dataType == Text then
+                            Grid.HtmlDetails [ class "distribution text" ]
+                                [ stats.distribution |> wordOccurrenceTable ]
+                        else
+                            Grid.HtmlDetails []
+                                [ stats.distribution |> distributionHistogram ]
 
                     Nothing ->
                         Grid.HtmlDetails [] [ div [] [] ]
 
             _ ->
                 Grid.HtmlDetails [] [ div [] [] ]
+
+
+wordOccurrenceTable : List DataSet.DistributionShape -> Html Msg
+wordOccurrenceTable distribution =
+    let
+        wordRow item =
+            case item of
+                DataSet.Counts label count ->
+                    tr [] [ td [ class "value" ] [ text label ], td [ class "number" ] [ text <| toString count ] ]
+
+                _ ->
+                    div [] []
+    in
+    div [ class "text " ]
+        [ table [ class "table table-striped" ]
+            [ thead []
+                [ tr [] [ th [ class "value" ] [ text "Value" ], th [] [ text "Count" ] ] ]
+            , tbody []
+                (distribution
+                    |> List.take 5
+                    |> List.map wordRow
+                )
+            ]
+        ]
