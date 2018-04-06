@@ -48,7 +48,7 @@ decodeStatus =
                     "failed" ->
                         succeed Failed
 
-                    "cancellationpending" ->
+                    "cancellationPending" ->
                         succeed CancellationPending
 
                     unknown ->
