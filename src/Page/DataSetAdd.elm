@@ -14,7 +14,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onBlur, onClick, onInput)
 import Http
-import Json.Decode exposing (succeed)
+import Json.Decode exposing (decodeString, succeed)
 import List.Extra as List
 import Navigation
 import Page.Helpers exposing (explainer)
@@ -27,7 +27,7 @@ import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
 import Util exposing ((=>), dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
-import Verify exposing (Validator, keep)
+import Verify exposing (Validator, andThen, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
 import View.Extra exposing (viewIf, viewIfElements, viewJust)
@@ -47,9 +47,9 @@ type alias Model =
 
 
 type alias FileUploadEntry =
-    { fileContent : String
+    { content : String
     , fileName : String
-    , fileUploadType : DataFormat.DataFormat
+    , contentType : DataFormat.DataFormat
     , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     }
 
@@ -107,9 +107,9 @@ type AddDataSetRequest
 
 initFileUploadTab : FileUploadEntry
 initFileUploadTab =
-    { fileContent = ""
+    { content = ""
     , fileName = ""
-    , fileUploadType = DataFormat.Other
+    , contentType = DataFormat.Other
     , fileUploadErrorOccurred = Nothing
     }
 
@@ -214,7 +214,7 @@ validateModel : ContextModel -> Model -> Result (List FieldError) AddDataSetRequ
 validateModel context model =
     case model.tabs.current of
         ( FileUploadTab fileUploadEntry, _ ) ->
-            validateFileUploadModel model fileUploadEntry
+            validateFileUploadModel model context fileUploadEntry
                 |> Result.map PutUpload
 
         ( DirectDataTab directDataEntry, _ ) ->
@@ -234,20 +234,12 @@ validateModel context model =
                 |> Result.map ImportAzure
 
 
-validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
-validateDirectDataModel model context =
+validateFileUploadModel : Model -> ContextModel -> Validator FieldError FileUploadEntry PutUploadRequest
+validateFileUploadModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .content (verifyContentLength model context DataField)
-        |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
-
-
-validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
-validateFileUploadModel model =
-    Verify.ok PutUploadRequest
-        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .fileContent (notBlank (FileSelectionField => "Choose a file to upload."))
-        |> Verify.verify .fileUploadType (verifyFileType (FileSelectionField => "Upload a CSV or JSON file."))
+        |> Verify.custom (verifyFileContent context FileSelectionField)
+        |> Verify.verify .contentType (verifyFileType (FileSelectionField => "Upload a CSV or JSON file."))
 
 
 validateUrlImportModel : Model -> Validator FieldError UrlImportEntry PostUrlRequest
@@ -278,22 +270,73 @@ validateAzureImportModel model =
         |> Verify.verify .blob (notBlank (AzureBlobField => "Blob required."))
 
 
-verifyFileType : error -> Validator error DataFormat.DataFormat String
+validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
+validateDirectDataModel model context =
+    Verify.ok PutUploadRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.custom (verifyDataContent context DataField)
+        |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
+
+
+verifyFileType : error -> Validator error DataFormat.DataFormat DataFormat.DataFormat
 verifyFileType error input =
     case input of
         DataFormat.Other ->
             Err [ error ]
 
         _ ->
-            Ok <| DataFormat.dataFormatToContentType input
+            Ok <| input
 
 
-verifyContentLength : Model -> ContextModel -> field -> Validator ( field, String ) String String
-verifyContentLength model context field input =
-    if (String.length input * 2) > maxSize context.quotas then
-        Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
-    else
-        Ok <| input
+verifyDataContent : ContextModel -> field -> Validator ( field, String ) DirectDataEntry String
+verifyDataContent context field input =
+    let
+        tooBig =
+            (String.length input.content * 2) > maxSize context.quotas
+    in
+    case tooBig of
+        True ->
+            Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
+
+        False ->
+            case input.contentType of
+                DataFormat.Json ->
+                    canParseJson field input.content
+
+                DataFormat.Csv ->
+                    Ok <| input.content
+
+                _ ->
+                    Err <| [ field => "Invalid content type" ]
+
+
+verifyFileContent : ContextModel -> field -> Validator ( field, String ) FileUploadEntry String
+verifyFileContent context field input =
+    let
+        tooBig =
+            (String.length input.content * 2) > maxSize context.quotas
+    in
+    case tooBig of
+        True ->
+            Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
+
+        False ->
+            case input.contentType of
+                DataFormat.Json ->
+                    canParseJson field input.content
+
+                DataFormat.Csv ->
+                    Ok <| input.content
+
+                _ ->
+                    Err <| [ field => "Invalid content type" ]
+
+
+canParseJson : field -> String -> Result (List ( field, String )) String
+canParseJson field content =
+    decodeString File.jsonDataDecoder content
+        |> Result.map (\d -> content)
+        |> Result.mapError (\e -> [ field => e ])
 
 
 verifyRegex : Regex.Regex -> error -> Validator error String String
@@ -548,16 +591,16 @@ updateTabContents model msg =
                                 File.Success fileName content ->
                                     case DataFormat.filenameToType fileName of
                                         DataFormat.Json ->
-                                            { fileContent = content
+                                            { content = content
                                             , fileName = fileName
-                                            , fileUploadType = DataFormat.Json
+                                            , contentType = DataFormat.Json
                                             , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Csv ->
-                                            { fileContent = content
+                                            { content = content
                                             , fileName = fileName
-                                            , fileUploadType = DataFormat.Csv
+                                            , contentType = DataFormat.Csv
                                             , fileUploadErrorOccurred = Nothing
                                             }
 

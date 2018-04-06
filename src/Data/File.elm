@@ -2,8 +2,8 @@ module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData
 
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
-import Json.Decode exposing (dict, keyValuePairs, list, string)
-import Json.Decode.Pipeline exposing (decode, optional, required)
+import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
+import Json.Decode.Pipeline exposing (custom, decode, optional, required)
 import Json.Encode
 import Json.Encode.Extra
 import List exposing (drop, take)
@@ -54,8 +54,11 @@ batchJsonData batchSize callBack data =
 jsonDataDecoder : Json.Decode.Decoder JsonData
 jsonDataDecoder =
     let
+        val =
+            oneOf [ string, map toString int, map toString float ]
+
         row =
-            dict string
+            dict val
     in
     decode JsonData
         |> optional "columns" decodeColumnMetadata []

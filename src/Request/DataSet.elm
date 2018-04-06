@@ -2,10 +2,12 @@ module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, create
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
-import Data.DataFormat exposing (DataFormat)
+import Data.DataFormat exposing (DataFormat(..), dataFormatToContentType)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
+import Data.File as File
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)
 import Set
@@ -83,12 +85,31 @@ delete config name cascadeOptions =
 type alias PutUploadRequest =
     { name : String
     , content : String
-    , contentType : String
+    , contentType : DataFormat
     }
 
 
 put : Config -> PutUploadRequest -> Http.Request ()
-put config { name, content, contentType } =
+put config request =
+    batch request <| putInternal config
+
+
+batch : PutUploadRequest -> (( String, String, String ) -> a) -> a
+batch request put =
+    case request.contentType of
+        Json ->
+            let
+                toJsonData content =
+                    Decode.decodeString File.jsonDataDecoder content
+            in
+            put ( request.name, request.content, dataFormatToContentType request.contentType )
+
+        _ ->
+            put ( request.name, request.content, dataFormatToContentType request.contentType )
+
+
+putInternal : Config -> ( String, String, String ) -> Http.Request ()
+putInternal config ( name, content, contentType ) =
     (config.baseUrl ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)
