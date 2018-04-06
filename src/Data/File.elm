@@ -1,4 +1,4 @@
-module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonFile, batchJsonFile, fileReadStatusDecoder, jsonFileDecoder, jsonFileEncoder)
+module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
 
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
@@ -20,7 +20,7 @@ type FileReadStatus
     | Success String String
 
 
-type alias JsonFile =
+type alias JsonData =
     { columns : List ColumnMetadata
     , data : List (Dict String String)
     }
@@ -36,37 +36,37 @@ split i list =
             listHead :: split i (drop i list)
 
 
-batchJsonFile : Int -> (JsonFile -> a) -> JsonFile -> List a
-batchJsonFile batchSize callBack file =
+batchJsonData : Int -> (JsonData -> a) -> JsonData -> List a
+batchJsonData batchSize callBack data =
     let
-        newFile batch =
-            JsonFile
-                file.columns
+        newData batch =
+            JsonData
+                data.columns
                 batch
 
         process : List (Dict String String) -> a
         process batch =
-            newFile batch |> callBack
+            newData batch |> callBack
     in
-    List.map process <| split batchSize file.data
+    List.map process <| split batchSize data.data
 
 
-jsonFileDecoder : Json.Decode.Decoder JsonFile
-jsonFileDecoder =
+jsonDataDecoder : Json.Decode.Decoder JsonData
+jsonDataDecoder =
     let
         row =
             dict string
     in
-    decode JsonFile
+    decode JsonData
         |> optional "columns" decodeColumnMetadata []
         |> required "data" (list row)
 
 
-jsonFileEncoder : JsonFile -> Json.Encode.Value
-jsonFileEncoder file =
+jsonDataEncoder : JsonData -> Json.Encode.Value
+jsonDataEncoder data =
     Json.Encode.object
-        [ ( "columns", encodeColumnMetadataList file.columns )
-        , ( "data", Json.Encode.list (List.map (Json.Encode.Extra.dict identity Json.Encode.string) file.data) )
+        [ ( "columns", encodeColumnMetadataList data.columns )
+        , ( "data", Json.Encode.list (List.map (Json.Encode.Extra.dict identity Json.Encode.string) data.data) )
         ]
 
 

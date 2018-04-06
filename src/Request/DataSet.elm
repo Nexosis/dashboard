@@ -2,6 +2,7 @@ module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, create
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
+import Data.DataFormat exposing (DataFormat)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
