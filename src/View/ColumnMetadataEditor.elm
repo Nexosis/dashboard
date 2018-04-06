@@ -1001,7 +1001,7 @@ wordOccurrenceTable distribution =
                 [ tr [] [ th [ class "value" ] [ text "Value" ], th [] [ text "Count" ] ] ]
             , tbody []
                 (distribution
-                    |> List.take 5
+                    |> List.take 10
                     |> List.map wordRow
                 )
             ]
