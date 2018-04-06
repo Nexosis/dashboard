@@ -732,7 +732,7 @@ typeColumn makeIcon =
 
 dataTypeCell : ColumnMetadata -> Grid.HtmlDetails Msg
 dataTypeCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumDataType TypeSelectionChanged column.dataType ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control" ] enumDataType TypeSelectionChanged column.dataType ]
 
 
 emptyDropdown : Grid.HtmlDetails Msg
@@ -752,7 +752,7 @@ roleColumn makeIcon =
 
 roleCell : ColumnMetadata -> Grid.HtmlDetails Msg
 roleCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumRole RoleSelectionChanged column.role ]
+    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control" ] enumRole RoleSelectionChanged column.role ]
 
 
 imputationColumn : (String -> List (Html Msg)) -> ColumnDisplayProperties
@@ -767,7 +767,10 @@ imputationColumn makeIcon =
 
 imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
-    Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected "form-control" enumImputationStrategy ImputationSelectionChanged column.imputation ]
+    if column.dataType == Text then
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control", disabled True ] enumImputationStrategy ImputationSelectionChanged column.imputation ]
+    else
+        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control" ] enumImputationStrategy ImputationSelectionChanged column.imputation ]
 
 
 statsColumn : Remote.WebData ColumnStatsDict -> ColumnDisplayProperties
