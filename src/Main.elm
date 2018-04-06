@@ -5,7 +5,7 @@ import Data.Config exposing (Config, NexosisToken)
 import Data.Context exposing (ContextModel, defaultContext)
 import Data.Message as Message
 import Data.Metric exposing (Metric)
-import Data.Response as Response
+import Data.Response as Response exposing (Quotas)
 import Dom.Scroll as Scroll exposing (toTop)
 import Feature exposing (Feature, isEnabled)
 import Html exposing (..)
@@ -151,7 +151,7 @@ setRoute route app =
                         Just ( AppRoutes.Home, title ) ->
                             let
                                 ( pageModel, initCmd ) =
-                                    Home.init app.context.config (getQuotas app.lastResponse)
+                                    Home.init app.context.config
                             in
                             { app | page = Home pageModel } => Cmd.map HomeMsg initCmd => title
 
@@ -320,9 +320,8 @@ updatePage page msg app =
 
         ( ResponseReceived (Ok response), _ ) ->
             let
-                quotaUpdatedMsg : Home.Msg
-                quotaUpdatedMsg =
-                    Home.QuotasUpdated (getQuotas (Just response))
+                setQuotas context =
+                    { context | quotas = getQuotas (Just response) }
 
                 messagesToKeep =
                     response.messages
@@ -337,8 +336,7 @@ updatePage page msg app =
                         |> flip List.append app.messages
                         |> List.take 5
             in
-            { app | messages = messagesToKeep }
-                => Cmd.batch [ Ports.prismHighlight (), Task.perform HomeMsg (Task.succeed quotaUpdatedMsg) ]
+            { app | messages = messagesToKeep, context = setQuotas app.context } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
             { app | lastResponse = Nothing }

@@ -665,45 +665,49 @@ view model context =
 
 wizardPage : ContextModel -> Model -> List (Html Msg)
 wizardPage context model =
+    let
+        title =
+            wizardTitle context
+    in
     case model.steps.current of
         NameSession ->
-            [ wizardTitle model "Name your session"
+            [ title model "Name your session"
             , viewNameSession context model
             ]
 
         SelectDataSet ->
-            [ wizardTitle model "Select a dataset"
+            [ title model "Select a dataset"
             , viewSelectDataSet model
             ]
 
         SessionType ->
-            [ wizardTitle model "Choose a session type"
+            [ title model "Choose a session type"
             , viewSessionType context model
             ]
 
         StartEndDates ->
             if model.selectedSessionType == Just Impact then
-                [ wizardTitle model "Event Details"
+                [ title model "Event Details"
                 , viewImpactStartEndDates context model
                 ]
             else
-                [ wizardTitle model "Select start and end dates", viewStartEndDates context model ]
+                [ title model "Select start and end dates", viewStartEndDates context model ]
 
         ContainsAnomalies ->
-            [ wizardTitle model "Does your dataset contain anomalies?", viewContainsAnomalies context model ]
+            [ title model "Does your dataset contain anomalies?", viewContainsAnomalies context model ]
 
         SetBalance ->
-            [ wizardTitle model "Set balance", viewSetBalance context model ]
+            [ title model "Set balance", viewSetBalance context model ]
 
         ColumnMetadata ->
-            [ wizardTitle model "Edit your column metadata", viewColumnMetadata context model ]
+            [ title model "Edit your column metadata", viewColumnMetadata context model ]
 
         StartSession ->
-            [ wizardTitle model "Please confirm your session setup", viewStartSession model ]
+            [ title model "Please confirm your session setup", viewStartSession model ]
 
 
-wizardTitle : Model -> String -> Html Msg
-wizardTitle model title =
+wizardTitle : ContextModel -> Model -> String -> Html Msg
+wizardTitle context model title =
     div [ class "col-sm-12 session-step" ]
         [ div [ class "col-sm-6 pl0" ] [ h3 [ class "mt0" ] [ text title ] ]
         , div [ class "col-sm-6 right" ]

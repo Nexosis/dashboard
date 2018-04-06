@@ -1,5 +1,7 @@
 module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), fileReadStatusDecoder)
 
+import Data.Columns as Columns
+import Dict exposing (Dict)
 import Json.Decode
 
 

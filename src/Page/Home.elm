@@ -1,4 +1,4 @@
-module Page.Home exposing (Model, Msg(..), init, update, view)
+module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
 import Data.Config exposing (Config)
@@ -36,20 +36,18 @@ type alias Model =
     , modelList : Remote.WebData ModelList
     , subscriptionList : Remote.WebData (List Subscription)
     , keysShown : List String
-    , quotas : Maybe Quotas
     , apiManagerUrl : String
     }
 
 
-init : Config -> Maybe Quotas -> ( Model, Cmd Msg )
-init config quotas =
+init : Config -> ( Model, Cmd Msg )
+init config =
     Model
         Remote.Loading
         Remote.Loading
         Remote.Loading
         Remote.Loading
         []
-        quotas
         config.apiManagerUrl
         => Cmd.batch
             [ Request.DataSet.get config 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
@@ -78,7 +76,6 @@ type Msg
     | ModelListResponse (Remote.WebData ModelList)
     | SubscriptionListResponse (Remote.WebData (List Subscription))
     | ShowApiKey String
-    | QuotasUpdated (Maybe Quotas)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -111,9 +108,6 @@ update msg model context =
         ShowApiKey id ->
             { model | keysShown = toggleKeyShown id } => Cmd.none
 
-        QuotasUpdated quotas ->
-            { model | quotas = quotas } => Cmd.none
-
 
 
 -- VIEW --
@@ -133,7 +127,7 @@ view model context messages =
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
                 [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
                 , hr [] []
-                , viewSidePanel (viewQuotas model.quotas)
+                , viewSidePanel (viewQuotas context.quotas)
                 , viewSidePanel (viewRecentMessages messages)
                 ]
             ]

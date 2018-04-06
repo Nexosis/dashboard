@@ -108,8 +108,11 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             initLocalStoragePort(app);
 
-            app.ports.uploadFileSelected.subscribe(function (id) {
+            app.ports.uploadFileSelected.subscribe(function (info) {
 
+                const id = info[0]
+                const maxSize = info[1]
+            
                 var node = document.getElementById(id);
                 if (node === null) {
                     return;
@@ -117,7 +120,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 var file = node.files[0];
                 if (file !== undefined) {
-                    if (file.size > 1000000) {
+                    if (file.size > maxSize) {
                         app.ports.fileContentRead.send({ status: 'FileTooLarge' });
                     } else {
 
@@ -169,17 +172,21 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 if (xhr.url.startsWith(config.apiUrl)) {
 
-                    const getQuotaHeader = (xhr, name) => {
-                        return {
-                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0'),
-                            current: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                    const getQuotaHeader = (xhr, name, allottedOnly) => {
+                        const result = {
+                            allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0')
                         }
+                        if(!allottedOnly) {
+                            result.current = parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
+                        }
+                        return result;
                     }
 
                     let quotas = {
                         dataSets: getQuotaHeader(xhr, "DataSetCount"),
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
+                        dataSetSize : getQuotaHeader(xhr, "DataSetSize", true)
                     }
 
                     let responseText = '';
