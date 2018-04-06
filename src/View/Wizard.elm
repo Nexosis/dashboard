@@ -1,6 +1,5 @@
 module View.Wizard exposing (HtmlDetails, StepValidator, WizardConfig, WizardProgressConfig, viewButtons, viewProgress)
 
-import Data.Context as AppContext exposing (ContextModel)
 import Data.Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
