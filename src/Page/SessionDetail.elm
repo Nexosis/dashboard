@@ -387,7 +387,6 @@ view model context =
         , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , hr [] []
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -721,7 +720,7 @@ viewResultsGraph model =
     case graphSpec of
         Just spec ->
             div [ class "col-sm-12" ]
-                [ div [ id "result-vis" ] [ spec ] ]
+                [ div [ id "result-vis" ] [ spec ], hr [] [] ]
 
         Nothing ->
             div [ class "col-sm-12" ]
@@ -766,7 +765,7 @@ viewResultsTable : Model -> Html Msg
 viewResultsTable model =
     case model.loadingResponse of
         Remote.Success sessionResponse ->
-            if Data.Session.sessionIsCompleted sessionResponse then
+            if sessionResponse.status == Status.Completed then
                 if
                     (sessionResponse.predictionDomain == PredictionDomain.Forecast)
                         || (sessionResponse.predictionDomain == PredictionDomain.Impact)
@@ -962,7 +961,7 @@ viewConfusionMatrix model =
             div [] []
 
         Remote.Success response ->
-            Charts.renderConfusionMatrix response
+            div [] [ Charts.renderConfusionMatrix response, hr [] [] ]
 
         Remote.Failure error ->
             viewHttpError error
