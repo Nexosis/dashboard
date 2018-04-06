@@ -28,8 +28,8 @@ file count =
         (List.map row (data count))
 
 
-fuzzTests : Test
-fuzzTests =
+batchingTests : Test
+batchingTests =
     describe "jsonData batching tests"
         [ test "5 batches of 20 created for 100 rows"
             (\_ ->
