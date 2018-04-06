@@ -1,4 +1,4 @@
-module FileBatchingTests exposing (..)
+module DataBatchingTests exposing (..)
 
 import Data.Columns exposing (ColumnMetadata, defaultColumnMetadata)
 import Data.File exposing (..)
@@ -30,7 +30,7 @@ file count =
 
 fuzzTests : Test
 fuzzTests =
-    describe "jsonFile batching tests"
+    describe "jsonData batching tests"
         [ test "5 batches of 20 created for 100 rows"
             (\_ ->
                 Expect.equal 5 <| List.length <| batchJsonData 20 (\a -> a) <| file 99
