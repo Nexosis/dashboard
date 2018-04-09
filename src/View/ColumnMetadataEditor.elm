@@ -22,7 +22,7 @@ import StateStorage exposing (saveAppState)
 import String.Extra as String
 import Util exposing ((=>), commaFormatInteger, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
-import View.Charts exposing (distributionHistogram)
+import View.Charts exposing (distributionHistogram, wordOccurrenceTable)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid exposing (defaultCustomizations)
@@ -982,27 +982,3 @@ histogram stats column =
 
             _ ->
                 Grid.HtmlDetails [] [ div [] [] ]
-
-
-wordOccurrenceTable : List DataSet.DistributionShape -> Html Msg
-wordOccurrenceTable distribution =
-    let
-        wordRow item =
-            case item of
-                DataSet.Counts label count ->
-                    tr [] [ td [ class "value" ] [ text label ], td [ class "number" ] [ text <| toString count ] ]
-
-                _ ->
-                    div [] []
-    in
-    div [ class "text " ]
-        [ table [ class "table table-striped" ]
-            [ thead []
-                [ tr [] [ th [ class "value" ] [ text "Value" ], th [] [ text "Count" ] ] ]
-            , tbody []
-                (distribution
-                    |> List.take 10
-                    |> List.map wordRow
-                )
-            ]
-        ]

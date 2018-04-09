@@ -1,4 +1,4 @@
-module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix)
+module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix, wordOccurrenceTable)
 
 import Array
 import Data.AggregationStrategy as AggregationStrategy
@@ -8,7 +8,7 @@ import Data.DataSet exposing (DataSetData, DistributionShape)
 import Data.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
 import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
-import Html exposing (Html, a, div, h3, node, span, table, tbody, td, tr)
+import Html exposing (Html, a, div, h3, node, span, table, tbody, td, th, thead, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
 import Json.Encode
 import List.Extra as List exposing (find)
@@ -19,6 +19,31 @@ import VegaLite exposing (..)
 renderChart : Spec -> Html msg
 renderChart spec =
     node "vega-chart" [ attribute "spec" (Json.Encode.encode 0 spec) ] []
+
+
+wordOccurrenceRow : DistributionShape -> Html msg
+wordOccurrenceRow item =
+    case item of
+        Data.DataSet.Counts label count ->
+            tr [] [ td [ class "value" ] [ Html.text label ], td [ class "number" ] [ Html.text <| toString count ] ]
+
+        _ ->
+            div [] []
+
+
+wordOccurrenceTable : List DistributionShape -> Html msg
+wordOccurrenceTable distribution =
+    div [ class "text " ]
+        [ table [ class "table table-striped" ]
+            [ thead []
+                [ tr [] [ th [ class "value" ] [ Html.text "Value" ], th [] [ Html.text "Count" ] ] ]
+            , tbody []
+                (distribution
+                    |> List.take 10
+                    |> List.map wordOccurrenceRow
+                )
+            ]
+        ]
 
 
 distributionHistogram : List DistributionShape -> Html msg
