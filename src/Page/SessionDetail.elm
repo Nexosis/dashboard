@@ -895,20 +895,20 @@ viewTimeSeriesResults model sessionData =
         -- the dates in the data before display
         timeZoneOffset =
             let
-                -- TODO: this needs something better as a default
-                date =
-                    sessionData.endDate
-                        |> Maybe.withDefault ""
-
                 offset =
-                    date
-                        |> Regex.find Regex.All (Regex.regex "(\\+|-)\\d?\\d:\\d\\d")
-                        |> List.map .match
-                        |> List.last
-                        |> Maybe.withDefault "+00:00"
+                    case sessionData.endDate of
+                        Just date ->
+                            date
+                                |> Regex.find Regex.All (Regex.regex "(\\+|-)\\d?\\d:\\d\\d")
+                                |> List.map .match
+                                |> List.last
+                                |> Maybe.withDefault "+00:00"
+
+                        _ ->
+                            "+00:00"
 
                 -- HACK: this is done because of strangeness in the timezone list where "Etc/GMT+offset" timezones
-                -- have the opposite sign in the name to match POSIX
+                -- have the opposite sign in the name to match POSIX spec
                 invertString val =
                     if val == "-" then
                         "+"
