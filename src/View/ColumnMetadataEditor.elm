@@ -336,8 +336,11 @@ update msg model context pendingSaveCommand =
                             |> List.map (\c -> ( c.name, Remote.Loading ))
                             |> Dict.fromList
                             |> flip Dict.union model.statsResponse
+
+                    modifiedMetadata =
+                        Dict.union model.changesPendingSave model.modifiedMetadata
                 in
-                { model | modifiedMetadata = model.changesPendingSave, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing, statsResponse = statsBeingRequested }
+                { model | modifiedMetadata = modifiedMetadata, changesPendingSave = Dict.empty, saveResult = result, columnInEditMode = Nothing, showAutocomplete = False, previewTarget = Nothing, statsResponse = statsBeingRequested }
                     => Cmd.batch
                         (Ports.highlightIds
                             (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
@@ -389,18 +392,10 @@ updateMetadata model updatedColumn saveCommand =
                 |> Maybe.andThen ensureSingleTarget
                 |> Maybe.withDefault []
                 |> Dict.fromListBy .name
-                |> flip Dict.intersect existingColumns
 
-        -- Keep new changes, or changes to something that has already been modified.
-        -- Throw out modified columns, as these have been set back to the values we had originally.
         modifiedMetadata =
-            Dict.merge (\_ changed a -> changed :: a)
-                (\_ changed modified a -> changed :: a)
-                (\_ modified a -> a)
-                changedMetadata
-                model.modifiedMetadata
-                []
-                |> Dict.fromListBy .name
+            Dict.intersect model.modifiedMetadata existingColumns
+                |> Dict.union changedMetadata
 
         targetName =
             existingColumns
@@ -410,7 +405,7 @@ updateMetadata model updatedColumn saveCommand =
                 |> Maybe.withDefault ""
     in
     if modifiedMetadata /= Dict.empty then
-        { model | changesPendingSave = modifiedMetadata, targetQuery = targetName, saveResult = Remote.Loading } => Cmd.map SaveMetadata (saveCommand <| Dict.values modifiedMetadata) => NoOp
+        { model | changesPendingSave = changedMetadata, targetQuery = targetName, saveResult = Remote.Loading } => Cmd.map SaveMetadata (saveCommand <| Dict.values changedMetadata) => NoOp
     else
         { model | modifiedMetadata = modifiedMetadata, columnInEditMode = Nothing, targetQuery = targetName, saveResult = Remote.NotAsked, showAutocomplete = False, previewTarget = Nothing } => Cmd.none => NoOp
 
