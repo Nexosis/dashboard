@@ -1,7 +1,7 @@
 module Main exposing (..)
 
 import AppRoutes exposing (Route)
-import Data.Config exposing (Config, NexosisToken)
+import Data.Config exposing (Config, NexosisToken, TokenResponse)
 import Data.Context exposing (ContextModel, defaultContext)
 import Data.Message as Message
 import Data.Metric exposing (Metric)
@@ -83,7 +83,7 @@ type Msg
     | ModelsMsg Models.Msg
     | ResponseReceived (Result String Response.Response)
     | CheckToken Time.Time
-    | RenewToken (Result Http.Error NexosisToken)
+    | RenewToken (Result Http.Error TokenResponse)
     | ModelDetailMsg ModelDetail.Msg
     | OnAppStateLoaded StateStorage.Msg
     | OnAppStateUpdated StateStorage.Msg
@@ -371,7 +371,7 @@ updatePage page msg app =
                     app.context.config
 
                 newConfig =
-                    { config | token = Just newToken }
+                    { config | token = Just newToken.accessToken, identityToken = Just newToken.identityToken }
 
                 context =
                     app.context
