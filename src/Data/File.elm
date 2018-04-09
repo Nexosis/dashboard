@@ -1,5 +1,6 @@
-module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
+module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
 
+import Csv
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
 import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
@@ -49,6 +50,21 @@ batchJsonData batchSize callBack data =
             newData batch |> callBack
     in
     List.map process <| split batchSize data.data
+
+
+batchCsvData : Int -> (Csv.Csv -> a) -> Csv.Csv -> List a
+batchCsvData batchSize callBack data =
+    let
+        newData batch =
+            Csv.Csv
+                data.headers
+                batch
+
+        process : List (List String) -> a
+        process batch =
+            newData batch |> callBack
+    in
+    List.map process <| split batchSize data.records
 
 
 jsonDataDecoder : Json.Decode.Decoder JsonData

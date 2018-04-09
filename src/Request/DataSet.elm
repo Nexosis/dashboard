@@ -1,5 +1,6 @@
 module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, put, updateMetadata)
 
+import Csv
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAuthorization)
 import Data.DataFormat exposing (DataFormat(..), dataFormatToContentType)
@@ -113,6 +114,29 @@ batch request put =
                     put ( request.name, jsonDataToString data, dataFormatToContentType request.contentType )
             in
             File.batchJsonData 1000 upload <| toJsonData request.content
+
+        Csv ->
+            let
+                toCsvData content =
+                    Csv.parse content
+
+                csvDataToString data =
+                    let
+                        sep =
+                            String.join ","
+
+                        header =
+                            sep data.headers
+
+                        line =
+                            String.join "\x0D\n"
+                    in
+                    line <| [ header ] ++ List.map sep data.records
+
+                upload data =
+                    put ( request.name, csvDataToString data, dataFormatToContentType request.contentType )
+            in
+            File.batchCsvData 1000 upload <| toCsvData request.content
 
         _ ->
             [ put ( request.name, request.content, dataFormatToContentType request.contentType ) ]
