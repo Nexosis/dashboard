@@ -23,13 +23,16 @@ import List exposing (filter, foldr, head)
 import List.Extra as List
 import Page.Helpers exposing (..)
 import Ports
+import Regex
 import RemoteData as Remote
 import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
+import Time.TimeZones as TimeZones exposing (utc)
+import Time.ZonedDateTime as ZonedDateTime
+import Util exposing ((=>), delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -888,6 +891,38 @@ viewAnomalyResults model sessionData =
 viewTimeSeriesResults : Model -> SessionData -> Html Msg
 viewTimeSeriesResults model sessionData =
     let
+        -- this is going to parse out the bits of the end date to get to a time zone that we can use to modify
+        -- the dates in the data before display
+        timeZoneOffset =
+            let
+                offset =
+                    case sessionData.endDate of
+                        Just date ->
+                            date
+                                |> Regex.find Regex.All (Regex.regex "(\\+|-)\\d?\\d:\\d\\d")
+                                |> List.map .match
+                                |> List.last
+                                |> Maybe.withDefault "+00:00"
+
+                        _ ->
+                            "+00:00"
+
+                -- HACK: this is done because of strangeness in the timezone list where "Etc/GMT+offset" timezones
+                -- have the opposite sign in the name to match POSIX spec
+                invertString val =
+                    if val == "-" then
+                        "+"
+                    else
+                        "-"
+
+                plusMinus =
+                    offset |> String.slice 0 1 |> invertString
+
+                tzOffset =
+                    offset |> String.slice 1 10 |> String.split ":" |> List.head |> Maybe.withDefault "0" |> String.toInt |> Result.withDefault 0 |> toString
+            in
+            ("Etc/GMT" ++ plusMinus ++ tzOffset) |> TimeZones.fromName |> Maybe.withDefault (utc ())
+
         pagedData =
             Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
 
@@ -904,8 +939,22 @@ viewTimeSeriesResults model sessionData =
             let
                 renderRow datum =
                     let
+                        -- handle if the date value isn't there, or format in right TZ otherwise
+                        formatTime value =
+                            case value of
+                                Just v ->
+                                    v
+                                        |> ZonedDateTime.fromISO8601 timeZoneOffset
+                                        |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
+                                        |> ZonedDateTime.toISO8601
+                                        |> Just
+
+                                Nothing ->
+                                    Nothing
+
                         time =
                             Dict.get timestamp.name datum
+                                |> formatTime
 
                         predicted =
                             Dict.get target.name datum

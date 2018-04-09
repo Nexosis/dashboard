@@ -1,4 +1,4 @@
-module Data.Config exposing (Config, NexosisToken, configDecoder, tokenDecoder, withAppHeader)
+module Data.Config exposing (Config, NexosisToken, TokenResponse, configDecoder, tokenDecoder, tokenResponseDecoder, withAppHeader)
 
 import Dict exposing (Dict)
 import HttpBuilder exposing (RequestBuilder, withBearerToken, withHeader)
@@ -23,6 +23,12 @@ type alias Config =
     }
 
 
+type alias TokenResponse =
+    { accessToken : NexosisToken
+    , identityToken : IdentityToken
+    }
+
+
 type alias NexosisToken =
     { iat : Int
     , exp : Int
@@ -34,6 +40,13 @@ type alias IdentityToken =
     { name : String
     , email : String
     }
+
+
+tokenResponseDecoder : Decoder TokenResponse
+tokenResponseDecoder =
+    Pipeline.decode TokenResponse
+        |> custom tokenDecoder
+        |> custom identityTokenDecoder
 
 
 configDecoder : Decoder Config
