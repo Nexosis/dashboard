@@ -79,7 +79,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 config.token = parsedTokenCookie.token;
                 config.identity = parsedTokenCookie.identity;
             } catch (e) {
-                config.token = cookie;
+                logger("Error parsing access token cookie: " + e.toString(), "Error");
             }
 
             config.toolTips = toolTips;
