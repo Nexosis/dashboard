@@ -1,10 +1,11 @@
 module Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest, get, postAzure, postS3, postUrl)
 
-import Data.Config exposing (Config, withAuthorization)
+import Data.Config exposing (Config, withAppHeader)
 import Data.Import exposing (ImportDetail, decodeImportDetail)
 import Http
 import HttpBuilder exposing (withExpectJson)
 import Json.Encode exposing (Value, encode)
+import Nexosis exposing (ClientConfig, withAuthorization)
 import Request.DataSet exposing (encodeKeyColumnMetadata)
 
 
@@ -35,39 +36,43 @@ type alias PostAzureRequest =
 
 postUrl : Config -> PostUrlRequest -> Http.Request ImportDetail
 postUrl config { dataSetName, url, key } =
-    (config.baseUrl ++ "/imports/url")
+    (config.clientConfig.url ++ "/imports/url")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportUrl dataSetName url key))
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 
 postS3 : Config -> PostS3Request -> Http.Request ImportDetail
 postS3 config request =
-    (config.baseUrl ++ "/imports/s3")
+    (config.clientConfig.url ++ "/imports/s3")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportS3 request))
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 
 postAzure : Config -> PostAzureRequest -> Http.Request ImportDetail
 postAzure config request =
-    (config.baseUrl ++ "/imports/azure")
+    (config.clientConfig.url ++ "/imports/azure")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody "application/json" <| encode 0 (encodeImportAzure request))
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
 
 get : Config -> String -> Http.Request ImportDetail
 get config importId =
-    (config.baseUrl ++ "/imports/" ++ importId)
+    (config.clientConfig.url ++ "/imports/" ++ importId)
         |> HttpBuilder.get
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> withExpectJson decodeImportDetail
         |> HttpBuilder.toRequest
 
