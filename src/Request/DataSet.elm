@@ -113,7 +113,7 @@ batch request put =
                 upload data =
                     put ( request.name, jsonDataToString data, dataFormatToContentType request.contentType )
             in
-            File.batchJsonData 1000 upload <| toJsonData request.content
+            File.batchJsonData 2000 upload <| toJsonData request.content
 
         Csv ->
             let
@@ -136,7 +136,7 @@ batch request put =
                 upload data =
                     put ( request.name, csvDataToString data, dataFormatToContentType request.contentType )
             in
-            File.batchCsvData 1000 upload <| toCsvData request.content
+            File.batchCsvData 3000 upload <| toCsvData request.content
 
         _ ->
             [ put ( request.name, request.content, dataFormatToContentType request.contentType ) ]
