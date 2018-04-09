@@ -1,7 +1,7 @@
 module Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, delete, get, getConfusionMatrix, getDistanceMetrics, getDistanceMetricsCsv, getForDataset, getOne, postForecast, postImpact, postModel, results, resultsCsv)
 
 import Data.Columns exposing (ColumnMetadata, encodeColumnMetadataList)
-import Data.Config as Config exposing (Config, withAuthorization)
+import Data.Config as Config exposing (Config, withAppHeader)
 import Data.ConfusionMatrix exposing (..)
 import Data.DataSet exposing (DataSetName, dataSetNameToString)
 import Data.DistanceMetric exposing (..)
@@ -10,6 +10,7 @@ import Data.Session exposing (..)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
 import Json.Encode as Encode
+import Nexosis exposing (ClientConfig, withAuthorization)
 import Request.Sorting exposing (SortParameters, sortParams)
 import Time.ZonedDateTime exposing (ZonedDateTime, toISO8601)
 
@@ -21,11 +22,12 @@ get config page pageSize sorting =
             pageParams page pageSize
                 ++ sortParams sorting
     in
-    (config.baseUrl ++ "/sessions")
+    (config.clientConfig.url ++ "/sessions")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
@@ -35,22 +37,24 @@ results config sessionId page pageSize =
         params =
             pageParams page pageSize
     in
-    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId ++ "/results")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeSessionResults
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
 resultsCsv : Config -> String -> Http.Request String
 resultsCsv config sessionId =
-    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results")
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId ++ "/results")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectString
         |> HttpBuilder.withHeader "Accept" "text/csv"
         |> HttpBuilder.withQueryParams [ ( "pageSize", "1000" ) ]
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
@@ -67,11 +71,12 @@ getConfusionMatrix config sessionId page pageSize =
         params =
             pageParams page pageSize
     in
-    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId ++ "/results/confusionmatrix")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeConfusionMatrix
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
@@ -81,28 +86,31 @@ getForDataset config dataSetName =
         params =
             [ ( "dataSetName", dataSetNameToString dataSetName ) ]
     in
-    (config.baseUrl ++ "/sessions")
+    (config.clientConfig.url ++ "/sessions")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeSessionList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
 delete : Config -> String -> Http.Request ()
 delete config sessionId =
-    (config.baseUrl ++ "/sessions/" ++ sessionId)
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.delete
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
 getOne : Config -> String -> Http.Request SessionData
 getOne config sessionId =
-    (config.baseUrl ++ "/sessions/" ++ sessionId)
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeSession
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
@@ -122,10 +130,11 @@ postModel config sessionRequest =
         requestBody =
             encodeModelSessionRequest sessionRequest
     in
-    (config.baseUrl ++ "/sessions/model")
+    (config.clientConfig.url ++ "/sessions/model")
         |> HttpBuilder.post
         |> HttpBuilder.withExpectJson decodeSession
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -159,10 +168,11 @@ postForecast config sessionRequest =
         requestBody =
             encodeForecastSessionRequest sessionRequest
     in
-    (config.baseUrl ++ "/sessions/forecast")
+    (config.clientConfig.url ++ "/sessions/forecast")
         |> HttpBuilder.post
         |> HttpBuilder.withExpectJson decodeSession
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -198,10 +208,11 @@ postImpact config sessionRequest =
         requestBody =
             encodeImpactSessionRequest sessionRequest
     in
-    (config.baseUrl ++ "/sessions/impact")
+    (config.clientConfig.url ++ "/sessions/impact")
         |> HttpBuilder.post
         |> HttpBuilder.withExpectJson decodeSession
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.withJsonBody requestBody
         |> HttpBuilder.toRequest
 
@@ -251,12 +262,13 @@ getDistanceMetricsCsv config sessionId page pageSize =
         params =
             pageParams page pageSize
     in
-    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectString
         |> HttpBuilder.withHeader "Accept" "text/csv"
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest
 
 
@@ -266,9 +278,10 @@ getDistanceMetrics config sessionId page pageSize =
         params =
             pageParams page pageSize
     in
-    (config.baseUrl ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
+    (config.clientConfig.url ++ "/sessions/" ++ sessionId ++ "/results/mahalanobisdistances")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeDistanceMetrics
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config
+        |> withAuthorization config.clientConfig
+        |> withAppHeader config
         |> HttpBuilder.toRequest

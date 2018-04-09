@@ -529,7 +529,7 @@ subscriptions model =
 
         Initialized app ->
             Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.baseUrl >> ResponseReceived)
+                [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.clientConfig.url >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
                 , Sub.map OnAppStateUpdated (appStateLoaded app.context.config)
