@@ -211,16 +211,14 @@ getTimezoneFromDate dateString =
 formatDateWithTimezone : TimeZone -> Maybe String -> Maybe String
 formatDateWithTimezone tzOffset input =
     -- handle if the date value isn't there, or format in right TZ
-    case input of
-        Just v ->
+    Maybe.map
+        (\v ->
             v
                 |> ZonedDateTime.fromISO8601 tzOffset
                 |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
                 |> ZonedDateTime.toISO8601
-                |> Just
-
-        Nothing ->
-            Nothing
+        )
+        input
 
 
 dateToUtcDateTime : TimeZone -> Date -> DateTime
