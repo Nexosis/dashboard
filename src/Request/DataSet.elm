@@ -89,23 +89,33 @@ type alias PutUploadRequest =
     }
 
 
-put : Config -> PutUploadRequest -> Http.Request ()
+put : Config -> PutUploadRequest -> List (Http.Request ())
 put config request =
+    --give back the last one to wait for
     batch request <| putInternal config
 
 
-batch : PutUploadRequest -> (( String, String, String ) -> a) -> a
+batch : PutUploadRequest -> (( String, String, String ) -> a) -> List a
 batch request put =
     case request.contentType of
         Json ->
             let
+                --we can trust that this is OK because we've already validated it on the page
                 toJsonData content =
                     Decode.decodeString File.jsonDataDecoder content
+                        |> Result.toMaybe
+                        |> Maybe.withDefault (File.JsonData [] [])
+
+                jsonDataToString data =
+                    Encode.encode 0 (File.jsonDataEncoder data)
+
+                upload data =
+                    put ( request.name, jsonDataToString data, dataFormatToContentType request.contentType )
             in
-            put ( request.name, request.content, dataFormatToContentType request.contentType )
+            File.batchJsonData 1000 upload <| toJsonData request.content
 
         _ ->
-            put ( request.name, request.content, dataFormatToContentType request.contentType )
+            [ put ( request.name, request.content, dataFormatToContentType request.contentType ) ]
 
 
 putInternal : Config -> ( String, String, String ) -> Http.Request ()

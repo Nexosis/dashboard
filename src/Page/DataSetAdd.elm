@@ -39,7 +39,7 @@ type alias Model =
     , name : String
     , key : Maybe String
     , tabs : Ziplist ( Tab, String )
-    , uploadResponse : Remote.WebData ()
+    , uploadResponse : Remote.WebData (List ())
     , importResponse : Remote.WebData Data.Import.ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
@@ -383,7 +383,7 @@ type Msg
     | FileSelected
     | TabMsg TabMsg
     | CreateDataSet AddDataSetRequest
-    | UploadDataSetResponse (Remote.WebData ())
+    | UploadDataSetResponse (Remote.WebData (List ()))
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
 
 
@@ -446,13 +446,14 @@ update msg model context =
             case createRequest of
                 PutUpload request ->
                     let
-                        putDataRequest =
+                        putDataRequests : List (Task Http.Error ())
+                        putDataRequests =
                             put context.config request
-                                |> Http.toTask
+                                |> List.map Http.toTask
 
                         putRequest =
                             setKeyRequest request.name
-                                |> Task.andThen (always putDataRequest)
+                                |> Task.andThen (\a -> Task.sequence putDataRequests)
                                 |> Remote.asCmd
                                 |> Cmd.map UploadDataSetResponse
                     in
@@ -502,7 +503,7 @@ update msg model context =
 
         ( _, UploadDataSetResponse result ) ->
             case result of
-                Remote.Success () ->
+                Remote.Success _ ->
                     let
                         loadCmd =
                             Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name)
