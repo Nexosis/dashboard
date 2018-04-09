@@ -5,10 +5,10 @@ import Http
 import HttpBuilder exposing (post, toRequest, withCredentials, withExpectJson)
 
 
-renewAccessToken : Config -> Http.Request Config.NexosisToken
+renewAccessToken : Config -> Http.Request Config.TokenResponse
 renewAccessToken { renewalUrl } =
     renewalUrl
         |> post
-        |> withExpectJson Config.tokenDecoder
+        |> withExpectJson Config.tokenResponseDecoder
         |> withCredentials
         |> toRequest
