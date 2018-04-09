@@ -25,7 +25,7 @@ import String.Extra as String
 import Task
 import Util exposing ((=>), commaFormatInteger, delayTask, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
-import View.Charts exposing (distributionHistogram)
+import View.Charts exposing (distributionHistogram, wordOccurrenceTable)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf)
 import View.Grid as Grid exposing (defaultCustomizations)
@@ -781,7 +781,7 @@ nameColumn =
     { name = "Column Name"
     , viewData = \c -> Grid.HtmlDetails [ class "name" ] [ text <| formatDisplayName c.name ]
     , sorter = Grid.increasingOrDecreasingBy (\c -> c.name)
-    , headAttributes = [ class "left per25" ]
+    , headAttributes = [ class "left per30" ]
     , headHtml = []
     }
 
@@ -844,7 +844,7 @@ statsColumn stats =
     { name = "Stats"
     , viewData = statsCell stats
     , sorter = Grid.unsortable
-    , headAttributes = [ class "per20" ]
+    , headAttributes = [ class "per25" ]
     , headHtml = []
     }
 
@@ -1006,7 +1006,7 @@ histogramColumn stats =
     { name = "Distribution"
     , viewData = histogram stats
     , sorter = Grid.unsortable
-    , headAttributes = [ class "per10" ]
+    , headAttributes = [ class "per15" ]
     , headHtml = []
     }
 
@@ -1031,8 +1031,12 @@ histogram stats column =
                     ]
 
             Remote.Success stats ->
-                Grid.HtmlDetails []
-                    [ stats.distribution |> distributionHistogram ]
+                if column.dataType == Text then
+                    Grid.HtmlDetails [ class "distribution text" ]
+                        [ stats.distribution |> wordOccurrenceTable ]
+                else
+                    Grid.HtmlDetails []
+                        [ stats.distribution |> distributionHistogram ]
 
             _ ->
                 Grid.HtmlDetails [] [ div [] [] ]
