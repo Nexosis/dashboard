@@ -888,6 +888,9 @@ viewAnomalyResults model sessionData =
 viewTimeSeriesResults : Model -> SessionData -> Html Msg
 viewTimeSeriesResults model sessionData =
     let
+        timeZoneOffset =
+            getTimezoneFromDate sessionData.startDate
+
         pagedData =
             Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
 
@@ -906,6 +909,7 @@ viewTimeSeriesResults model sessionData =
                     let
                         time =
                             Dict.get timestamp.name datum
+                                |> formatDateWithTimezone timeZoneOffset
 
                         predicted =
                             Dict.get target.name datum

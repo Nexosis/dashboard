@@ -1,17 +1,19 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateTimeString)
 import Date exposing (Date, Month)
 import Html
 import Html.Attributes
+import List.Extra as List
 import Process
+import Regex
 import String.Extra exposing (ellipsis)
 import Task
 import Time
 import Time.DateTime as DateTime exposing (DateTime, zero)
 import Time.TimeZone as TimeZone exposing (TimeZone)
-import Time.TimeZones
-import Time.ZonedDateTime exposing (ZonedDateTime)
+import Time.TimeZones as TimeZones exposing (utc)
+import Time.ZonedDateTime as ZonedDateTime
 
 
 (=>) : a -> b -> ( a, b )
@@ -157,7 +159,7 @@ tryParseAndFormat : String -> String
 tryParseAndFormat input =
     let
         dateCandidate =
-            Time.ZonedDateTime.fromISO8601 (Time.TimeZones.etc_utc ()) input
+            ZonedDateTime.fromISO8601 (utc ()) input
     in
     case dateCandidate of
         Result.Ok date ->
@@ -170,6 +172,55 @@ tryParseAndFormat input =
 delayTask : Int -> Task.Task x ()
 delayTask seconds =
     Process.sleep (Time.second * toFloat seconds)
+
+
+getTimezoneFromDate : Maybe String -> TimeZone
+getTimezoneFromDate dateString =
+    -- this is going to parse out the bits of the end date to get to a time zone that we can use to modify
+    -- the dates in the data before display
+    let
+        offset =
+            case dateString of
+                Just date ->
+                    date
+                        |> Regex.find Regex.All (Regex.regex "(\\+|-)\\d?\\d:\\d\\d")
+                        |> List.map .match
+                        |> List.last
+                        |> Maybe.withDefault "+00:00"
+
+                _ ->
+                    "+00:00"
+
+        -- HACK: this is done because of strangeness in the timezone list where "Etc/GMT+offset" timezones
+        -- have the opposite sign in the name to match POSIX spec
+        invertString val =
+            if val == "-" then
+                "+"
+            else
+                "-"
+
+        plusMinus =
+            offset |> String.slice 0 1 |> invertString
+
+        tzOffset =
+            offset |> String.slice 1 10 |> String.split ":" |> List.head |> Maybe.withDefault "0" |> String.toInt |> Result.withDefault 0 |> toString
+    in
+    ("Etc/GMT" ++ plusMinus ++ tzOffset) |> TimeZones.fromName |> Maybe.withDefault (utc ())
+
+
+formatDateWithTimezone : TimeZone -> Maybe String -> Maybe String
+formatDateWithTimezone tzOffset input =
+    -- handle if the date value isn't there, or format in right TZ
+    case input of
+        Just v ->
+            v
+                |> ZonedDateTime.fromISO8601 tzOffset
+                |> Result.withDefault (ZonedDateTime.zonedDateTime (utc ()) ZonedDateTime.zero)
+                |> ZonedDateTime.toISO8601
+                |> Just
+
+        Nothing ->
+            Nothing
 
 
 dateToUtcDateTime : TimeZone -> Date -> DateTime
