@@ -79,6 +79,9 @@ forecastResults sessionResults session dataSet windowWidth =
             session.columns
                 |> find (\c -> c.role == Columns.Timestamp)
 
+        timeZone =
+            getTimezoneFromDate session.endDate
+
         ( chartWidth, chartHeight ) =
             widthToSize windowWidth
     in
@@ -89,10 +92,10 @@ forecastResults sessionResults session dataSet windowWidth =
                     "Result Type"
 
                 sessionData =
-                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Predictions") sessionResults.data
 
                 dataSetData =
-                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Observations") dataSet.data
 
                 enc =
                     encoding
