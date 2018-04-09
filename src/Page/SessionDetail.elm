@@ -29,7 +29,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
+import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
