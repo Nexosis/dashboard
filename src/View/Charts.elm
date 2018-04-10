@@ -38,7 +38,7 @@ wordOccurrenceTable distribution =
     div [ class "text " ]
         [ table [ class "table table-striped" ]
             [ thead []
-                [ tr [] [ th [ class "value" ] [ Html.text "Value" ], th [] [ Html.text "Count" ] ] ]
+                [ tr [] [ th [ class "left value" ] [ Html.text "Value" ], th [] [ Html.text "Count" ] ] ]
             , tbody []
                 (distribution
                     |> List.take 10
