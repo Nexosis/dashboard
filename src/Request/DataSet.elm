@@ -1,12 +1,12 @@
 module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
 import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
-import Data.Config as Config exposing (Config, withAppHeader)
+import Data.Config as Config exposing (Config)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
 import Json.Encode as Encode
-import Nexosis exposing (ClientConfig, withAuthorization)
+import Nexosis exposing (ClientConfig, getBaseUrl, withAppHeader, withAuthorization)
 import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)
 import Set
 
@@ -18,12 +18,12 @@ get config page pageSize sorting =
             pageParams page pageSize
                 ++ sortParams sorting
     in
-    (config.clientConfig.url ++ "/data")
+    (getBaseUrl config.clientConfig ++ "/data")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetList
         |> HttpBuilder.withQueryParams params
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -33,12 +33,12 @@ getRetrieveDetail config name pgNum pgSize =
         params =
             pageParams pgNum pgSize
     in
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName name)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -51,33 +51,33 @@ getDataByDateRange config name dateRange include =
                 ++ includeParams include
                 ++ [ ( "formatDates", "true" ) ]
     in
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName name)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetData
         |> HttpBuilder.withQueryParams params
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
 getStats : Config -> DataSetName -> Http.Request DataSetStats
 getStats config name =
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName name ++ "/stats")
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName name ++ "/stats")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
 getStatsForColumn : Config -> DataSetName -> String -> DataType -> Http.Request DataSetStats
 getStatsForColumn config dataSetName columnName columnType =
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName dataSetName ++ "/stats/" ++ Http.encodeUri columnName)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName dataSetName ++ "/stats/" ++ Http.encodeUri columnName)
         |> HttpBuilder.get
         |> HttpBuilder.withQueryParams [ ( "dataType", dataTypeToString columnType ) ]
         |> HttpBuilder.withExpectJson DataSet.decodeDataSetStats
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -88,11 +88,11 @@ delete config name cascadeOptions =
             Set.toList cascadeOptions
                 |> List.map (\c -> ( "cascade", c ))
     in
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName name)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName name)
         |> HttpBuilder.delete
         |> HttpBuilder.withQueryParams cascadeList
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -105,11 +105,11 @@ type alias PutUploadRequest =
 
 put : Config -> PutUploadRequest -> Http.Request ()
 put config { name, content, contentType } =
-    (config.clientConfig.url ++ "/data/" ++ Http.encodeUri name)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -137,10 +137,10 @@ includeParams includes =
 
 updateMetadata : Config -> MetadataUpdateRequest -> Http.Request ()
 updateMetadata config request =
-    (config.clientConfig.url ++ "/data/" ++ uriEncodeDataSetName request.dataSetName)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ uriEncodeDataSetName request.dataSetName)
         |> HttpBuilder.put
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.withJsonBody (encodeMetadataPutDataRequest request)
         |> HttpBuilder.toRequest
 
@@ -170,10 +170,10 @@ createDataSetWithKey config dataSetName keyName =
         keyBody =
             Encode.object [ ( "columns", encodeKeyColumnMetadata keyName ) ]
     in
-    (config.clientConfig.url ++ "/data/" ++ Http.encodeUri dataSetName)
+    (getBaseUrl config.clientConfig ++ "/data/" ++ Http.encodeUri dataSetName)
         |> HttpBuilder.put
         |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> withAppHeader config.clientConfig
         |> HttpBuilder.withJsonBody keyBody
         |> HttpBuilder.toRequest
 

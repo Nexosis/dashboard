@@ -1,10 +1,11 @@
 module Request.Model exposing (delete, get, getOne, predict, predictRaw)
 
-import Data.Config as Config exposing (Config, withAppHeader)
+import Data.Config as Config exposing (Config)
 import Data.Model exposing (ModelData, ModelList, PredictionResult, decodeModel, decodeModelList, decodePredictions)
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpect)
-import Nexosis exposing (ClientConfig, withAuthorization)
+import Nexosis exposing (ClientConfig, getBaseUrl)
+import NexosisHelpers exposing (addHeaders)
 import Request.Sorting exposing (SortParameters, sortParams)
 
 
@@ -15,12 +16,11 @@ get config page pageSize sorting =
             pageParams page pageSize
                 ++ sortParams sorting
     in
-    (config.clientConfig.url ++ "/models")
+    (getBaseUrl config.clientConfig ++ "/models")
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeModelList
         |> HttpBuilder.withQueryParams params
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> addHeaders config.clientConfig
         |> HttpBuilder.toRequest
 
 
@@ -33,41 +33,37 @@ pageParams page pageSize =
 
 delete : Config -> String -> Http.Request ()
 delete config modelId =
-    (config.clientConfig.url ++ "/models/" ++ modelId)
+    (getBaseUrl config.clientConfig ++ "/models/" ++ modelId)
         |> HttpBuilder.delete
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> addHeaders config.clientConfig
         |> HttpBuilder.toRequest
 
 
 getOne : Config -> String -> Http.Request ModelData
 getOne config modelId =
-    (config.clientConfig.url ++ "/models/" ++ modelId)
+    (getBaseUrl config.clientConfig ++ "/models/" ++ modelId)
         |> HttpBuilder.get
         |> HttpBuilder.withExpectJson decodeModel
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> addHeaders config.clientConfig
         |> HttpBuilder.toRequest
 
 
 predict : Config -> String -> String -> String -> Http.Request PredictionResult
 predict config modelId content contentType =
-    (config.clientConfig.url ++ "/models/" ++ modelId ++ "/predict")
+    (getBaseUrl config.clientConfig ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody contentType content)
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> addHeaders config.clientConfig
         |> HttpBuilder.withExpectJson decodePredictions
         |> HttpBuilder.toRequest
 
 
 predictRaw : Config -> String -> String -> String -> String -> Http.Request String
 predictRaw config modelId content uploadType contentType =
-    (config.clientConfig.url ++ "/models/" ++ modelId ++ "/predict")
+    (getBaseUrl config.clientConfig ++ "/models/" ++ modelId ++ "/predict")
         |> HttpBuilder.post
         |> HttpBuilder.withBody (Http.stringBody uploadType content)
         |> HttpBuilder.withHeader "Accept" contentType
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config
+        |> addHeaders config.clientConfig
         |> HttpBuilder.withExpectString
         |> HttpBuilder.toRequest

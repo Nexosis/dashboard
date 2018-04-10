@@ -1,11 +1,10 @@
-module Data.Config exposing (Config, NexosisToken, TokenResponse, configDecoder, tokenDecoder, tokenResponseDecoder, withAppHeader)
+module Data.Config exposing (Config, NexosisToken, TokenResponse, configDecoder, tokenDecoder, tokenResponseDecoder)
 
 import Dict exposing (Dict)
-import HttpBuilder exposing (RequestBuilder, withBearerToken, withHeader)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string, succeed)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
-import Nexosis exposing (ClientConfig, createConfigWithToken, withAuthorization)
+import Nexosis exposing (ClientConfig, createConfigWithTokenOptions, withAuthorization)
 
 
 type alias Config =
@@ -53,7 +52,7 @@ configDecoder : Decoder Config
 configDecoder =
     Pipeline.decode Config
         |> custom (maybe tokenDecoder)
-        |> custom decodeClientConfig
+        |> custom (decodeConfigOptions |> andThen (\options -> succeed (createConfigWithTokenOptions options)))
         |> required "loginUrl" string
         |> required "renewalUrl" string
         |> required "subscriptionUrl" string
@@ -65,17 +64,19 @@ configDecoder =
         |> custom (maybe identityTokenDecoder)
 
 
-decodeClientConfig : Decoder ClientConfig
-decodeClientConfig =
-    field "apiUrl" string
-        |> andThen
-            (\url ->
-                field "token" string
-                    |> andThen
-                        (\token ->
-                            succeed (createConfigWithToken url token)
-                        )
-            )
+type alias ConfigOptions =
+    { token : String
+    , baseUrl : String
+    , applicationName : Maybe String
+    }
+
+
+decodeConfigOptions : Decoder ConfigOptions
+decodeConfigOptions =
+    decode ConfigOptions
+        |> required "token" string
+        |> required "apiUrl" string
+        |> custom (field "applicationName" string |> andThen (\a -> succeed (Just a)))
 
 
 tokenDecoder : Decoder NexosisToken
@@ -113,9 +114,3 @@ decodeDocs =
 toolTipDictDecoder : Decoder (Dict String String)
 toolTipDictDecoder =
     dict string
-
-
-withAppHeader : Config -> RequestBuilder a -> RequestBuilder a
-withAppHeader config builder =
-    builder
-        |> withHeader "application-name" config.applicationName
