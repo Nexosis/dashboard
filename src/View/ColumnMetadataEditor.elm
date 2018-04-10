@@ -365,17 +365,6 @@ updateMetadata model updatedColumn saveCommand =
                 |> Remote.map .metadata
                 |> Remote.withDefault Dict.empty
 
-        ensureChanged column =
-            existingColumns
-                |> Dict.values
-                |> List.member column
-                |> (\same ->
-                        if same then
-                            Nothing
-                        else
-                            Just column
-                   )
-
         ensureSingleTarget newColumn =
             if newColumn.role == Target then
                 existingColumns
@@ -388,7 +377,6 @@ updateMetadata model updatedColumn saveCommand =
 
         changedMetadata =
             updatedColumn
-                |> Maybe.andThen ensureChanged
                 |> Maybe.andThen ensureSingleTarget
                 |> Maybe.withDefault []
                 |> Dict.fromListBy .name
