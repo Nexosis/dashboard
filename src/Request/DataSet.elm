@@ -1,9 +1,9 @@
-module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, UploadData(..), createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
 import Csv
 import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAppHeader)
-import Data.DataFormat exposing (DataFormat(..), dataFormatToContentType)
+import Data.DataFormat as DataFormat exposing (DataFormat(..), dataFormatToContentType)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
 import Data.File as File
 import Http
@@ -102,41 +102,35 @@ delete config name cascadeOptions =
 
 type alias PutUploadRequest =
     { name : String
-    , content : String
-    , contentType : DataFormat
+    , data : UploadData
     }
+
+
+type UploadData
+    = Json File.JsonData
+    | Csv Csv.Csv
 
 
 put : Config -> PutUploadRequest -> List (Http.Request ())
 put config request =
-    --give back the last one to wait for
     batch request <| putInternal config
 
 
 batch : PutUploadRequest -> (( String, String, String ) -> a) -> List a
 batch request put =
-    case request.contentType of
-        Json ->
+    case request.data of
+        Json json ->
             let
-                --we can trust that this is OK because we've already validated it on the page
-                toJsonData content =
-                    Decode.decodeString File.jsonDataDecoder content
-                        |> Result.toMaybe
-                        |> Maybe.withDefault (File.JsonData [] [])
-
                 jsonDataToString data =
                     Encode.encode 0 (File.jsonDataEncoder data)
 
                 upload data =
-                    put ( request.name, jsonDataToString data, dataFormatToContentType request.contentType )
+                    put ( request.name, jsonDataToString data, dataFormatToContentType DataFormat.Json )
             in
-            File.batchJsonData 2000 upload <| toJsonData request.content
+            File.batchJsonData 2000 upload <| json
 
-        Csv ->
+        Csv csv ->
             let
-                toCsvData content =
-                    Csv.parse content
-
                 csvDataToString data =
                     let
                         sep =
@@ -151,12 +145,9 @@ batch request put =
                     line <| [ header ] ++ List.map sep data.records
 
                 upload data =
-                    put ( request.name, csvDataToString data, dataFormatToContentType request.contentType )
+                    put ( request.name, csvDataToString data, dataFormatToContentType DataFormat.Csv )
             in
-            File.batchCsvData 3000 upload <| toCsvData request.content
-
-        _ ->
-            [ put ( request.name, request.content, dataFormatToContentType request.contentType ) ]
+            File.batchCsvData 3000 upload <| csv
 
 
 putInternal : Config -> ( String, String, String ) -> Http.Request ()

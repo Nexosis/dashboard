@@ -1,6 +1,7 @@
 module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
+import Csv
 import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.DataFormat as DataFormat
@@ -21,7 +22,7 @@ import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (PutUploadRequest, createDataSetWithKey, put)
+import Request.DataSet exposing (PutUploadRequest, UploadData(..), createDataSetWithKey, put)
 import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
@@ -243,7 +244,6 @@ validateFileUploadModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.custom (verifyFileContent context FileSelectionField)
-        |> Verify.verify .contentType (verifyFileType (FileSelectionField => "Upload a CSV or JSON file."))
 
 
 validateUrlImportModel : Model -> Validator FieldError UrlImportEntry PostUrlRequest
@@ -279,7 +279,6 @@ validateDirectDataModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.custom (verifyDataContent context DataField)
-        |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
 
 
 verifyFileType : error -> Validator error DataFormat.DataFormat DataFormat.DataFormat
@@ -292,7 +291,7 @@ verifyFileType error input =
             Ok <| input
 
 
-verifyDataContent : ContextModel -> field -> Validator ( field, String ) DirectDataEntry String
+verifyDataContent : ContextModel -> field -> Validator ( field, String ) DirectDataEntry UploadData
 verifyDataContent context field input =
     let
         tooBig =
@@ -305,16 +304,16 @@ verifyDataContent context field input =
         False ->
             case input.contentType of
                 DataFormat.Json ->
-                    canParseJson field input.content
+                    parseJson field input.content
 
                 DataFormat.Csv ->
-                    Ok <| input.content
+                    Ok <| Csv <| Csv.parse input.content
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
 
 
-verifyFileContent : ContextModel -> field -> Validator ( field, String ) FileUploadEntry String
+verifyFileContent : ContextModel -> field -> Validator ( field, String ) FileUploadEntry UploadData
 verifyFileContent context field input =
     let
         tooBig =
@@ -327,19 +326,19 @@ verifyFileContent context field input =
         False ->
             case input.contentType of
                 DataFormat.Json ->
-                    canParseJson field input.content
+                    parseJson field input.content
 
                 DataFormat.Csv ->
-                    Ok <| input.content
+                    Ok <| Csv <| Csv.parse input.content
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
 
 
-canParseJson : field -> String -> Result (List ( field, String )) String
-canParseJson field content =
+parseJson : field -> String -> Result (List ( field, String )) UploadData
+parseJson field content =
     decodeString File.jsonDataDecoder content
-        |> Result.map (\d -> content)
+        |> Result.map (\d -> Json d)
         |> Result.mapError (\e -> [ field => e ])
 
 
@@ -387,7 +386,7 @@ waiting isBottom model =
                 ]
             ]
     else if Remote.isLoading model.importResponse || Remote.isSuccess model.importResponse then
-        div [ class "btn btn-danger" ] [ text "Importing... ", spinner ]
+        div [ class "btn btn-danger", disabled True ] [ text "Importing... ", spinner ]
     else
         div [] []
 
@@ -478,17 +477,6 @@ update msg model context =
 
                         Nothing ->
                             Task.succeed ()
-
-                debounceImport request cmd =
-                    case request of
-                        Remote.Success _ ->
-                            Cmd.none
-
-                        Remote.Loading ->
-                            Cmd.none
-
-                        _ ->
-                            cmd
             in
             case createRequest of
                 PutUpload request ->
@@ -516,7 +504,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
+                    { model | importResponse = Remote.Loading } => importRequest
 
                 ImportS3 request ->
                     let
@@ -530,7 +518,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
+                    { model | importResponse = Remote.Loading } => importRequest
 
                 ImportAzure request ->
                     let
@@ -544,7 +532,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
+                    { model | importResponse = Remote.Loading } => importRequest
 
         ( _, UploadDataSetParts ( rest, curr ) ) ->
             case curr of
