@@ -13,6 +13,8 @@ import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style
 import Json.Encode
 import List.Extra as List exposing (find)
 import String.Extra as String exposing (replace)
+import Time.TimeZone as TimeZone
+import Util exposing (formatDateWithTimezone, getTimezoneFromDate)
 import VegaLite exposing (..)
 
 
@@ -102,6 +104,9 @@ forecastResults sessionResults session dataSet windowWidth =
             session.columns
                 |> find (\c -> c.role == Columns.Timestamp)
 
+        timeZone =
+            getTimezoneFromDate session.endDate
+
         ( chartWidth, chartHeight ) =
             widthToSize windowWidth
     in
@@ -112,14 +117,14 @@ forecastResults sessionResults session dataSet windowWidth =
                     "Result Type"
 
                 sessionData =
-                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Predictions") sessionResults.data
 
                 dataSetData =
-                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Observations") dataSet.data
 
                 enc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -157,6 +162,9 @@ impactResults sessionResults session dataSet windowWidth =
             session.columns
                 |> find (\c -> c.role == Columns.Timestamp)
 
+        timeZone =
+            getTimezoneFromDate session.endDate
+
         ( chartWidth, chartHeight ) =
             widthToSize windowWidth
     in
@@ -165,7 +173,7 @@ impactResults sessionResults session dataSet windowWidth =
             let
                 lineEnc =
                     encoding
-                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
+                        << position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAxis [ AxTitle "Timestamp", AxFormat (axisLabelFormat session) ] ]
                         << position Y [ PName (normalizeFieldName targetCol.name), PmType Quantitative, PAggregate <| mapAggregation targetCol.aggregation, PAxis [ AxTitle targetCol.name ] ]
                         << color
                             [ MName pointTypeName
@@ -178,10 +186,10 @@ impactResults sessionResults session dataSet windowWidth =
                             ]
 
                 minPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Min ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Min ]
 
                 maxPos =
-                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Max ]
+                    position X [ PName (normalizeFieldName timestampCol.name), PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]
 
                 predictionsOnly =
                     transform << filter (FOneOf pointTypeName (Strings [ "Predictions" ])) <| []
@@ -209,7 +217,7 @@ impactResults sessionResults session dataSet windowWidth =
 
                 boxSpec =
                     asSpec
-                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit (Utc YearMonthDateHoursMinutes), PAggregate Max ]) []
+                        [ (encoding << minPos << position X2 [ PName timestampCol.name, PmType Temporal, PTimeUnit YearMonthDateHoursMinutes, PAggregate Max ]) []
                         , mark Rect [ MFillOpacity 0.1 ]
                         , predictionsOnly
                         ]
@@ -218,10 +226,10 @@ impactResults sessionResults session dataSet windowWidth =
                     "Result Type"
 
                 sessionData =
-                    List.map (\dict -> Dict.insert pointTypeName "Predictions" dict) sessionResults.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Predictions") sessionResults.data
 
                 dataSetData =
-                    List.map (\dict -> Dict.insert pointTypeName "Observations" dict) dataSet.data
+                    List.map (\dict -> dict |> convertTimestamp timestampCol.name timeZone |> Dict.insert pointTypeName "Observations") dataSet.data
             in
             toVegaLite
                 [ title (Maybe.withDefault "" (Dict.get "event" session.extraParameters) ++ " Results")
@@ -240,6 +248,11 @@ impactResults sessionResults session dataSet windowWidth =
 
         _ ->
             span [] []
+
+
+convertTimestamp : String -> TimeZone.TimeZone -> Dict String String -> Dict String String
+convertTimestamp tsCol tzOffset data =
+    data |> Dict.update tsCol (\v -> formatDateWithTimezone tzOffset v)
 
 
 axisLabelFormat : SessionData -> String
