@@ -374,6 +374,7 @@ configWizard ctx isBottom =
     }
 
 
+waiting : Bool -> Model -> Html Msg
 waiting isBottom model =
     let
         width =
@@ -743,6 +744,7 @@ subscriptions model =
     fileContentRead <| \c -> TabMsg (FileContentRead c)
 
 
+uploadIsLoading : Model -> Bool
 uploadIsLoading model =
     let
         importIsLoading =
