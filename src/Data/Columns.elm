@@ -1,4 +1,4 @@
-module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), decodeColumnMetadata, defaultColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
+module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), dataTypeToString, decodeColumnMetadata, defaultColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
 
 import Data.AggregationStrategy as Aggregate exposing (AggregationStrategy)
 import Data.ImputationStrategy as Impute exposing (ImputationStrategy)
@@ -201,6 +201,14 @@ encodeDataType dataType =
         Encode.string "numericMeasure"
     else
         Encode.string <| toString dataType
+
+
+dataTypeToString : DataType -> String
+dataTypeToString dataType =
+    if dataType == Measure then
+        "numericMeasure"
+    else
+        toString dataType
 
 
 defaultColumnMetadata : ColumnMetadata

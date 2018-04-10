@@ -29,7 +29,7 @@ import Request.Log as Log
 import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), dateToUtcDateTime, delayTask, formatDisplayName, formatFloatToString, spinner, styledNumber)
+import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -387,7 +387,6 @@ view model context =
         , viewSessionDetails model context
         , viewConfusionMatrix model
         , viewResultsGraph model
-        , hr [] []
         , viewResultsTable model
         , DeleteDialog.view model.deleteDialogModel
             { headerMessage = "Delete Session"
@@ -721,7 +720,7 @@ viewResultsGraph model =
     case graphSpec of
         Just spec ->
             div [ class "col-sm-12" ]
-                [ div [ id "result-vis" ] [ spec ] ]
+                [ div [ id "result-vis" ] [ spec ], hr [] [] ]
 
         Nothing ->
             div [ class "col-sm-12" ]
@@ -766,7 +765,7 @@ viewResultsTable : Model -> Html Msg
 viewResultsTable model =
     case model.loadingResponse of
         Remote.Success sessionResponse ->
-            if Data.Session.sessionIsCompleted sessionResponse then
+            if sessionResponse.status == Status.Completed then
                 if
                     (sessionResponse.predictionDomain == PredictionDomain.Forecast)
                         || (sessionResponse.predictionDomain == PredictionDomain.Impact)
@@ -889,6 +888,9 @@ viewAnomalyResults model sessionData =
 viewTimeSeriesResults : Model -> SessionData -> Html Msg
 viewTimeSeriesResults model sessionData =
     let
+        timeZoneOffset =
+            getTimezoneFromDate sessionData.startDate
+
         pagedData =
             Remote.map (.data >> mapToPagedListing model.currentPage) model.resultsResponse
 
@@ -907,6 +909,7 @@ viewTimeSeriesResults model sessionData =
                     let
                         time =
                             Dict.get timestamp.name datum
+                                |> formatDateWithTimezone timeZoneOffset
 
                         predicted =
                             Dict.get target.name datum
@@ -962,7 +965,7 @@ viewConfusionMatrix model =
             div [] []
 
         Remote.Success response ->
-            Charts.renderConfusionMatrix response
+            div [] [ Charts.renderConfusionMatrix response, hr [] [] ]
 
         Remote.Failure error ->
             viewHttpError error

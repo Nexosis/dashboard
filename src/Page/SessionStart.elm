@@ -4,7 +4,7 @@ import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (DataSetData, DataSetName, DataSetStats, dataSetNameToString)
+import Data.DataSet exposing (ColumnStats, DataSetData, DataSetName, DataSetStats, dataSetNameToString)
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval(..), SessionData)
@@ -14,7 +14,7 @@ import Date.Extra as Date
 import DateTimePicker
 import DateTimePicker.Config exposing (defaultDatePickerConfig, defaultDateTimePickerConfig)
 import DateTimePicker.SharedStyles
-import Dict
+import Dict exposing (Dict)
 import Dom.Scroll as Scroll
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -63,7 +63,7 @@ type alias Model =
     , containsAnomalies : Bool
     , balance : Bool
     , errors : List FieldError
-    , stats : Maybe DataSetStats
+    , stats : Dict String (Remote.WebData ColumnStats)
     , target : Maybe String
     }
 
@@ -143,7 +143,7 @@ init config dataSetName =
         True
         True
         []
-        Nothing
+        Dict.empty
         Nothing
         ! [ loadDataSetRequest
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -576,9 +576,6 @@ update msg model context =
                         _ ->
                             model.sessionColumnMetadata
 
-                stats =
-                    Remote.toMaybe newModel.statsResponse
-
                 newTarget =
                     getTargetColumn modifiedMetadata
 
@@ -591,7 +588,7 @@ update msg model context =
             { model
                 | columnEditorModel = newModel
                 , sessionColumnMetadata = modifiedMetadata
-                , stats = stats
+                , stats = newModel.statsResponse
                 , target = target
             }
                 |> recheckErrors
@@ -1157,19 +1154,15 @@ getMinMaxValueFromCandidate model =
     let
         metadata =
             dateColumnCandidate <| getMetaDataColumns model
-    in
-    case model.stats of
-        Just statDict ->
-            let
-                stat =
-                    Dict.get metadata.name statDict.columns
-            in
-            case stat of
-                Just s ->
-                    ( s.min, s.max )
 
-                Nothing ->
-                    ( "", "" )
+        stat =
+            Dict.get metadata.name model.stats
+                |> Maybe.map (\s -> Remote.toMaybe s)
+                |> Maybe.andThen (\s -> s)
+    in
+    case stat of
+        Just s ->
+            ( s.min, s.max )
 
         Nothing ->
             ( "", "" )

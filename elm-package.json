@@ -14,7 +14,6 @@
     "dependencies": {
         "Bogdanp/elm-combine": "3.1.1 <= v < 4.0.0",
         "Fresheyeball/elm-tuple-extra": "3.0.0 <= v < 4.0.0",
-        "Gizra/elm-editable-webdata": "1.0.1 <= v < 2.0.0",
         "NoRedInk/elm-decode-pipeline": "3.0.0 <= v < 4.0.0",
         "NoRedInk/view-extra": "2.0.0 <= v < 3.0.0",
         "abadi199/datetimepicker": "6.0.0 <= v < 7.0.0",
@@ -22,7 +21,7 @@
         "elm-community/elm-route": "1.0.1 <= v < 2.0.0",
         "elm-community/elm-time": "1.0.8 <= v < 1.0.11",
         "elm-community/json-extra": "2.6.0 <= v < 3.0.0",
-        "elm-community/list-extra": "7.0.1 <= v < 8.0.0",
+        "elm-community/list-extra": "6.0.0 <= v < 7.0.0",
         "elm-community/string-extra": "1.4.0 <= v < 2.0.0",
         "elm-lang/core": "5.1.1 <= v < 6.0.0",
         "elm-lang/dom": "1.0.0 <= v < 2.0.0",
@@ -40,7 +39,18 @@
         "lukewestby/elm-string-interpolate": "1.0.2 <= v < 2.0.0",
         "simonh1000/elm-jwt": "5.3.0 <= v < 6.0.0",
         "stoeffel/elm-verify": "3.0.0 <= v < 4.0.0",
-        "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0"
+        "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0",
+        "Nexosis/nexosisclient-elm": "1.0.0 <= v < 2.0.0"
+    },
+    "dependency-sources": {
+        "Nexosis/nexosisclient-elm": {
+            "url": "https://github.com/Nexosis/nexosisclient-elm.git",
+            "ref": "4c12e1fded0ef9f48b66abd7957d9b7fe92b7307"
+        },
+        "jeffesp/elm-vega": {
+            "url": "https://github.com/jeffesp/elm-vega.git",
+            "ref": "d8293cac04b98f0c647e1277660f4e852478e7fe"
+        }
     },
     "elm-version": "0.18.0 <= v < 0.19.0"
 }

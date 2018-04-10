@@ -1,15 +1,16 @@
-module Data.Config exposing (Config, NexosisToken, configDecoder, tokenDecoder, withAuthorization)
+module Data.Config exposing (Config, NexosisToken, TokenResponse, configDecoder, tokenDecoder, tokenResponseDecoder, withAppHeader)
 
 import Dict exposing (Dict)
 import HttpBuilder exposing (RequestBuilder, withBearerToken, withHeader)
-import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string)
+import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string, succeed)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
+import Nexosis exposing (ClientConfig, createConfigWithToken, withAuthorization)
 
 
 type alias Config =
-    { baseUrl : String
-    , token : Maybe NexosisToken
+    { token : Maybe NexosisToken
+    , clientConfig : ClientConfig
     , loginUrl : String
     , renewalUrl : String
     , subscriptionUrl : String
@@ -19,6 +20,12 @@ type alias Config =
     , accountSiteUrl : String
     , apiManagerUrl : String
     , identityToken : Maybe IdentityToken
+    }
+
+
+type alias TokenResponse =
+    { accessToken : NexosisToken
+    , identityToken : IdentityToken
     }
 
 
@@ -35,11 +42,18 @@ type alias IdentityToken =
     }
 
 
+tokenResponseDecoder : Decoder TokenResponse
+tokenResponseDecoder =
+    Pipeline.decode TokenResponse
+        |> custom tokenDecoder
+        |> custom identityTokenDecoder
+
+
 configDecoder : Decoder Config
 configDecoder =
     Pipeline.decode Config
-        |> required "apiUrl" string
         |> custom (maybe tokenDecoder)
+        |> custom decodeClientConfig
         |> required "loginUrl" string
         |> required "renewalUrl" string
         |> required "subscriptionUrl" string
@@ -49,6 +63,19 @@ configDecoder =
         |> required "accountSite" string
         |> required "apiManagerUrl" string
         |> custom (maybe identityTokenDecoder)
+
+
+decodeClientConfig : Decoder ClientConfig
+decodeClientConfig =
+    field "apiUrl" string
+        |> andThen
+            (\url ->
+                field "token" string
+                    |> andThen
+                        (\token ->
+                            succeed (createConfigWithToken url token)
+                        )
+            )
 
 
 tokenDecoder : Decoder NexosisToken
@@ -88,13 +115,7 @@ toolTipDictDecoder =
     dict string
 
 
-withAuthorization : Config -> RequestBuilder a -> RequestBuilder a
-withAuthorization config builder =
-    case config.token of
-        Just nexosisToken ->
-            builder
-                |> withBearerToken nexosisToken.rawToken
-                |> withHeader "application-name" config.applicationName
-
-        _ ->
-            builder
+withAppHeader : Config -> RequestBuilder a -> RequestBuilder a
+withAppHeader config builder =
+    builder
+        |> withHeader "application-name" config.applicationName
