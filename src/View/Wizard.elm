@@ -23,6 +23,7 @@ type alias WizardConfig a error msg model result =
     , finishedValidation : model -> Result (List error) result
     , finishedButton : model -> HtmlDetails msg
     , finishedMsg : result -> msg
+    , customLoading : Maybe (model -> Html msg)
     }
 
 
@@ -55,7 +56,7 @@ viewButtons wizardConfig model ziplist showLoading currentStepValid =
 
         finishedButton =
             if showLoading then
-                button [ class "btn" ] [ spinner ]
+                button [ class "btn" ] [ model |> Maybe.withDefault (\a -> spinner) wizardConfig.customLoading ]
             else
                 let
                     finishedButtonContents =

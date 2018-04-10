@@ -15,7 +15,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (on, onBlur, onClick, onInput)
 import Http
 import Json.Decode exposing (decodeString, succeed)
-import List.Extra as List
+import List.Extra as ListEx
 import Navigation
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
@@ -39,10 +39,12 @@ type alias Model =
     , name : String
     , key : Maybe String
     , tabs : Ziplist ( Tab, String )
-    , uploadResponse : Remote.WebData (List ())
+    , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData Data.Import.ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
+    , uploadPartsTotal : Int
+    , uploadedParts : Int
     }
 
 
@@ -162,6 +164,8 @@ init config =
         Remote.NotAsked
         listAwsRegions
         []
+        0
+        0
         => Cmd.none
 
 
@@ -366,7 +370,19 @@ configWizard ctx =
     , finishedButton = finalStepButton
     , finishedValidation = validateModel ctx
     , finishedMsg = CreateDataSet
+    , customLoading = Just waiting
     }
+
+
+waiting model =
+    let
+        width =
+            (model.uploadedParts * 100) // model.uploadPartsTotal |> toString
+    in
+    if Remote.isLoading model.uploadResponse then
+        div [] [ text (width ++ "%"), spinner ]
+    else
+        div [] []
 
 
 
@@ -383,7 +399,7 @@ type Msg
     | FileSelected
     | TabMsg TabMsg
     | CreateDataSet AddDataSetRequest
-    | UploadDataSetResponse (Remote.WebData (List ()))
+    | UploadDataSetParts ( List (Task Http.Error ()), Remote.WebData () )
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
 
 
@@ -403,6 +419,19 @@ type TabMsg
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
+    let
+        next requests =
+            case List.head requests of
+                Just r ->
+                    let
+                        toCmd r =
+                            UploadDataSetParts ( Maybe.withDefault [] (List.tail requests), r )
+                    in
+                    r |> Remote.asCmd |> Cmd.map toCmd
+
+                _ ->
+                    Cmd.none
+    in
     case ( model.steps.current, msg ) of
         ( ChooseUploadType, ChangeName name ) ->
             { model | name = name } => Cmd.none
@@ -451,13 +480,11 @@ update msg model context =
                             put context.config request
                                 |> List.map Http.toTask
 
-                        putRequest =
-                            setKeyRequest request.name
-                                |> Task.andThen (\a -> Task.sequence putDataRequests)
-                                |> Remote.asCmd
-                                |> Cmd.map UploadDataSetResponse
+                        putRequests : List (Task Http.Error ())
+                        putRequests =
+                            [ setKeyRequest request.name ] ++ putDataRequests
                     in
-                    { model | uploadResponse = Remote.Loading } => putRequest
+                    { model | uploadResponse = Remote.Loading, uploadPartsTotal = List.length putRequests } => next putRequests
 
                 ImportUrl request ->
                     let
@@ -501,17 +528,18 @@ update msg model context =
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
-        ( _, UploadDataSetResponse result ) ->
-            case result of
+        ( _, UploadDataSetParts ( rest, curr ) ) ->
+            case curr of
                 Remote.Success _ ->
-                    let
-                        loadCmd =
-                            Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name)
-                    in
-                    model => loadCmd
+                    case rest of
+                        [] ->
+                            model => (Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name))
+
+                        _ ->
+                            { model | uploadedParts = model.uploadedParts + 1 } => next rest
 
                 Remote.Failure err ->
-                    { model | uploadResponse = result } => Log.logHttpError err
+                    { model | uploadResponse = curr } => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -561,7 +589,7 @@ validateStep context model =
     let
         stepValidation =
             perStepValidations context
-                |> List.find (\s -> Tuple.first s |> (==) model.steps.current)
+                |> ListEx.find (\s -> Tuple.first s |> (==) model.steps.current)
                 |> Maybe.map Tuple.second
                 |> Maybe.withDefault (\_ -> [])
     in
@@ -815,7 +843,8 @@ viewSetKey context model =
                 ]
             , div
                 [ class "col-sm-4 right" ]
-                [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == []) ]
+                [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == [])
+                ]
             ]
         , div
             [ class "col-sm-12" ]

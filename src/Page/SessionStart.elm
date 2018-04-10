@@ -381,6 +381,7 @@ configWizard =
     , finishedButton = \_ -> Wizard.HtmlDetails [] [ text "Start Session" ]
     , finishedValidation = validateModel
     , finishedMsg = StartTheSession
+    , customLoading = Nothing
     }
 
 
