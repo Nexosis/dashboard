@@ -362,25 +362,31 @@ perStepValidations ctx =
     [ ( ChooseUploadType, validateModel ctx >> unwrapErrors ) ]
 
 
-configWizard : ContextModel -> WizardConfig Step FieldError Msg Model AddDataSetRequest
-configWizard ctx =
+configWizard : ContextModel -> Bool -> WizardConfig Step FieldError Msg Model AddDataSetRequest
+configWizard ctx isBottom =
     { nextMessage = NextStep
     , prevMessage = PrevStep
     , stepValidation = perStepValidations ctx
-    , finishedButton = finalStepButton
+    , finishedButton = finalStepButton isBottom
     , finishedValidation = validateModel ctx
     , finishedMsg = CreateDataSet
-    , customLoading = Just waiting
+    , customLoading = Just (waiting isBottom)
     }
 
 
-waiting model =
+waiting isBottom model =
     let
         width =
             (model.uploadedParts * 100) // model.uploadPartsTotal |> toString
     in
-    if Remote.isLoading model.uploadResponse then
-        div [] [ text (width ++ "%"), spinner ]
+    if Remote.isLoading model.uploadResponse && isBottom then
+        div [ class "progress" ]
+            [ div [ class "progress-bar", attribute "role" "progressbar", attribute "aria-valuemin" "0", attribute "aria-valuemax" (toString model.uploadPartsTotal), attribute "aria-valuenow" width, attribute "style" ("width:" ++ width ++ "%") ]
+                [ span [ class "sr-only" ] []
+                ]
+            ]
+    else if Remote.isLoading model.importResponse || Remote.isSuccess model.importResponse then
+        div [ class "btn btn-danger" ] [ text "Importing... ", spinner ]
     else
         div [] []
 
@@ -471,6 +477,17 @@ update msg model context =
 
                         Nothing ->
                             Task.succeed ()
+
+                debounceImport request cmd =
+                    case request of
+                        Remote.Success _ ->
+                            Cmd.none
+
+                        Remote.Loading ->
+                            Cmd.none
+
+                        _ ->
+                            cmd
             in
             case createRequest of
                 PutUpload request ->
@@ -498,7 +515,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => importRequest
+                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
 
                 ImportS3 request ->
                     let
@@ -512,7 +529,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => importRequest
+                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
 
                 ImportAzure request ->
                     let
@@ -526,7 +543,7 @@ update msg model context =
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
                     in
-                    { model | importResponse = Remote.Loading } => importRequest
+                    { model | importResponse = Remote.Loading } => debounceImport model.importResponse importRequest
 
         ( _, UploadDataSetParts ( rest, curr ) ) ->
             case curr of
@@ -726,6 +743,22 @@ subscriptions model =
     fileContentRead <| \c -> TabMsg (FileContentRead c)
 
 
+uploadIsLoading model =
+    let
+        importIsLoading =
+            case model.importResponse of
+                Remote.Loading ->
+                    True
+
+                Remote.Success importDetail ->
+                    importDetail.status /= Status.Failed && importDetail.status /= Status.Cancelled
+
+                _ ->
+                    False
+    in
+    importIsLoading || Remote.isLoading model.uploadResponse
+
+
 view : Model -> ContextModel -> Html Msg
 view model context =
     div []
@@ -744,10 +777,10 @@ view model context =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 right" ]
-                [ viewButtons (configWizard context)
+                [ viewButtons (configWizard context True)
                     model
                     model.steps
-                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (uploadIsLoading model)
                     (model.errors == [])
                 ]
             ]
@@ -760,10 +793,10 @@ viewChooseUploadType context model =
         [ div [ class "col-sm-12 mb20 session-step" ]
             [ div [ class "col-sm-6 pl0" ] [ h3 [] [ text "Choose Upload type" ] ]
             , div [ class "col-sm-6 right" ]
-                [ viewButtons (configWizard context)
+                [ viewButtons (configWizard context False)
                     model
                     model.steps
-                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (uploadIsLoading model)
                     (model.errors == [])
                 ]
             ]
@@ -782,15 +815,15 @@ viewChooseUploadType context model =
         ]
 
 
-finalStepButton : Model -> Wizard.HtmlDetails Msg
-finalStepButton model =
+finalStepButton : Bool -> Model -> Wizard.HtmlDetails Msg
+finalStepButton isBottom model =
     let
         buttonContent =
             case model.tabs.current of
                 ( FileUploadTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         _ ->
                             [ text "Create DataSet" ]
@@ -798,7 +831,7 @@ finalStepButton model =
                 ( DirectDataTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         _ ->
                             [ text "Create DataSet" ]
@@ -806,13 +839,13 @@ finalStepButton model =
                 _ ->
                     case model.importResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         Remote.Success importDetail ->
                             if importDetail.status == Status.Failed || importDetail.status == Status.Cancelled then
                                 [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
                             else
-                                [ spinner ]
+                                [ waiting isBottom model ]
 
                         _ ->
                             [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
@@ -843,7 +876,7 @@ viewSetKey context model =
                 ]
             , div
                 [ class "col-sm-4 right" ]
-                [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == [])
+                [ viewButtons (configWizard context False) model model.steps (uploadIsLoading model) (model.errors == [])
                 ]
             ]
         , div

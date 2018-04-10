@@ -41,7 +41,7 @@ viewButtons wizardConfig model ziplist showLoading currentStepValid =
                 [ class "btn" ]
 
         allowPrev =
-            List.length ziplist.previous > 0
+            not showLoading && (List.length ziplist.previous > 0)
 
         nextVisible =
             List.length ziplist.next > 0
@@ -56,7 +56,7 @@ viewButtons wizardConfig model ziplist showLoading currentStepValid =
 
         finishedButton =
             if showLoading then
-                button [ class "btn" ] [ model |> Maybe.withDefault (\a -> spinner) wizardConfig.customLoading ]
+                model |> Maybe.withDefault (\a -> button [ class "btn" ] [ spinner ]) wizardConfig.customLoading
             else
                 let
                     finishedButtonContents =
