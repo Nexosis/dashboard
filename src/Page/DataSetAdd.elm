@@ -379,10 +379,10 @@ waiting isBottom model =
         width =
             (model.uploadedParts * 100) // model.uploadPartsTotal |> toString
     in
-    if Remote.isLoading model.uploadResponse && isBottom then
+    if Remote.isLoading model.uploadResponse && not isBottom then
         div [ class "progress" ]
             [ div [ class "progress-bar", attribute "role" "progressbar", attribute "aria-valuemin" "0", attribute "aria-valuemax" (toString model.uploadPartsTotal), attribute "aria-valuenow" width, attribute "style" ("width:" ++ width ++ "%") ]
-                [ span [ class "sr-only" ] []
+                [ span [] [ text (width ++ "%") ]
                 ]
             ]
     else if Remote.isLoading model.importResponse || Remote.isSuccess model.importResponse then
