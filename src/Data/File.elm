@@ -2,6 +2,7 @@ module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData
 
 import Csv
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
+import Dict exposing (Dict)
 import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
 import Json.Decode.Pipeline exposing (custom, decode, optional, required)
 import Json.Encode

@@ -1,6 +1,7 @@
 module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
 import Csv
+import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAppHeader)
 import Data.DataFormat exposing (DataFormat(..), dataFormatToContentType)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
@@ -160,6 +161,7 @@ batch request put =
 
 putInternal : Config -> ( String, String, String ) -> Http.Request ()
 putInternal config ( name, content, contentType ) =
+    (config.clientConfig.url ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)
         |> withAuthorization config.clientConfig
