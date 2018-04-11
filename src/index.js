@@ -80,6 +80,8 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 config.identity = parsedTokenCookie.identity;
             } catch (e) {
                 logger("Error parsing access token cookie: " + e.toString(), "Error");
+                window.location.href = config.loginUrl;
+                return;
             }
 
             config.toolTips = toolTips;
@@ -112,7 +114,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                 const id = info[0]
                 const maxSize = info[1]
-            
+
                 var node = document.getElementById(id);
                 if (node === null) {
                     return;
@@ -176,7 +178,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         const result = {
                             allotted: parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Allotted`) || '0')
                         }
-                        if(!allottedOnly) {
+                        if (!allottedOnly) {
                             result.current = parseInt(xhr.getResponseHeader(`Nexosis-Account-${name}-Current`) || '0')
                         }
                         return result;
@@ -186,7 +188,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                         dataSets: getQuotaHeader(xhr, "DataSetCount"),
                         predictions: getQuotaHeader(xhr, "PredictionCount"),
                         sessions: getQuotaHeader(xhr, "SessionCount"),
-                        dataSetSize : getQuotaHeader(xhr, "DataSetSize", true)
+                        dataSetSize: getQuotaHeader(xhr, "DataSetSize", true)
                     }
 
                     let responseText = '';
