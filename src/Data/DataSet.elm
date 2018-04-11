@@ -12,7 +12,6 @@ module Data.DataSet
         , dataSetNameDecoder
         , dataSetNameParser
         , dataSetNameToString
-        , decodeData
         , decodeDataSetData
         , decodeDataSetList
         , decodeDataSetStats
@@ -102,10 +101,6 @@ type DistributionShape
     | Ranges String String Int
 
 
-type alias Data =
-    List (Dict String String)
-
-
 type DataSetName
     = DataSetName String
 
@@ -175,12 +170,6 @@ decodeDataSetData =
         |> required "dateCreated" dateDecoder
         |> required "lastModified" dateDecoder
         |> optional "rowCount" Decode.int 0
-
-
-decodeData : Decoder Data
-decodeData =
-    list <|
-        dict (Decode.oneOf [ string, succeed "" ])
 
 
 decodeDataSetStats : Decoder DataSetStats

@@ -8,7 +8,8 @@
         "src/Data",
         "src/Page",
         "src/Request",
-        "src/View"
+        "src/View",
+        "../nexosisclient-elm/src"
     ],
     "exposed-modules": [],
     "dependencies": {
@@ -38,14 +39,9 @@
         "lukewestby/elm-string-interpolate": "1.0.2 <= v < 2.0.0",
         "simonh1000/elm-jwt": "5.3.0 <= v < 6.0.0",
         "stoeffel/elm-verify": "3.0.0 <= v < 4.0.0",
-        "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0",
-        "Nexosis/nexosisclient-elm": "1.0.0 <= v < 2.0.0"
+        "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0"
     },
     "dependency-sources": {
-        "Nexosis/nexosisclient-elm": {
-            "url": "https://github.com/Nexosis/nexosisclient-elm.git",
-            "ref": "f105116f55db1096ad224b8987ff159a1be6a0aa"
-        },
         "jeffesp/elm-vega": {
             "url": "https://github.com/jeffesp/elm-vega.git",
             "ref": "d8293cac04b98f0c647e1277660f4e852478e7fe"
