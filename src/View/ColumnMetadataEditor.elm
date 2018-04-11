@@ -663,16 +663,13 @@ config toolTips stats buildEditTable columnInEdit =
             helpIcon toolTips
 
         columns =
-            nameColumn
-                :: ([ ( typeColumn makeIcon, \c -> c.dataType |> toString )
-                    , ( roleColumn makeIcon, \c -> c.role |> toString )
-                    , ( imputationColumn makeIcon, \c -> c.imputation |> toString )
-                    ]
-                        |> List.map (\( c, f ) -> { c | viewData = lockedDropdownCell f })
-                   )
-                ++ [ statsColumn stats
-                   , histogramColumn stats
-                   ]
+            [ nameColumn
+            , typeColumn makeIcon |> (\c -> { c | viewData = lockedDropdownCell (\v -> toString v.dataType) })
+            , roleColumn makeIcon |> (\c -> { c | viewData = lockedDropdownCell (\v -> toString v.role) })
+            , imputationColumn makeIcon |> (\c -> { c | viewData = stringImputationCell (\v -> toString v.imputation) })
+            , statsColumn stats
+            , histogramColumn stats
+            ]
     in
     Grid.configCustom
         { toId = \c -> c.name
@@ -747,6 +744,14 @@ lockedDropdownCell getValue column =
             ]
 
 
+stringImputationCell : (ColumnMetadata -> String) -> ColumnMetadata -> Grid.HtmlDetails Msg
+stringImputationCell getValue column =
+    if column.dataType == Text then
+        naDropdown
+    else
+        lockedDropdownCell getValue column
+
+
 customRowAttributes : ColumnMetadata -> List (Attribute Msg)
 customRowAttributes column =
     if column.role == Key then
@@ -794,6 +799,11 @@ emptyDropdown =
     Grid.HtmlDetails [ class "form-group" ] [ select [ disabled True, class "form-control" ] [] ]
 
 
+naDropdown : Grid.HtmlDetails Msg
+naDropdown =
+    Grid.HtmlDetails [ class "form-group color-mediumGray" ] [ text "N/A" ]
+
+
 roleColumn : (String -> List (Html Msg)) -> ColumnDisplayProperties
 roleColumn makeIcon =
     { name = "Role"
@@ -822,7 +832,7 @@ imputationColumn makeIcon =
 imputationCell : ColumnMetadata -> Grid.HtmlDetails Msg
 imputationCell column =
     if column.dataType == Text then
-        Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control", disabled True ] enumImputationStrategy ImputationSelectionChanged column.imputation ]
+        naDropdown
     else
         Grid.HtmlDetails [ class "form-group" ] [ UnionSelect.fromSelected [ class "form-control" ] enumImputationStrategy ImputationSelectionChanged column.imputation ]
 

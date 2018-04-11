@@ -57,7 +57,6 @@ maxSize quotas =
             1024 * 1024
     in
     Maybe.withDefault default (quotas |> Maybe.map .dataSetSize |> Maybe.map .allotted |> Maybe.withDefault Nothing)
-        |> Basics.min default
 
 
 decodeXhrResponse : String -> Value -> Result String Response
