@@ -39,7 +39,7 @@ isJust m =
 
 spinner : Html.Html msg
 spinner =
-    Html.i [ Html.Attributes.class "fa fa-spinner fa-spin fa-2x fa-fw" ] []
+    Html.i [ Html.Attributes.class "fa fa-spinner fa-spin fa-fw" ] []
 
 
 dataSizeWithSuffix : Int -> String

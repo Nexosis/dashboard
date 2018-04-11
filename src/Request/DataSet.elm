@@ -1,10 +1,14 @@
-module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
+module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, UploadData(..), createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
+import Csv
 import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAppHeader)
+import Data.DataFormat as DataFormat exposing (DataFormat(..), dataFormatToContentType)
 import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, DataSetName, DataSetStats, dataSetNameToString)
+import Data.File as File
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Nexosis exposing (ClientConfig, withAuthorization)
 import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)
@@ -98,13 +102,56 @@ delete config name cascadeOptions =
 
 type alias PutUploadRequest =
     { name : String
-    , content : String
-    , contentType : String
+    , data : UploadData
     }
 
 
-put : Config -> PutUploadRequest -> Http.Request ()
-put config { name, content, contentType } =
+type UploadData
+    = Json File.JsonData
+    | Csv Csv.Csv
+
+
+put : Config -> PutUploadRequest -> List (Http.Request ())
+put config request =
+    batch request <| putInternal config
+
+
+batch : PutUploadRequest -> (( String, String, String ) -> a) -> List a
+batch request put =
+    case request.data of
+        Json json ->
+            let
+                jsonDataToString data =
+                    Encode.encode 0 (File.jsonDataEncoder data)
+
+                upload data =
+                    put ( request.name, jsonDataToString data, dataFormatToContentType DataFormat.Json )
+            in
+            File.batchJsonData 2000 upload <| json
+
+        Csv csv ->
+            let
+                csvDataToString data =
+                    let
+                        sep =
+                            String.join ","
+
+                        header =
+                            sep data.headers
+
+                        line =
+                            String.join "\x0D\n"
+                    in
+                    line <| [ header ] ++ List.map sep data.records
+
+                upload data =
+                    put ( request.name, csvDataToString data, dataFormatToContentType DataFormat.Csv )
+            in
+            File.batchCsvData 3000 upload <| csv
+
+
+putInternal : Config -> ( String, String, String ) -> Http.Request ()
+putInternal config ( name, content, contentType ) =
     (config.clientConfig.url ++ "/data/" ++ Http.encodeUri name)
         |> HttpBuilder.put
         |> HttpBuilder.withBody (Http.stringBody contentType content)

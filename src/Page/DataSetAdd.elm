@@ -1,6 +1,7 @@
 module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
+import Csv
 import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.DataFormat as DataFormat
@@ -14,20 +15,20 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onBlur, onClick, onInput)
 import Http
-import Json.Decode exposing (succeed)
-import List.Extra as List
+import Json.Decode exposing (decodeString, succeed)
+import List.Extra as ListEx
 import Navigation
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (PutUploadRequest, createDataSetWithKey, put)
+import Request.DataSet exposing (PutUploadRequest, UploadData(..), createDataSetWithKey, put)
 import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
 import Util exposing ((=>), dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
-import Verify exposing (Validator, keep)
+import Verify exposing (Validator, andThen, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
 import View.Extra exposing (viewIf, viewIfElements, viewJust)
@@ -43,13 +44,15 @@ type alias Model =
     , importResponse : Remote.WebData Data.Import.ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
+    , uploadPartsTotal : Int
+    , uploadedParts : Int
     }
 
 
 type alias FileUploadEntry =
-    { fileContent : String
+    { content : String
     , fileName : String
-    , fileUploadType : DataFormat.DataFormat
+    , contentType : DataFormat.DataFormat
     , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     }
 
@@ -107,9 +110,9 @@ type AddDataSetRequest
 
 initFileUploadTab : FileUploadEntry
 initFileUploadTab =
-    { fileContent = ""
+    { content = ""
     , fileName = ""
-    , fileUploadType = DataFormat.Other
+    , contentType = DataFormat.Other
     , fileUploadErrorOccurred = Nothing
     }
 
@@ -162,6 +165,8 @@ init config =
         Remote.NotAsked
         listAwsRegions
         []
+        0
+        0
         => Cmd.none
 
 
@@ -214,7 +219,7 @@ validateModel : ContextModel -> Model -> Result (List FieldError) AddDataSetRequ
 validateModel context model =
     case model.tabs.current of
         ( FileUploadTab fileUploadEntry, _ ) ->
-            validateFileUploadModel model fileUploadEntry
+            validateFileUploadModel model context fileUploadEntry
                 |> Result.map PutUpload
 
         ( DirectDataTab directDataEntry, _ ) ->
@@ -234,20 +239,11 @@ validateModel context model =
                 |> Result.map ImportAzure
 
 
-validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
-validateDirectDataModel model context =
+validateFileUploadModel : Model -> ContextModel -> Validator FieldError FileUploadEntry PutUploadRequest
+validateFileUploadModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .content (verifyContentLength model context DataField)
-        |> Verify.verify .contentType (verifyFileType (DataField => "Upload CSV or JSON data."))
-
-
-validateFileUploadModel : Model -> Validator FieldError FileUploadEntry PutUploadRequest
-validateFileUploadModel model =
-    Verify.ok PutUploadRequest
-        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.verify .fileContent (notBlank (FileSelectionField => "Choose a file to upload."))
-        |> Verify.verify .fileUploadType (verifyFileType (FileSelectionField => "Upload a CSV or JSON file."))
+        |> Verify.custom (verifyDataContent context FileSelectionField)
 
 
 validateUrlImportModel : Model -> Validator FieldError UrlImportEntry PostUrlRequest
@@ -278,22 +274,54 @@ validateAzureImportModel model =
         |> Verify.verify .blob (notBlank (AzureBlobField => "Blob required."))
 
 
-verifyFileType : error -> Validator error DataFormat.DataFormat String
+validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
+validateDirectDataModel model context =
+    Verify.ok PutUploadRequest
+        |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
+        |> Verify.custom (verifyDataContent context DataField)
+
+
+verifyFileType : error -> Validator error DataFormat.DataFormat DataFormat.DataFormat
 verifyFileType error input =
     case input of
         DataFormat.Other ->
             Err [ error ]
 
         _ ->
-            Ok <| DataFormat.dataFormatToContentType input
+            Ok <| input
 
 
-verifyContentLength : Model -> ContextModel -> field -> Validator ( field, String ) String String
-verifyContentLength model context field input =
-    if (String.length input * 2) > maxSize context.quotas then
-        Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
-    else
-        Ok <| input
+
+verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | contentType : DataFormat.DataFormat, content : String } UploadData
+verifyDataContent context field input =
+    let
+        tooBig =
+            (String.length input.content * 2) > maxSize context.quotas
+    in
+    case tooBig of
+        True ->
+            Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
+
+        False ->
+            case input.contentType of
+                DataFormat.Json ->
+                    parseJson field input.content
+
+                DataFormat.Csv ->
+                    Ok <| Csv <| Csv.parse input.content
+
+                _ ->
+                    Err <| [ field => "Invalid content type" ]
+
+
+
+
+
+parseJson : field -> String -> Result (List ( field, String )) UploadData
+parseJson field content =
+    decodeString File.jsonDataDecoder content
+        |> Result.map (\d -> Json d)
+        |> Result.mapError (\e -> [ field => e ])
 
 
 verifyRegex : Regex.Regex -> error -> Validator error String String
@@ -315,15 +343,34 @@ perStepValidations ctx =
     [ ( ChooseUploadType, validateModel ctx >> unwrapErrors ) ]
 
 
-configWizard : ContextModel -> WizardConfig Step FieldError Msg Model AddDataSetRequest
-configWizard ctx =
+configWizard : ContextModel -> Bool -> WizardConfig Step FieldError Msg Model AddDataSetRequest
+configWizard ctx isBottom =
     { nextMessage = NextStep
     , prevMessage = PrevStep
     , stepValidation = perStepValidations ctx
-    , finishedButton = finalStepButton
+    , finishedButton = finalStepButton isBottom
     , finishedValidation = validateModel ctx
     , finishedMsg = CreateDataSet
+    , customLoading = Just (waiting isBottom)
     }
+
+
+waiting : Bool -> Model -> Html Msg
+waiting isBottom model =
+    let
+        width =
+            (model.uploadedParts * 100) // model.uploadPartsTotal |> toString
+    in
+    if Remote.isLoading model.uploadResponse && not isBottom then
+        div [ class "progress" ]
+            [ div [ class "progress-bar", attribute "role" "progressbar", attribute "aria-valuemin" "0", attribute "aria-valuemax" (toString model.uploadPartsTotal), attribute "aria-valuenow" width, attribute "style" ("width:" ++ width ++ "%") ]
+                [ span [] [ text (width ++ "%") ]
+                ]
+            ]
+    else if Remote.isLoading model.importResponse || Remote.isSuccess model.importResponse then
+        div [ class "btn btn-danger", disabled True ] [ text "Importing... ", spinner ]
+    else
+        div [] []
 
 
 
@@ -340,7 +387,7 @@ type Msg
     | FileSelected
     | TabMsg TabMsg
     | CreateDataSet AddDataSetRequest
-    | UploadDataSetResponse (Remote.WebData ())
+    | UploadDataSetParts ( List (Task Http.Error ()), Remote.WebData () )
     | ImportResponse (Remote.WebData Data.Import.ImportDetail)
 
 
@@ -360,6 +407,19 @@ type TabMsg
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
+    let
+        next requests =
+            case List.head requests of
+                Just r ->
+                    let
+                        toCmd r =
+                            UploadDataSetParts ( Maybe.withDefault [] (List.tail requests), r )
+                    in
+                    r |> Remote.asCmd |> Cmd.map toCmd
+
+                _ ->
+                    Cmd.none
+    in
     case ( model.steps.current, msg ) of
         ( ChooseUploadType, ChangeName name ) ->
             { model | name = name } => Cmd.none
@@ -403,17 +463,16 @@ update msg model context =
             case createRequest of
                 PutUpload request ->
                     let
-                        putDataRequest =
+                        putDataRequests : List (Task Http.Error ())
+                        putDataRequests =
                             put context.config request
-                                |> Http.toTask
+                                |> List.map Http.toTask
 
-                        putRequest =
-                            setKeyRequest request.name
-                                |> Task.andThen (always putDataRequest)
-                                |> Remote.asCmd
-                                |> Cmd.map UploadDataSetResponse
+                        putRequests : List (Task Http.Error ())
+                        putRequests =
+                            [ setKeyRequest request.name ] ++ putDataRequests
                     in
-                    { model | uploadResponse = Remote.Loading } => putRequest
+                    { model | uploadResponse = Remote.Loading, uploadPartsTotal = List.length putRequests } => next putRequests
 
                 ImportUrl request ->
                     let
@@ -457,17 +516,18 @@ update msg model context =
                     in
                     { model | importResponse = Remote.Loading } => importRequest
 
-        ( _, UploadDataSetResponse result ) ->
-            case result of
-                Remote.Success () ->
-                    let
-                        loadCmd =
-                            Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name)
-                    in
-                    model => loadCmd
+        ( _, UploadDataSetParts ( rest, curr ) ) ->
+            case curr of
+                Remote.Success _ ->
+                    case rest of
+                        [] ->
+                            model => (Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name))
+
+                        _ ->
+                            { model | uploadedParts = model.uploadedParts + 1 } => next rest
 
                 Remote.Failure err ->
-                    { model | uploadResponse = result } => Log.logHttpError err
+                    { model | uploadResponse = curr } => Log.logHttpError err
 
                 _ ->
                     model => Cmd.none
@@ -517,7 +577,7 @@ validateStep context model =
     let
         stepValidation =
             perStepValidations context
-                |> List.find (\s -> Tuple.first s |> (==) model.steps.current)
+                |> ListEx.find (\s -> Tuple.first s |> (==) model.steps.current)
                 |> Maybe.map Tuple.second
                 |> Maybe.withDefault (\_ -> [])
     in
@@ -548,16 +608,16 @@ updateTabContents model msg =
                                 File.Success fileName content ->
                                     case DataFormat.filenameToType fileName of
                                         DataFormat.Json ->
-                                            { fileContent = content
+                                            { content = content
                                             , fileName = fileName
-                                            , fileUploadType = DataFormat.Json
+                                            , contentType = DataFormat.Json
                                             , fileUploadErrorOccurred = Nothing
                                             }
 
                                         DataFormat.Csv ->
-                                            { fileContent = content
+                                            { content = content
                                             , fileName = fileName
-                                            , fileUploadType = DataFormat.Csv
+                                            , contentType = DataFormat.Csv
                                             , fileUploadErrorOccurred = Nothing
                                             }
 
@@ -654,6 +714,23 @@ subscriptions model =
     fileContentRead <| \c -> TabMsg (FileContentRead c)
 
 
+uploadIsLoading : Model -> Bool
+uploadIsLoading model =
+    let
+        importIsLoading =
+            case model.importResponse of
+                Remote.Loading ->
+                    True
+
+                Remote.Success importDetail ->
+                    importDetail.status /= Status.Failed && importDetail.status /= Status.Cancelled
+
+                _ ->
+                    False
+    in
+    importIsLoading || Remote.isLoading model.uploadResponse
+
+
 view : Model -> ContextModel -> Html Msg
 view model context =
     div []
@@ -672,10 +749,10 @@ view model context =
         , hr [] []
         , div [ class "row" ]
             [ div [ class "col-sm-12 right" ]
-                [ viewButtons (configWizard context)
+                [ viewButtons (configWizard context True)
                     model
                     model.steps
-                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (uploadIsLoading model)
                     (model.errors == [])
                 ]
             ]
@@ -688,10 +765,10 @@ viewChooseUploadType context model =
         [ div [ class "col-sm-12 mb20 session-step" ]
             [ div [ class "col-sm-6 pl0" ] [ h3 [] [ text "Choose Upload type" ] ]
             , div [ class "col-sm-6 right" ]
-                [ viewButtons (configWizard context)
+                [ viewButtons (configWizard context False)
                     model
                     model.steps
-                    (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse)
+                    (uploadIsLoading model)
                     (model.errors == [])
                 ]
             ]
@@ -710,15 +787,15 @@ viewChooseUploadType context model =
         ]
 
 
-finalStepButton : Model -> Wizard.HtmlDetails Msg
-finalStepButton model =
+finalStepButton : Bool -> Model -> Wizard.HtmlDetails Msg
+finalStepButton isBottom model =
     let
         buttonContent =
             case model.tabs.current of
                 ( FileUploadTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         _ ->
                             [ text "Create DataSet" ]
@@ -726,7 +803,7 @@ finalStepButton model =
                 ( DirectDataTab _, _ ) ->
                     case model.uploadResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         _ ->
                             [ text "Create DataSet" ]
@@ -734,13 +811,13 @@ finalStepButton model =
                 _ ->
                     case model.importResponse of
                         Remote.Loading ->
-                            [ spinner ]
+                            [ waiting isBottom model ]
 
                         Remote.Success importDetail ->
                             if importDetail.status == Status.Failed || importDetail.status == Status.Cancelled then
                                 [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
                             else
-                                [ spinner ]
+                                [ waiting isBottom model ]
 
                         _ ->
                             [ i [ class "fa fa-upload mr5" ] [], text "Import" ]
@@ -774,7 +851,8 @@ viewSetKey context model =
                 ]
             , div
                 [ class "col-sm-4 right" ]
-                [ viewButtons (configWizard context) model model.steps (Remote.isLoading model.importResponse || Remote.isLoading model.uploadResponse) (model.errors == []) ]
+                [ viewButtons (configWizard context False) model model.steps (uploadIsLoading model) (model.errors == [])
+                ]
             ]
         , div
             [ class "col-sm-12" ]
