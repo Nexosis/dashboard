@@ -243,7 +243,7 @@ validateFileUploadModel : Model -> ContextModel -> Validator FieldError FileUplo
 validateFileUploadModel model context =
     Verify.ok PutUploadRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
-        |> Verify.custom (verifyFileContent context FileSelectionField)
+        |> Verify.custom (verifyDataContent context FileSelectionField)
 
 
 validateUrlImportModel : Model -> Validator FieldError UrlImportEntry PostUrlRequest
@@ -291,7 +291,8 @@ verifyFileType error input =
             Ok <| input
 
 
-verifyDataContent : ContextModel -> field -> Validator ( field, String ) DirectDataEntry UploadData
+
+verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | contentType : DataFormat.DataFormat, content : String } UploadData
 verifyDataContent context field input =
     let
         tooBig =
@@ -313,26 +314,7 @@ verifyDataContent context field input =
                     Err <| [ field => "Invalid content type" ]
 
 
-verifyFileContent : ContextModel -> field -> Validator ( field, String ) FileUploadEntry UploadData
-verifyFileContent context field input =
-    let
-        tooBig =
-            (String.length input.content * 2) > maxSize context.quotas
-    in
-    case tooBig of
-        True ->
-            Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
 
-        False ->
-            case input.contentType of
-                DataFormat.Json ->
-                    parseJson field input.content
-
-                DataFormat.Csv ->
-                    Ok <| Csv <| Csv.parse input.content
-
-                _ ->
-                    Err <| [ field => "Invalid content type" ]
 
 
 parseJson : field -> String -> Result (List ( field, String )) UploadData
