@@ -130,7 +130,19 @@ update msg model context =
                             Cmd.none
 
                         DeleteDialog.Confirmed ->
-                            loadSessionList context.config model.currentPage model.pageSize model.tableState
+                            let
+                                pageNumber =
+                                    model.sessionList
+                                        |> Remote.map
+                                            (\r ->
+                                                if List.length r.items == 1 && r.pageNumber /= 0 then
+                                                    r.pageNumber - 1
+                                                else
+                                                    r.pageNumber
+                                            )
+                                        |> Remote.withDefault 0
+                            in
+                            loadSessionList context.config pageNumber model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
