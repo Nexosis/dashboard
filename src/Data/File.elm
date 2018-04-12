@@ -1,4 +1,4 @@
-module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
+module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
 
 import Csv
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
@@ -35,6 +35,51 @@ split i list =
 
         listHead ->
             listHead :: split i (drop i list)
+
+
+calculateCsvBatchSize : Csv.Csv -> Int
+calculateCsvBatchSize csv =
+    let
+        sizeOf row =
+            String.join "," row |> String.length
+
+        rowSize records =
+            case List.head records of
+                Nothing ->
+                    0
+
+                Just r ->
+                    sizeOf r
+
+        batchSize rowSize =
+            floor <| ((1024 * 1024 * 0.75) / toFloat rowSize)
+    in
+    csv.records
+        |> rowSize
+        |> batchSize
+
+
+calculateJsonBatchSize : JsonData -> Int
+calculateJsonBatchSize json =
+    let
+        sizeOf row =
+            Json.Encode.encode 0 (jsonDataEncoder (JsonData [] [ row ]))
+                |> String.length
+
+        rowSize json =
+            case List.head json.data of
+                Nothing ->
+                    0
+
+                Just r ->
+                    sizeOf r
+
+        batchSize rowSize =
+            floor <| ((1024 * 1024 * 0.75) / toFloat rowSize)
+    in
+    json
+        |> rowSize
+        |> batchSize
 
 
 batchJsonData : Int -> (JsonData -> a) -> JsonData -> List a

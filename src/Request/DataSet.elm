@@ -118,6 +118,18 @@ put config request =
 
 batch : PutUploadRequest -> (( String, String, String ) -> a) -> List a
 batch request put =
+    let
+        calculateBatchSize request =
+            case request.data of
+                Json json ->
+                    File.calculateJsonBatchSize json
+
+                Csv csv ->
+                    File.calculateCsvBatchSize csv
+
+        batchSize =
+            calculateBatchSize request
+    in
     case request.data of
         Json json ->
             let
@@ -127,7 +139,7 @@ batch request put =
                 upload data =
                     put ( request.name, jsonDataToString data, dataFormatToContentType DataFormat.Json )
             in
-            File.batchJsonData 2000 upload <| json
+            File.batchJsonData batchSize upload <| json
 
         Csv csv ->
             let
@@ -147,7 +159,7 @@ batch request put =
                 upload data =
                     put ( request.name, csvDataToString data, dataFormatToContentType DataFormat.Csv )
             in
-            File.batchCsvData 3000 upload <| csv
+            File.batchCsvData batchSize upload <| csv
 
 
 putInternal : Config -> ( String, String, String ) -> Http.Request ()
