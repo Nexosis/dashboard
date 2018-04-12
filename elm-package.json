@@ -31,7 +31,7 @@
         "elm-lang/navigation": "2.1.0 <= v < 3.0.0",
         "elm-lang/window": "1.0.1 <= v < 2.0.0",
         "evancz/elm-markdown": "3.0.2 <= v < 4.0.0",
-        "jeffesp/elm-vega": "2.0.3 <= v < 3.0.0",
+        "gicentre/elm-vega": "2.0.3 <= v < 3.0.0",
         "justinmimbs/elm-date-extra": "3.0.0 <= v < 4.0.0",
         "krisajenkins/remotedata": "4.3.3 <= v < 5.0.0",
         "lgastako/elm-select": "2.1.0 <= v < 3.0.0",
@@ -41,12 +41,6 @@
         "simonh1000/elm-jwt": "5.3.0 <= v < 6.0.0",
         "stoeffel/elm-verify": "3.0.0 <= v < 4.0.0",
         "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0"
-    },
-    "dependency-sources": {
-        "jeffesp/elm-vega": {
-            "url": "https://github.com/jeffesp/elm-vega.git",
-            "ref": "d8293cac04b98f0c647e1277660f4e852478e7fe"
-        }
     },
     "elm-version": "0.18.0 <= v < 0.19.0"
 }
