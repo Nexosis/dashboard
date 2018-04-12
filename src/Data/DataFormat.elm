@@ -1,4 +1,4 @@
-module Data.DataFormat exposing (DataFormat(..), dataFormatToContentType, dataFormatToString, filenameToType, parseDataFormat)
+module Data.DataFormat exposing (DataFormat(..), dataFormatToString, filenameToType, parseDataFormat)
 
 
 type DataFormat
@@ -45,16 +45,3 @@ filenameToType name =
         Csv
     else
         Other
-
-
-dataFormatToContentType : DataFormat -> String
-dataFormatToContentType uploadType =
-    case uploadType of
-        Json ->
-            "application/json"
-
-        Csv ->
-            "text/csv"
-
-        _ ->
-            ""

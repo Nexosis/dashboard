@@ -3,20 +3,20 @@ module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 import AppRoutes as Routes
 import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (toDataSetName)
 import Data.Metric exposing (..)
-import Data.Model exposing (..)
-import Data.PredictionDomain exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
+import Nexosis.Api.Models exposing (getOne)
+import Nexosis.Types.DataSet exposing (toDataSetName)
+import Nexosis.Types.Models exposing (..)
+import Nexosis.Types.PredictionDomain exposing (..)
 import Page.ModelPredict as ModelPredict
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (getOne)
 import Util exposing ((=>), formatDisplayName, formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)

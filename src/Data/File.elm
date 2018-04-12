@@ -1,13 +1,15 @@
 module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
 
 import Csv
-import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
 import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
 import Json.Decode.Pipeline exposing (custom, decode, optional, required)
 import Json.Encode
 import Json.Encode.Extra
 import List exposing (drop, take)
+import Nexosis.Decoders.Columns as Columns exposing (decodeColumnMetadata)
+import Nexosis.Encoders.Columns exposing (encodeColumnMetadataList)
+import Nexosis.Types.Columns exposing (ColumnMetadata)
 
 
 type FileUploadErrorType

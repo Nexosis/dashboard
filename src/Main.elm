@@ -13,7 +13,7 @@ import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Navigation exposing (Location)
 import Nexosis
-import Nexosis.Metrics as Metrics exposing (Metric)
+import Nexosis.Api.Metrics exposing (Metric)
 import Nexosis.Types.Message as Message
 import Page.DataSetAdd as DataSetAdd
 import Page.DataSetDetail as DataSetDetail

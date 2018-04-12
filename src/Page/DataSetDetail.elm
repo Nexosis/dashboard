@@ -4,9 +4,7 @@ import AppRoutes
 import Data.Cascade as Cascade
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
-import Data.Link exposing (Link, linkDecoder)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
@@ -14,10 +12,12 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Nexosis.Api.Sessions exposing (getForDataset)
+import Nexosis.Types.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Nexosis.Types.Link exposing (Link, linkDecoder)
 import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (getForDataset)
 import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor

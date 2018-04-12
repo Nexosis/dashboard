@@ -1,13 +1,13 @@
 module Page.Helpers exposing (..)
 
 import Data.Config exposing (Config)
-import Data.Message exposing (Message)
-import Data.Status exposing (..)
 import Dict
 import Html exposing (Html, div, h5, i, li, span, text, ul)
 import Html.Attributes exposing (attribute, class, classList, id, style)
 import List
 import Markdown
+import Nexosis.Types.Message exposing (Message)
+import Nexosis.Types.Status exposing (..)
 import RemoteData as Remote
 import String.Extra exposing (unquote)
 import String.Interpolate exposing (interpolate)

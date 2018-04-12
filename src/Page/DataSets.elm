@@ -3,12 +3,12 @@ module Page.DataSets exposing (DataSetColumns, Model, Msg(DataSetListResponse), 
 import AppRoutes exposing (Route)
 import Data.Cascade as Cascade
 import Data.Context exposing (..)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Sorting exposing (SortDirection(..), SortParameters)

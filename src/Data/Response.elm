@@ -6,7 +6,7 @@ import Http
 import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, oneOf, string, succeed, value)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
-import Nexosis.Types.Message exposing (Severity)
+import Nexosis.Types.Message exposing (Severity(..))
 
 
 type alias Response =

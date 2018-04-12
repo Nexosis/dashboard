@@ -4,9 +4,7 @@ import AppRoutes exposing (Route)
 import Data.Columns as Columns
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (ColumnStats, DataSetData, DataSetName, DataSetStats, dataSetNameToString)
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
-import Data.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Date exposing (Date, Month(..))
@@ -21,10 +19,12 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onBlur, onCheck, onClick, onInput)
 import List.Extra as List
 import Maybe.Verify
+import Nexosis.Api.Sessions exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
+import Nexosis.Types.DataSet exposing (ColumnStats, DataSetData, DataSetName, DataSetStats, dataSetNameToString)
+import Nexosis.Types.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
 import Page.Helpers exposing (explainer, explainerFormat)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Session exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
 import Select exposing (fromSelected)
 import String.Extra as String
 import String.Verify exposing (notBlank)

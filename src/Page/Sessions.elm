@@ -3,16 +3,16 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Nexosis.Api.Sessions exposing (get)
+import Nexosis.Types.DataSet exposing (toDataSetName)
 import Page.Helpers exposing (..)
 import RemoteData as Remote
-import Request.Session exposing (get)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, formatDisplayNameWithWidth, spinner)

@@ -4,14 +4,14 @@ import AppRoutes as AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
-import Data.Model exposing (ModelData, ModelList)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Nexosis.Api.Models exposing (delete, get)
+import Nexosis.Types.Models exposing (ModelData, ModelList)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
-import Request.Model exposing (delete, get)
 import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, formatDisplayNameWithWidth, spinner)
@@ -37,7 +37,7 @@ type alias Model =
 
 loadModelList : Config -> Int -> Int -> SortParameters -> Cmd Msg
 loadModelList config page pageSize sorting =
-    Request.Model.get config page pageSize sorting
+    Nexosis.Api.Models.get config.clientConfig page pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map ModelListResponse
 
@@ -89,7 +89,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete context.config >> ignoreCascadeParams
+                    Nexosis.Api.Models.delete context.config >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd

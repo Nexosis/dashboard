@@ -5,11 +5,8 @@ import Csv
 import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.DataFormat as DataFormat
-import Data.DataSet
 import Data.File as File
-import Data.Import
 import Data.Response as Response exposing (Quotas, maxSize)
-import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -18,12 +15,14 @@ import Http
 import Json.Decode exposing (decodeString, succeed)
 import List.Extra as ListEx
 import Navigation
+import Nexosis.Api.Imports exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
+import Nexosis.Types.Import
+import Nexosis.Types.Status as Status
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
 import Request.DataSet exposing (PutUploadRequest, UploadData(..), createDataSetWithKey, put)
-import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
@@ -291,7 +290,6 @@ verifyFileType error input =
             Ok <| input
 
 
-
 verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | contentType : DataFormat.DataFormat, content : String } UploadData
 verifyDataContent context field input =
     let
@@ -312,9 +310,6 @@ verifyDataContent context field input =
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
-
-
-
 
 
 parseJson : field -> String -> Result (List ( field, String )) UploadData

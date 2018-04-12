@@ -5,7 +5,6 @@ import Char
 import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
 import Data.Config as Config
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as Dict
@@ -14,6 +13,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onFocus, onInput)
 import Http
 import Json.Decode as Decode
+import Nexosis.Types.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Ports
 import RemoteData as Remote
 import Request.DataSet

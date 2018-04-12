@@ -4,18 +4,18 @@ import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataFormat as DataFormat
 import Data.File as File
-import Data.Model exposing (PredictionResult, decodePredictions)
 import Data.Response exposing (maxSize)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
+import Nexosis.Api.Models exposing (predict, predictRaw)
+import Nexosis.Types.Models exposing (PredictionResult, decodePredictions)
 import Page.Helpers exposing (expandedMessagesTable, explainer)
 import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Model exposing (predict, predictRaw)
 import Util exposing ((=>), formatDisplayName, isJust, spinner)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf, viewJust)

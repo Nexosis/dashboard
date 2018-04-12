@@ -1,8 +1,8 @@
 module Data.Columns exposing (dataTypeToString, enumDataType, enumRole)
 
-import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
-import Json.Decode.Pipeline exposing (decode, optional, required)
-import Json.Encode as Encode
+import Nexosis.Types.AggregationStrategy as Aggregate
+import Nexosis.Types.Columns exposing (ColumnMetadata, DataType(..), Role(..))
+import Nexosis.Types.ImputationStrategy as Impute
 
 
 enumDataType : List DataType

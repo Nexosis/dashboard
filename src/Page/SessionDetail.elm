@@ -1,19 +1,10 @@
 module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRange, init, update, view)
 
 import AppRoutes
-import Data.Algorithm exposing (..)
-import Data.Columns as Columns exposing (ColumnMetadata, Role)
 import Data.Config exposing (Config)
-import Data.ConfusionMatrix exposing (ConfusionMatrix)
 import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
-import Data.DataSet exposing (DataSetData, toDataSetName)
 import Data.DisplayDate exposing (toShortDateTimeString)
-import Data.DistanceMetric exposing (..)
-import Data.Metric exposing (..)
-import Data.PredictionDomain as PredictionDomain
-import Data.Session exposing (..)
-import Data.Status as Status exposing (Status)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -21,12 +12,21 @@ import Html.Events exposing (onClick)
 import Http
 import List exposing (filter, foldr, head)
 import List.Extra as List
+import Nexosis.Api.Metrics exposing (..)
+import Nexosis.Api.Sessions exposing (..)
+import Nexosis.Types.Algorithm exposing (..)
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, Role)
+import Nexosis.Types.ConfusionMatrix exposing (ConfusionMatrix)
+import Nexosis.Types.DataSet exposing (DataSetData, toDataSetName)
+import Nexosis.Types.DistanceMetric exposing (..)
+import Nexosis.Types.PredictionDomain as PredictionDomain
+import Nexosis.Types.Session exposing (..)
+import Nexosis.Types.Status as Status exposing (Status)
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
 import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
-import Request.Session exposing (..)
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
 import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)

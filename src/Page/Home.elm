@@ -3,22 +3,22 @@ module Page.Home exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
-import Data.Model exposing (ModelData, ModelList)
 import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (attribute, class, href, id)
 import Html.Events exposing (onClick)
+import Nexosis.Api.Models
+import Nexosis.Api.Sessions
+import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
+import Nexosis.Types.Models exposing (ModelData, ModelList)
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
 import Page.Models as Models exposing (viewModelGridReadonly)
 import Page.Sessions as Sessions exposing (viewSessionGridReadonly)
 import RemoteData as Remote
 import Request.DataSet
-import Request.Model
-import Request.Session
 import Request.Sorting as Sorting
 import Request.Subscription
 import Util exposing ((=>))

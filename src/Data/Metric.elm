@@ -1,7 +1,7 @@
 module Data.Metric exposing (..)
 
 import List.Extra as List
-import Nexosis.Metrics exposing (Metric)
+import Nexosis.Api.Metrics exposing (Metric)
 
 
 getMetricNameFromKey : List Metric -> String -> String

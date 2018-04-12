@@ -2,11 +2,11 @@ module Page.DataSetData exposing (..)
 
 import Data.Columns exposing (ColumnMetadata)
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import List
+import Nexosis.Types.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
 import RemoteData as Remote
 import Request.DataSet
 import Request.Sorting exposing (SortDirection(..), SortParameters)

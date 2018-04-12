@@ -1,17 +1,17 @@
 module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix, wordOccurrenceTable)
 
 import Array
-import Data.AggregationStrategy as AggregationStrategy
-import Data.Columns as Columns exposing (ColumnMetadata)
-import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
-import Data.DataSet exposing (DataSetData, DistributionShape)
-import Data.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
-import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, a, div, h3, node, span, table, tbody, td, th, thead, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
 import Json.Encode
 import List.Extra as List exposing (find)
+import Nexosis.Types.AggregationStrategy as AggregationStrategy
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata)
+import Nexosis.Types.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
+import Nexosis.Types.DataSet exposing (DataSetData, DistributionShape)
+import Nexosis.Types.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
+import Nexosis.Types.Session as Session exposing (SessionData, SessionResults)
 import String.Extra as String exposing (replace)
 import Time.TimeZone as TimeZone
 import Util exposing (formatDateWithTimezone, getTimezoneFromDate)
