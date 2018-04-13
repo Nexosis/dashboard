@@ -296,6 +296,20 @@ verifyDataContent context field input =
     let
         tooBig =
             (String.length input.content * 2) > maxSize context.quotas
+
+        asCsv content =
+            String.lines content
+                |> List.tail
+                |> Maybe.withDefault []
+                |> File.CsvData (parseCsv content |> .headers)
+                |> Csv
+                |> Ok
+
+        parseCsv csv =
+            String.lines csv
+                |> List.take 100
+                |> String.join "\x0D\n"
+                |> Csv.parse
     in
     case tooBig of
         True ->
@@ -307,7 +321,7 @@ verifyDataContent context field input =
                     parseJson field input.content
 
                 DataFormat.Csv ->
-                    Ok <| Csv <| Csv.parse input.content
+                    asCsv input.content
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]

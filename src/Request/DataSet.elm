@@ -1,6 +1,5 @@
 module Request.DataSet exposing (MetadataUpdateRequest, PutUploadRequest, UploadData(..), createDataSetWithKey, delete, encodeKeyColumnMetadata, get, getDataByDateRange, getRetrieveDetail, getStats, getStatsForColumn, put, updateMetadata)
 
-import Csv
 import Data.Columns exposing (ColumnMetadata, DataType, dataTypeToString, encodeColumnMetadataList)
 import Data.Config as Config exposing (Config, withAppHeader)
 import Data.DataFormat as DataFormat exposing (DataFormat(..), dataFormatToContentType)
@@ -108,7 +107,7 @@ type alias PutUploadRequest =
 
 type UploadData
     = Json File.JsonData
-    | Csv Csv.Csv
+    | Csv File.CsvData
 
 
 put : Config -> PutUploadRequest -> List (Http.Request ())
@@ -154,7 +153,7 @@ batch request put =
                         line =
                             String.join "\x0D\n"
                     in
-                    line <| [ header ] ++ List.map sep data.records
+                    line <| [ header ] ++ data.records
 
                 upload data =
                     put ( request.name, csvDataToString data, dataFormatToContentType DataFormat.Csv )
