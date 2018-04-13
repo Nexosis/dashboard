@@ -164,7 +164,13 @@ update msg model context pendingSaveCommand =
 
                         allMetadata =
                             model.columnMetadata
-                                |> Remote.map (\m -> Dict.size m.metadata)
+                                |> Remote.map
+                                    (\m ->
+                                        m.metadata
+                                            |> Dict.values
+                                            |> List.filter (\c -> c.role /= Key)
+                                            |> List.length
+                                    )
                                 |> Remote.withDefault 0
 
                         reFetchStats =
