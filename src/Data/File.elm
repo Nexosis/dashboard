@@ -1,6 +1,5 @@
-module Data.File exposing (FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
+module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
 
-import Csv
 import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
 import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
@@ -27,6 +26,12 @@ type alias JsonData =
     }
 
 
+type alias CsvData =
+    { headers : List String
+    , records : List String
+    }
+
+
 split : Int -> List a -> List (List a)
 split i list =
     case take i list of
@@ -35,6 +40,51 @@ split i list =
 
         listHead ->
             listHead :: split i (drop i list)
+
+
+calculateCsvBatchSize : CsvData -> Int
+calculateCsvBatchSize csv =
+    let
+        sizeOf row =
+            String.length row
+
+        rowSize records =
+            case List.head records of
+                Nothing ->
+                    0
+
+                Just r ->
+                    sizeOf r
+
+        batchSize rowSize =
+            floor <| ((1024 * 1024 * 0.75) / toFloat rowSize)
+    in
+    csv.records
+        |> rowSize
+        |> batchSize
+
+
+calculateJsonBatchSize : JsonData -> Int
+calculateJsonBatchSize json =
+    let
+        sizeOf row =
+            Json.Encode.encode 0 (jsonDataEncoder (JsonData [] [ row ]))
+                |> String.length
+
+        rowSize json =
+            case List.head json.data of
+                Nothing ->
+                    0
+
+                Just r ->
+                    sizeOf r
+
+        batchSize rowSize =
+            floor <| ((1024 * 1024 * 0.75) / toFloat rowSize)
+    in
+    json
+        |> rowSize
+        |> batchSize
 
 
 batchJsonData : Int -> (JsonData -> a) -> JsonData -> List a
@@ -52,15 +102,15 @@ batchJsonData batchSize callBack data =
     List.map process <| split batchSize data.data
 
 
-batchCsvData : Int -> (Csv.Csv -> a) -> Csv.Csv -> List a
+batchCsvData : Int -> (CsvData -> a) -> CsvData -> List a
 batchCsvData batchSize callBack data =
     let
         newData batch =
-            Csv.Csv
+            CsvData
                 data.headers
                 batch
 
-        process : List (List String) -> a
+        process : List String -> a
         process batch =
             newData batch |> callBack
     in

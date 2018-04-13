@@ -27,7 +27,7 @@ import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
+import Util exposing ((=>), dataSizeWithCustomKSize, dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
 import Verify exposing (Validator, andThen, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
@@ -291,12 +291,25 @@ verifyFileType error input =
             Ok <| input
 
 
-
 verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | contentType : DataFormat.DataFormat, content : String } UploadData
 verifyDataContent context field input =
     let
         tooBig =
             (String.length input.content * 2) > maxSize context.quotas
+
+        asCsv content =
+            String.lines content
+                |> List.tail
+                |> Maybe.withDefault []
+                |> File.CsvData (parseCsv content |> .headers)
+                |> Csv
+                |> Ok
+
+        parseCsv csv =
+            String.lines csv
+                |> List.take 100
+                |> String.join "\x0D\n"
+                |> Csv.parse
     in
     case tooBig of
         True ->
@@ -308,13 +321,10 @@ verifyDataContent context field input =
                     parseJson field input.content
 
                 DataFormat.Csv ->
-                    Ok <| Csv <| Csv.parse input.content
+                    asCsv input.content
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
-
-
-
 
 
 parseJson : field -> String -> Result (List ( field, String )) UploadData
@@ -434,7 +444,7 @@ update msg model context =
             { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
-            model => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
+            { model | errors = [] } => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
 
         ( ChooseUploadType, TabMsg tabMsg ) ->
             updateTabContents model tabMsg => Cmd.none
@@ -994,7 +1004,7 @@ viewUploadTab context tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
+                                div [ class "alert alert-danger" ] [ text ("The file you are attempting to upload is too large for your subscription level. Your account currently has a limit of " ++ (maxSize context.quotas |> dataSizeWithCustomKSize 1000) ++ " per dataset. Please select a smaller file, or reduce the size of this dataset and try again.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
