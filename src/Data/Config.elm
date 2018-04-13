@@ -106,11 +106,6 @@ nexosisIdentityTokenDecoder =
         |> required "email" string
 
 
-decodeDocs : Decoder (List String)
-decodeDocs =
-    Decode.list string
-
-
 toolTipDictDecoder : Decoder (Dict String String)
 toolTipDictDecoder =
     dict string
