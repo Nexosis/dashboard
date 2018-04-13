@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithCustomKSize, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Date exposing (Date, Month)
@@ -44,13 +44,18 @@ spinner =
 
 
 dataSizeWithSuffix : Int -> String
-dataSizeWithSuffix size =
+dataSizeWithSuffix =
+    dataSizeWithCustomKSize 1024
+
+
+dataSizeWithCustomKSize : Int -> Int -> String
+dataSizeWithCustomKSize kSize size =
     if size == 0 then
         " - "
     else
         let
             k =
-                size // 1024
+                size // kSize
         in
         case k of
             0 ->
@@ -58,7 +63,7 @@ dataSizeWithSuffix size =
 
             _ ->
                 if k >= 10000 then
-                    commaFormatInteger (k // 1024) ++ " Mb"
+                    commaFormatInteger (k // kSize) ++ " Mb"
                 else
                     commaFormatInteger k ++ " Kb"
 

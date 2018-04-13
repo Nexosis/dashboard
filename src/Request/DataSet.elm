@@ -8,28 +8,40 @@ import Nexosis.Api.Data as Data
 
 batch : UploadDataRequest -> (String -> String -> String -> a) -> List a
 batch request put =
+    let
+        calculateBatchSize request =
+            case request.data of
+                Json json ->
+                    File.calculateJsonBatchSize json
+
+                Csv csv ->
+                    File.calculateCsvBatchSize csv
+
+        batchSize =
+            calculateBatchSize request
+    in
     case request.data of
         Json json ->
             let
                 upload data =
                     let
                         ( content, contentType ) =
-                            encodeJsonDataFileUpload json
+                            encodeJsonDataFileUpload data
                     in
                     put request.name content contentType
             in
-            File.batchJsonData 2000 upload <| json
+            File.batchJsonData batchSize upload <| json
 
         Csv csv ->
             let
                 upload data =
                     let
                         ( content, contentType ) =
-                            encodeCsvDataFileUpload csv
+                            encodeCsvDataFileUpload data
                     in
                     put request.name content contentType
             in
-            File.batchCsvData 3000 upload <| csv
+            File.batchCsvData batchSize upload <| csv
 
 
 batchPut : Config -> UploadDataRequest -> List (Http.Request ())
