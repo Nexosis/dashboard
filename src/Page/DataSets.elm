@@ -10,10 +10,10 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Nexosis.Api.Data
 import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
-import NexosisHelpers exposing (SortDirection(..), SortParameters, commaFormatInteger)
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import RemoteData as Remote
 import StateStorage
-import Util exposing ((=>), dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid

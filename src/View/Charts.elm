@@ -14,7 +14,7 @@ import Nexosis.Types.DistanceMetric exposing (DistanceMetrics, DistanceValue, fr
 import Nexosis.Types.Session as Session exposing (SessionData, SessionResults)
 import String.Extra as String exposing (replace)
 import Time.TimeZone as TimeZone
-import Util exposing (formatDateWithTimezone, getTimezoneFromDate)
+import Util exposing (formatDateWithTimezone, getTimezoneFromDate, tryParseAndFormat)
 import VegaLite exposing (..)
 
 
@@ -88,9 +88,9 @@ distributionItemToRow shape =
 
         Columns.Ranges min max count ->
             if min == max then
-                dataRow [ ( itemLabel, Str min ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str (tryParseAndFormat min) ), ( "Count", Number (toFloat count) ) ] []
             else
-                dataRow [ ( itemLabel, Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str (tryParseAndFormat min ++ " to " ++ tryParseAndFormat max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg

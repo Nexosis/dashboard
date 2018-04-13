@@ -15,7 +15,6 @@ import Http
 import List exposing (filter, foldr, head)
 import List.Extra as List
 import Nexosis.Api.Data exposing (getDataByDateRange)
-import Nexosis.Api.Metrics exposing (..)
 import Nexosis.Api.Sessions exposing (..)
 import Nexosis.Types.Algorithm exposing (..)
 import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, Role)
@@ -25,14 +24,13 @@ import Nexosis.Types.DistanceMetric exposing (..)
 import Nexosis.Types.PredictionDomain as PredictionDomain
 import Nexosis.Types.Session exposing (..)
 import Nexosis.Types.Status as Status exposing (Status)
-import NexosisHelpers exposing (formatFloatToString)
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, getTimezoneFromDate, spinner, styledNumber)
+import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)

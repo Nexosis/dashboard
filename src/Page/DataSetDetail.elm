@@ -13,15 +13,12 @@ import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
 import Nexosis.Api.Data
 import Nexosis.Api.Sessions exposing (getForDataset)
-import Nexosis.Types.Columns exposing (ColumnStats, ColumnStatsDict)
 import Nexosis.Types.DataSet as DataSet exposing (DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
 import Nexosis.Types.Link exposing (Link)
 import Nexosis.Types.Session exposing (SessionData, SessionList)
-import NexosisHelpers exposing (commaFormatInteger)
 import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import RemoteData as Remote
-import Request.DataSet
-import Util exposing ((=>), dataSizeWithSuffix, formatDisplayName, styledNumber)
+import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.CopyableText exposing (copyableText)

@@ -8,7 +8,7 @@ import List
 import Nexosis.Api.Data exposing (getRetrieveDetail)
 import Nexosis.Types.Columns exposing (ColumnMetadata)
 import Nexosis.Types.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
-import NexosisHelpers exposing (SortDirection(..), SortParameters)
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import RemoteData as Remote
 import StateStorage
 import Util exposing ((=>), formatDisplayName, styledNumber)

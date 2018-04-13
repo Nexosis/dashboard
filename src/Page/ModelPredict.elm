@@ -16,7 +16,7 @@ import Page.Helpers exposing (expandedMessagesTable, explainer)
 import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
-import Util exposing ((=>), formatDisplayName, isJust, spinner)
+import Util exposing ((=>), isJust, spinner, styledNumber)
 import View.Error exposing (viewRemoteError)
 import View.Extra exposing (viewIf, viewJust)
 import View.Pager as Pager exposing (PagedListing, filterToPage, mapToPagedListing)
@@ -488,7 +488,7 @@ toTableRow item =
 
 toTableHeaderItem : String -> Html Msg
 toTableHeaderItem value =
-    th [] [ text <| formatDisplayName value ]
+    th [] [ styledNumber value ]
 
 
 toTableData : String -> Html Msg

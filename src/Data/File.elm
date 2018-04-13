@@ -4,12 +4,11 @@ import Csv
 import Dict exposing (Dict)
 import Json.Decode exposing (decodeString, dict, float, int, keyValuePairs, list, map, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (custom, decode, optional, required)
-import Json.Encode exposing (Value)
+import Json.Encode as Encode exposing (Value, object)
 import Json.Encode.Extra
 import List exposing (drop, take)
 import Nexosis.Decoders.Columns as Columns exposing (decodeColumnMetadata)
-import Nexosis.Encoders.Columns exposing (encodeColumnMetadataList)
-import Nexosis.Types.Columns exposing (ColumnMetadata)
+import Nexosis.Types.Columns exposing (ColumnMetadata, DataType(..))
 import Util exposing ((=>))
 
 
@@ -146,7 +145,7 @@ fileContentEncoder { data } =
 
 encodeJsonDataFileUpload : JsonData -> ( String, String )
 encodeJsonDataFileUpload json =
-    ( Json.Encode.encode 0 (jsonDataEncoder json), "application/json" )
+    ( Encode.encode 0 (jsonDataEncoder json), "application/json" )
 
 
 encodeCsvDataFileUpload : CsvData -> ( String, String )
@@ -162,14 +161,40 @@ encodeCsvDataFileUpload csv =
             String.join "\x0D\n"
 
         encodedData =
-            Json.Encode.string <| line <| [ header ] ++ List.map sep csv.records
+            Encode.string <| line <| [ header ] ++ List.map sep csv.records
     in
-    ( Json.Encode.encode 0 encodedData, "text/csv" )
+    ( Encode.encode 0 encodedData, "text/csv" )
 
 
-jsonDataEncoder : JsonData -> Json.Encode.Value
+jsonDataEncoder : JsonData -> Encode.Value
 jsonDataEncoder data =
-    Json.Encode.object
+    Encode.object
         [ ( "columns", encodeColumnMetadataList data.columns )
-        , ( "data", Json.Encode.list (List.map (Json.Encode.Extra.dict identity Json.Encode.string) data.data) )
+        , ( "data", Encode.list (List.map (Json.Encode.Extra.dict identity Encode.string) data.data) )
         ]
+
+
+encodeColumnMetadataList : List ColumnMetadata -> Value
+encodeColumnMetadataList columns =
+    object <|
+        (columns
+            |> List.map (\c -> ( c.name, encodeColumnValues c ))
+        )
+
+
+encodeColumnValues : ColumnMetadata -> Value
+encodeColumnValues column =
+    object
+        [ ( "dataType", encodeDataType <| column.dataType )
+        , ( "role", Encode.string <| toString <| column.role )
+        , ( "imputation", Encode.string <| toString <| column.imputation )
+        , ( "aggregation", Encode.string <| toString <| column.aggregation )
+        ]
+
+
+encodeDataType : DataType -> Value
+encodeDataType dataType =
+    if dataType == Measure then
+        Encode.string "numericMeasure"
+    else
+        Encode.string <| toString dataType

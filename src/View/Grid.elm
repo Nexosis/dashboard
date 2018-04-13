@@ -37,7 +37,7 @@ import Html.Keyed as Keyed
 import Html.Lazy exposing (lazy2, lazy3)
 import Http
 import Json.Decode as Json
-import NexosisHelpers exposing (SortDirection(..), SortParameters)
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import RemoteData as Remote
 
 

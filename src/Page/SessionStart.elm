@@ -26,7 +26,6 @@ import Nexosis.Types.PredictionDomain as PredictionDomain exposing (PredictionDo
 import Nexosis.Types.Session as Session exposing (ResultInterval(..), SessionData)
 import Page.Helpers exposing (explainer, explainerFormat)
 import RemoteData as Remote
-import Request.DataSet
 import Select exposing (fromSelected)
 import String.Extra as String
 import String.Verify exposing (notBlank)

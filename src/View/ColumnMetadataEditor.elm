@@ -17,16 +17,15 @@ import Nexosis.Api.Data
 import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataType(..), Role(..))
 import Nexosis.Types.DataSet as DataSet exposing (DataSetData, DataSetName, DataSetStats, toDataSetName)
 import Nexosis.Types.ImputationStrategy exposing (ImputationStrategy(..))
-import NexosisHelpers exposing (SortDirection(..), SortParameters, commaFormatInteger, formatFloatToString)
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import Ports
 import RemoteData as Remote
-import Request.DataSet
 import Request.Log exposing (logHttpError)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import String.Extra as String
 import Task
-import Util exposing ((=>), delayTask, formatDisplayName, isJust, spinner, styledNumber)
+import Util exposing ((=>), commaFormatInteger, delayTask, formatDisplayName, formatFloatToString, isJust, spinner, styledNumber)
 import VegaLite exposing (Spec, combineSpecs)
 import View.Charts exposing (distributionHistogram, wordOccurrenceTable)
 import View.Error exposing (viewRemoteError)

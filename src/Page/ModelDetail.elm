@@ -13,12 +13,11 @@ import Nexosis.Types.Columns exposing (ColumnMetadata, Role(..))
 import Nexosis.Types.DataSet exposing (toDataSetName)
 import Nexosis.Types.Models exposing (..)
 import Nexosis.Types.PredictionDomain exposing (..)
-import NexosisHelpers exposing (formatFloatToString)
 import Page.ModelPredict as ModelPredict
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
-import Util exposing ((=>), formatDisplayName, styledNumber)
+import Util exposing ((=>), formatDisplayName, formatFloatToString, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
