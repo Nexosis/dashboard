@@ -1,15 +1,15 @@
 module Page.DataSetData exposing (..)
 
-import Data.Columns exposing (ColumnMetadata)
 import Data.Context exposing (ContextModel)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import List
+import Nexosis.Api.Data exposing (getRetrieveDetail)
+import Nexosis.Types.Columns exposing (ColumnMetadata)
 import Nexosis.Types.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
+import NexosisHelpers exposing (SortDirection(..), SortParameters)
 import RemoteData as Remote
-import Request.DataSet
-import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
 import Util exposing ((=>), formatDisplayName, styledNumber)
 import View.Grid as Grid
@@ -36,7 +36,7 @@ type alias Model =
 
 loadData : ContextModel -> Model -> Cmd Msg
 loadData context model =
-    Request.DataSet.getRetrieveDetail context.config model.dataSetName model.currentPage model.pageSize
+    getRetrieveDetail context.config.clientConfig model.dataSetName model.currentPage model.pageSize
         |> Remote.sendRequest
         |> Cmd.map DataLoaded
 

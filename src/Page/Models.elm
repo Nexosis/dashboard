@@ -10,9 +10,9 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Nexosis.Api.Models exposing (delete, get)
 import Nexosis.Types.Models exposing (ModelData, ModelList)
+import NexosisHelpers exposing (SortDirection(..), SortParameters)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote
-import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, formatDisplayNameWithWidth, spinner)
 import View.Breadcrumb as Breadcrumb
@@ -89,7 +89,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Nexosis.Api.Models.delete context.config >> ignoreCascadeParams
+                    Nexosis.Api.Models.delete context.config.clientConfig >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -345,5 +345,4 @@ deleteColumn =
 deleteButton : ModelData -> Grid.HtmlDetails Msg
 deleteButton model =
     Grid.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
-        ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ] ]

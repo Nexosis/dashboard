@@ -1,4 +1,4 @@
-module Data.DataFormat exposing (DataFormat(..), dataFormatToString, filenameToType, parseDataFormat)
+module Data.DataFormat exposing (DataFormat(..), dataFormatToMimeType, dataFormatToString, filenameToType, parseDataFormat)
 
 
 type DataFormat
@@ -31,6 +31,19 @@ dataFormatToString format =
 
         _ ->
             "other"
+
+
+dataFormatToMimeType : DataFormat -> String
+dataFormatToMimeType mime =
+    case mime of
+        Json ->
+            "application/json"
+
+        Csv ->
+            "text/csv"
+
+        _ ->
+            ""
 
 
 filenameToType : String -> DataFormat

@@ -5,6 +5,8 @@ import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DataFormat as Format
 import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.Metric exposing (getMetricDescriptionFromKey, getMetricNameFromKey)
+import Data.Session exposing (canPredictSession, sessionIsCompleted)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -12,6 +14,7 @@ import Html.Events exposing (onClick)
 import Http
 import List exposing (filter, foldr, head)
 import List.Extra as List
+import Nexosis.Api.Data exposing (getDataByDateRange)
 import Nexosis.Api.Metrics exposing (..)
 import Nexosis.Api.Sessions exposing (..)
 import Nexosis.Types.Algorithm exposing (..)
@@ -22,14 +25,14 @@ import Nexosis.Types.DistanceMetric exposing (..)
 import Nexosis.Types.PredictionDomain as PredictionDomain
 import Nexosis.Types.Session exposing (..)
 import Nexosis.Types.Status as Status exposing (Status)
+import NexosisHelpers exposing (formatFloatToString)
 import Page.Helpers exposing (..)
 import Ports
 import RemoteData as Remote
-import Request.DataSet exposing (getDataByDateRange)
 import Request.Log as Log
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
-import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
+import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
 import View.CopyableText exposing (copyableText)
@@ -66,7 +69,7 @@ init context sessionId =
             Task.attempt GetWindowWidth Window.width
 
         loadSessionDetail =
-            Request.Session.getOne context.config sessionId
+            Nexosis.Api.Sessions.getOne context.config.clientConfig sessionId
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
@@ -103,12 +106,12 @@ update msg model context =
                             details =
                                 case sessionInfo.predictionDomain of
                                     PredictionDomain.Classification ->
-                                        getConfusionMatrix context.config model.sessionId 0 25
+                                        getConfusionMatrix context.config.clientConfig model.sessionId 0 25
                                             |> Remote.sendRequest
                                             |> Cmd.map ConfusionMatrixLoaded
 
                                     PredictionDomain.Anomalies ->
-                                        getDistanceMetrics context.config model.sessionId 0 1000
+                                        getDistanceMetrics context.config.clientConfig model.sessionId 0 1000
                                             |> Remote.sendRequest
                                             |> Cmd.map DistanceMetricLoaded
 
@@ -117,13 +120,13 @@ update msg model context =
                         in
                         { model | loadingResponse = response }
                             => Cmd.batch
-                                [ Request.Session.results context.config model.sessionId 0 1000
+                                [ Nexosis.Api.Sessions.results context.config.clientConfig model.sessionId 0 1000
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
                                 , Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                                 ]
-                    else if not <| Data.Session.sessionIsCompleted sessionInfo then
+                    else if not <| sessionIsCompleted sessionInfo then
                         { model | loadingResponse = response }
                             => delayAndRecheckSession context.config model.sessionId
                     else
@@ -147,7 +150,7 @@ update msg model context =
                                 dates =
                                     getDataDateRange { startDate = session.startDate, endDate = session.endDate, resultInterval = session.resultInterval, predictionDomain = session.predictionDomain }
                             in
-                            getDataByDateRange context.config (toDataSetName session.dataSourceName) (Just dates) includedColumns
+                            getDataByDateRange context.config.clientConfig (toDataSetName session.dataSourceName) (Just dates) includedColumns
                                 |> Remote.sendRequest
                                 |> Cmd.map DataSetLoaded
 
@@ -181,7 +184,7 @@ update msg model context =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete context.config >> ignoreCascadeParams
+                    Nexosis.Api.Sessions.delete context.config.clientConfig >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -224,7 +227,7 @@ update msg model context =
         DownloadResults ->
             let
                 resultsRequest =
-                    Request.Session.resultsCsv context.config model.sessionId
+                    Nexosis.Api.Sessions.resultsCsv context.config.clientConfig model.sessionId
                         |> Remote.sendRequest
                         |> Cmd.map DownloadResponse
             in
@@ -315,7 +318,7 @@ getDataDateRange { startDate, endDate, resultInterval, predictionDomain } =
 delayAndRecheckSession : Config -> String -> Cmd Msg
 delayAndRecheckSession config sessionId =
     delayTask 15
-        |> Task.andThen (\_ -> Request.Session.getOne config sessionId |> Http.toTask)
+        |> Task.andThen (\_ -> Nexosis.Api.Sessions.getOne config.clientConfig sessionId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map SessionResponse
 

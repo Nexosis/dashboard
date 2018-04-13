@@ -1,49 +1,37 @@
-module Request.DataSet exposing (batch)
+module Request.DataSet exposing (batchPut)
 
 import Data.Config exposing (Config)
-import Data.File as File
+import Data.File as File exposing (UploadData(..), UploadDataRequest, encodeCsvDataFileUpload, encodeJsonDataFileUpload)
 import Http
+import Nexosis.Api.Data as Data
 
 
-batch : PutUploadRequest -> (( String, String, String ) -> a) -> List a
+batch : UploadDataRequest -> (String -> String -> String -> a) -> List a
 batch request put =
     case request.data of
         Json json ->
             let
-                jsonDataToString data =
-                    Encode.encode 0 (File.jsonDataEncoder data)
-
                 upload data =
-                    put ( request.name, jsonDataToString data, dataFormatToContentType DataFormat.Json )
+                    let
+                        ( content, contentType ) =
+                            encodeJsonDataFileUpload json
+                    in
+                    put request.name content contentType
             in
             File.batchJsonData 2000 upload <| json
 
         Csv csv ->
             let
-                csvDataToString data =
-                    let
-                        sep =
-                            String.join ","
-
-                        header =
-                            sep data.headers
-
-                        line =
-                            String.join "\x0D\n"
-                    in
-                    line <| [ header ] ++ List.map sep data.records
-
                 upload data =
-                    put ( request.name, csvDataToString data, dataFormatToContentType DataFormat.Csv )
+                    let
+                        ( content, contentType ) =
+                            encodeCsvDataFileUpload csv
+                    in
+                    put request.name content contentType
             in
             File.batchCsvData 3000 upload <| csv
 
 
-putInternal : Config -> ( String, String, String ) -> Http.Request ()
-putInternal config ( name, content, contentType ) =
-    (getBaseUrl config.clientConfig ++ "/data/" ++ Http.encodeUri name)
-        |> HttpBuilder.put
-        |> HttpBuilder.withBody (Http.stringBody contentType content)
-        |> withAuthorization config.clientConfig
-        |> withAppHeader config.clientConfig
-        |> HttpBuilder.toRequest
+batchPut : Config -> UploadDataRequest -> List (Http.Request ())
+batchPut config request =
+    batch request <| Data.put config.clientConfig

@@ -1,4 +1,4 @@
-module Data.Columns exposing (dataTypeToString, enumDataType, enumRole)
+module Data.Columns exposing (defaultColumnMetadata, enumDataType, enumRole)
 
 import Nexosis.Types.AggregationStrategy as Aggregate
 import Nexosis.Types.Columns exposing (ColumnMetadata, DataType(..), Role(..))
@@ -23,14 +23,6 @@ enumRole =
     , Target
     , Feature
     ]
-
-
-dataTypeToString : DataType -> String
-dataTypeToString dataType =
-    if dataType == Measure then
-        "numericMeasure"
-    else
-        toString dataType
 
 
 defaultColumnMetadata : ColumnMetadata

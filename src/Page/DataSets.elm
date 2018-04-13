@@ -8,12 +8,12 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
+import Nexosis.Api.Data
 import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, dataSetNameToString, toDataSetName)
+import NexosisHelpers exposing (SortDirection(..), SortParameters, commaFormatInteger)
 import RemoteData as Remote
-import Request.DataSet
-import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
+import Util exposing ((=>), dataSizeWithSuffix, formatDisplayName, formatDisplayNameWithWidth, isJust, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.DeleteDialog as DeleteDialog
 import View.Grid as Grid
@@ -56,7 +56,7 @@ type alias Model =
 
 loadDataSetList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
 loadDataSetList context pageNum pageSize sorting =
-    Request.DataSet.get context.config pageNum pageSize sorting
+    Nexosis.Api.Data.get context.config.clientConfig pageNum pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
@@ -123,7 +123,7 @@ update msg model context =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete context.config
+                    toDataSetName >> Nexosis.Api.Data.delete context.config.clientConfig
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd

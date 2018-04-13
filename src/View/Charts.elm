@@ -7,9 +7,9 @@ import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style
 import Json.Encode
 import List.Extra as List exposing (find)
 import Nexosis.Types.AggregationStrategy as AggregationStrategy
-import Nexosis.Types.Columns as Columns exposing (ColumnMetadata)
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, DistributionShape)
 import Nexosis.Types.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
-import Nexosis.Types.DataSet exposing (DataSetData, DistributionShape)
+import Nexosis.Types.DataSet exposing (DataSetData)
 import Nexosis.Types.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
 import Nexosis.Types.Session as Session exposing (SessionData, SessionResults)
 import String.Extra as String exposing (replace)
@@ -26,7 +26,7 @@ renderChart spec =
 wordOccurrenceRow : DistributionShape -> Html msg
 wordOccurrenceRow item =
     case item of
-        Data.DataSet.Counts label count ->
+        Columns.Counts label count ->
             tr [] [ td [ class "value" ] [ Html.text label ], td [ class "number" ] [ Html.text <| toString count ] ]
 
         _ ->
@@ -83,10 +83,10 @@ distributionItemToRow shape =
             "Value"
     in
     case shape of
-        Data.DataSet.Counts label count ->
+        Columns.Counts label count ->
             dataRow [ ( itemLabel, Str label ), ( "Count", Number (toFloat count) ) ] []
 
-        Data.DataSet.Ranges min max count ->
+        Columns.Ranges min max count ->
             if min == max then
                 dataRow [ ( itemLabel, Str min ), ( "Count", Number (toFloat count) ) ] []
             else

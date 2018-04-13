@@ -1,7 +1,6 @@
 module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
-import Data.Columns exposing (ColumnMetadata, Role)
 import Data.Context exposing (ContextModel)
 import Data.Metric exposing (..)
 import Dict exposing (Dict)
@@ -10,14 +9,16 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra exposing (find)
 import Nexosis.Api.Models exposing (getOne)
+import Nexosis.Types.Columns exposing (ColumnMetadata, Role(..))
 import Nexosis.Types.DataSet exposing (toDataSetName)
 import Nexosis.Types.Models exposing (..)
 import Nexosis.Types.PredictionDomain exposing (..)
+import NexosisHelpers exposing (formatFloatToString)
 import Page.ModelPredict as ModelPredict
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
-import Util exposing ((=>), formatDisplayName, formatFloatToString, styledNumber)
+import Util exposing ((=>), formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.CopyableText exposing (copyableText)
 import View.DeleteDialog as DeleteDialog
@@ -37,7 +38,7 @@ init : ContextModel -> String -> ( Model, Cmd Msg )
 init context modelId =
     let
         loadModelDetail =
-            Request.Model.getOne context.config modelId
+            getOne context.config.clientConfig modelId
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
@@ -106,7 +107,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Request.Model.delete context.config >> ignoreCascadeParams
+                    Nexosis.Api.Models.delete context.config.clientConfig >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -181,7 +182,7 @@ detailRow model context =
                         ]
                     , p []
                         [ strong [] [ text "Target Column: " ]
-                        , text (find (\c -> c.role == Data.Columns.Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
+                        , text (find (\c -> c.role == Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
                         ]
                     ]
                 , div [ class "col-sm-4" ] [ metricsList context resp.algorithm.name resp.metrics ]

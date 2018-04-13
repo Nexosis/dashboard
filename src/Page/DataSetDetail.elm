@@ -5,20 +5,23 @@ import Data.Cascade as Cascade
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString)
-import Data.Session exposing (SessionData, SessionList)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import Http exposing (encodeUri)
+import Nexosis.Api.Data
 import Nexosis.Api.Sessions exposing (getForDataset)
-import Nexosis.Types.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
-import Nexosis.Types.Link exposing (Link, linkDecoder)
+import Nexosis.Types.Columns exposing (ColumnStats, ColumnStatsDict)
+import Nexosis.Types.DataSet as DataSet exposing (DataSet, DataSetData, DataSetName, DataSetStats, dataSetNameToString, toDataSetName)
+import Nexosis.Types.Link exposing (Link)
+import Nexosis.Types.Session exposing (SessionData, SessionList)
+import NexosisHelpers exposing (commaFormatInteger)
 import Page.DataSetData as DataSetData exposing (Model, Msg, init, update, view)
 import RemoteData as Remote
 import Request.DataSet
-import Util exposing ((=>), commaFormatInteger, dataSizeWithSuffix, formatDisplayName, styledNumber)
+import Util exposing ((=>), dataSizeWithSuffix, formatDisplayName, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.ColumnMetadataEditor as ColumnMetadataEditor
 import View.CopyableText exposing (copyableText)
@@ -53,7 +56,7 @@ init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
 init context dataSetName =
     let
         loadData =
-            Request.DataSet.getRetrieveDetail context.config dataSetName 0 context.userPageSize
+            Nexosis.Api.Data.getRetrieveDetail context.config.clientConfig dataSetName 0 context.userPageSize
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -80,7 +83,7 @@ initTabs =
 
 loadRelatedSessions : Config -> DataSetName -> Cmd Msg
 loadRelatedSessions config dataset =
-    getForDataset config dataset
+    getForDataset config.clientConfig dataset
         |> Remote.sendRequest
         |> Cmd.map SessionDataListResponse
 
@@ -123,7 +126,7 @@ update msg model context =
                         model.columnMetadataEditorModel
                         context
                         (\modifiedMetadata ->
-                            Request.DataSet.updateMetadata context.config (Request.DataSet.MetadataUpdateRequest model.dataSetName modifiedMetadata)
+                            Nexosis.Api.Data.updateMetadata context.config.clientConfig (Nexosis.Api.Data.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                         )
 
@@ -153,7 +156,7 @@ update msg model context =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Request.DataSet.delete context.config
+                    toDataSetName >> Nexosis.Api.Data.delete context.config.clientConfig
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd

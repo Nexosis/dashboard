@@ -113,7 +113,7 @@ type Page
 
 getMetrics : ContextModel -> Cmd Msg
 getMetrics context =
-    Metrics.get context.config.clientConfig
+    Nexosis.Api.Metrics.get context.config.clientConfig
         |> Remote.sendRequest
         |> Cmd.map MetricTextLoaded
 

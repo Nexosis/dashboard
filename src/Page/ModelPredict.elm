@@ -11,7 +11,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
 import Nexosis.Api.Models exposing (predict, predictRaw)
-import Nexosis.Types.Models exposing (PredictionResult, decodePredictions)
+import Nexosis.Types.Models exposing (PredictionResult)
 import Page.Helpers exposing (expandedMessagesTable, explainer)
 import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote
@@ -31,7 +31,7 @@ type alias Model =
     , fileName : String
     , fileUploadErrorOccurred : Maybe File.FileUploadErrorType
     , dataInput : Maybe String
-    , uploadResponse : Remote.WebData Data.Model.PredictionResult
+    , uploadResponse : Remote.WebData PredictionResult
     , downloadResponse : Remote.WebData String
     , showDownloadTypeSelector : Bool
     , currentPage : Int
@@ -58,7 +58,7 @@ type Msg
     | FileContentRead Json.Decode.Value
     | DataInputChanged String
     | PredictionStarted
-    | PredictResponse (Remote.WebData Data.Model.PredictionResult)
+    | PredictResponse (Remote.WebData PredictionResult)
     | ChangePage Int
     | ToggleFileTypeSelector
     | FileDownload DataFormat.DataFormat
@@ -141,7 +141,7 @@ update msg model context =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predict context.config model.modelId value (DataFormat.dataFormatToContentType model.inputType)
+                    predict context.config.clientConfig model.modelId value (DataFormat.dataFormatToMimeType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
@@ -156,7 +156,7 @@ update msg model context =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predictRaw context.config model.modelId value (DataFormat.dataFormatToContentType model.inputType) (DataFormat.dataFormatToContentType downloadType)
+                    predictRaw context.config.clientConfig model.modelId value (DataFormat.dataFormatToMimeType model.inputType) (DataFormat.dataFormatToMimeType downloadType)
                         |> Remote.sendRequest
                         |> Cmd.map DownloadResponse
             in
@@ -177,7 +177,7 @@ update msg model context =
         DownloadResponse result ->
             case result of
                 Remote.Success predictionData ->
-                    { model | downloadResponse = result } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToContentType model.outputType }
+                    { model | downloadResponse = result } => Ports.requestSaveFile { contents = predictionData, name = formatFilename model, contentType = DataFormat.dataFormatToMimeType model.outputType }
 
                 Remote.Failure err ->
                     { model | downloadResponse = result } => Log.logHttpError err

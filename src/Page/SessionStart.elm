@@ -1,11 +1,10 @@
 module Page.SessionStart exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes exposing (Route)
-import Data.Columns as Columns
+import Data.Columns
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
-import Data.Session as Session exposing (ResultInterval(..), SessionData)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Date exposing (Date, Month(..))
 import Date.Extra as Date
@@ -19,9 +18,12 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onBlur, onCheck, onClick, onInput)
 import List.Extra as List
 import Maybe.Verify
+import Nexosis.Api.Data
 import Nexosis.Api.Sessions exposing (ForecastSessionRequest, ImpactSessionRequest, ModelSessionRequest, postForecast, postImpact, postModel)
-import Nexosis.Types.DataSet exposing (ColumnStats, DataSetData, DataSetName, DataSetStats, dataSetNameToString)
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, ColumnStats)
+import Nexosis.Types.DataSet exposing (DataSetData, DataSetName, DataSetStats, dataSetNameToString)
 import Nexosis.Types.PredictionDomain as PredictionDomain exposing (PredictionDomain(..))
+import Nexosis.Types.Session as Session exposing (ResultInterval(..), SessionData)
 import Page.Helpers exposing (explainer, explainerFormat)
 import RemoteData as Remote
 import Request.DataSet
@@ -49,7 +51,7 @@ type alias Model =
     , dataSetName : DataSetName
     , dataSetResponse : Remote.WebData DataSetData
     , columnEditorModel : ColumnMetadataEditor.Model
-    , sessionColumnMetadata : List Columns.ColumnMetadata
+    , sessionColumnMetadata : List ColumnMetadata
     , sessionName : Maybe String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
@@ -117,7 +119,7 @@ init config dataSetName =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Request.DataSet.getRetrieveDetail config dataSetName 0 1
+            Nexosis.Api.Data.getRetrieveDetail config.clientConfig dataSetName 0 1
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -458,17 +460,17 @@ update msg model context =
                 sessionRequest =
                     case request of
                         ForecastRequest forecastRequest ->
-                            postForecast context.config forecastRequest
+                            postForecast context.config.clientConfig forecastRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
                         ImpactRequest impactRequest ->
-                            postImpact context.config impactRequest
+                            postImpact context.config.clientConfig impactRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
                         ModelRequest modelRequest ->
-                            postModel context.config modelRequest
+                            postModel context.config.clientConfig modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
             in
@@ -1146,7 +1148,7 @@ dateColumnCandidate list =
                 |> List.append (List.filter (\a -> a.role == Columns.Timestamp) list)
                 |> List.head
     in
-    Maybe.withDefault Columns.defaultColumnMetadata column
+    Maybe.withDefault Data.Columns.defaultColumnMetadata column
 
 
 getMinMaxValueFromCandidate : Model -> ( String, String )
