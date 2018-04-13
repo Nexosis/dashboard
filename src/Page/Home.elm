@@ -12,7 +12,7 @@ import Nexosis.Api.Data
 import Nexosis.Api.Models
 import Nexosis.Api.Sessions
 import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
-import Nexosis.Types.Models exposing (ModelData, ModelList)
+import Nexosis.Types.Model exposing (ModelData, ModelList)
 import Nexosis.Types.Session exposing (SessionList)
 import Nexosis.Types.SortParameters as Sorting
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)

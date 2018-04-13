@@ -9,7 +9,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onCheck, onClick, onInput)
 import Nexosis.Api.Models exposing (delete, get)
-import Nexosis.Types.Models exposing (ModelData, ModelList)
+import Nexosis.Types.Model exposing (ModelData, ModelList)
 import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import Page.Helpers exposing (explainer)
 import RemoteData as Remote

@@ -11,7 +11,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (on, onClick, onInput)
 import Json.Decode exposing (succeed)
 import Nexosis.Api.Models exposing (predict, predictRaw)
-import Nexosis.Types.Models exposing (PredictionResult)
+import Nexosis.Types.Model exposing (PredictionResult)
 import Page.Helpers exposing (expandedMessagesTable, explainer)
 import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote

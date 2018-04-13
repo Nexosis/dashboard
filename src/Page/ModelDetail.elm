@@ -11,7 +11,7 @@ import List.Extra exposing (find)
 import Nexosis.Api.Models exposing (getOne)
 import Nexosis.Types.Columns exposing (ColumnMetadata, Role(..))
 import Nexosis.Types.DataSet exposing (toDataSetName)
-import Nexosis.Types.Models exposing (..)
+import Nexosis.Types.Model exposing (..)
 import Nexosis.Types.PredictionDomain exposing (..)
 import Page.ModelPredict as ModelPredict
 import Ports
