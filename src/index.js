@@ -112,8 +112,8 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
             app.ports.uploadFileSelected.subscribe(function (info) {
 
-                const id = info[0]
-                const maxSize = info[1]
+                const id = info[0];
+                const maxSize = info[1];
 
                 var node = document.getElementById(id);
                 if (node === null) {
@@ -152,6 +152,8 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
 
                         reader.readAsText(file);
                     }
+                    //clear the value out so that we can re-select the same file later if we want to
+                    node.value = null;
                 }
             });
 

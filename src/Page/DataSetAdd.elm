@@ -291,7 +291,6 @@ verifyFileType error input =
             Ok <| input
 
 
-
 verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | contentType : DataFormat.DataFormat, content : String } UploadData
 verifyDataContent context field input =
     let
@@ -312,9 +311,6 @@ verifyDataContent context field input =
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
-
-
-
 
 
 parseJson : field -> String -> Result (List ( field, String )) UploadData
@@ -434,7 +430,7 @@ update msg model context =
             { model | tabs = newTabs } => Ports.prismHighlight ()
 
         ( ChooseUploadType, FileSelected ) ->
-            model => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
+            { model | errors = [] } => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
 
         ( ChooseUploadType, TabMsg tabMsg ) ->
             updateTabContents model tabMsg => Cmd.none
