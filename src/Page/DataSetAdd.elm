@@ -27,7 +27,7 @@ import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
-import Util exposing ((=>), dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
+import Util exposing ((=>), dataSizeWithCustomKSize, dataSizeWithSuffix, delayTask, formatDisplayName, formatDisplayNameWithWidth, spinner, unwrapErrors)
 import Verify exposing (Validator, andThen, keep)
 import View.Breadcrumb as Breadcrumb
 import View.Error exposing (viewFieldError, viewMessagesAsError, viewRemoteError)
@@ -1004,7 +1004,7 @@ viewUploadTab context tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("Files uploaded through the browser must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size.  Larger files may be uploaded via one of the other import methods.") ]
+                                div [ class "alert alert-danger" ] [ text ("The dataset you're trying to upload is too large. Your account allows for datasets of up to" ++ (maxSize context.quotas |> dataSizeWithCustomKSize 1000) ++ " in size.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
