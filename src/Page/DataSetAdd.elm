@@ -1004,7 +1004,7 @@ viewUploadTab context tabModel model =
                     (\errorType ->
                         case errorType of
                             File.FileTooLarge ->
-                                div [ class "alert alert-danger" ] [ text ("The dataset you're trying to upload is too large. Your account allows for datasets of up to" ++ (maxSize context.quotas |> dataSizeWithCustomKSize 1000) ++ " in size.") ]
+                                div [ class "alert alert-danger" ] [ text ("The file you are attempting to upload is too large for your subscription level. Your account currently has a limit of " ++ (maxSize context.quotas |> dataSizeWithCustomKSize 1000) ++ " per dataset. Please select a smaller file, or reduce the size of this dataset and try again.") ]
 
                             File.UnsupportedFileType ->
                                 div [ class "alert alert-danger" ] [ text "Only JSON or CSV file types are supported." ]
