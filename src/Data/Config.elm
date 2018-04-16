@@ -4,7 +4,7 @@ import Dict exposing (Dict)
 import Json.Decode as Decode exposing (Decoder, andThen, dict, field, int, maybe, nullable, string, succeed)
 import Json.Decode.Pipeline as Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Jwt
-import Nexosis exposing (ClientConfig, createConfigWithTokenOptions, withAuthorization)
+import Nexosis exposing (ClientConfig, createConfigWithTokenOptions)
 
 
 type alias Config =

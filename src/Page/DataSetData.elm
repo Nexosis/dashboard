@@ -7,7 +7,8 @@ import Html.Attributes exposing (..)
 import List
 import Nexosis.Api.Data exposing (getRetrieveDetail)
 import Nexosis.Types.Columns exposing (ColumnMetadata)
-import Nexosis.Types.DataSet as DataSet exposing (Data, DataSetData, DataSetName, toDataSetName)
+import Nexosis.Types.Data exposing (Data)
+import Nexosis.Types.DataSet as DataSet exposing (DataSetData, DataSetName, toDataSetName)
 import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import RemoteData as Remote
 import StateStorage
