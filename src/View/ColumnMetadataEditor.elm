@@ -358,7 +358,7 @@ update msg model context pendingSaveCommand =
                                 )
                                 columnsWithNewDataType
                         )
-                    => Updated (Dict.values model.modifiedMetadata)
+                    => Updated (Dict.values modifiedMetadata)
             else
                 { model | saveResult = result } => Cmd.none => NoOp
 

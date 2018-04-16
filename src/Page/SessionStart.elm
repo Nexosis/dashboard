@@ -577,8 +577,7 @@ update msg model context =
                             model.sessionColumnMetadata
 
                 newTarget =
-                    Dict.values model.columnEditorModel.modifiedMetadata
-                        |> mergeMetadata (getMetaDataColumns model)
+                    mergeMetadata (getMetaDataColumns model) modifiedMetadata
                         |> getTargetColumn
             in
             { model
