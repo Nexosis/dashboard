@@ -7,7 +7,6 @@ import Data.DataSet as DataSet exposing (DataSet, DataSetData, DataSetList, Data
 import Data.File as File
 import Http
 import HttpBuilder exposing (RequestBuilder, withExpectJson)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Nexosis exposing (ClientConfig, withAuthorization)
 import Request.Sorting exposing (SortDirection(..), SortParameters, sortParams)

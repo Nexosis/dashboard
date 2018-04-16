@@ -7,6 +7,7 @@ import Json.Decode.Pipeline exposing (custom, decode, optional, required)
 import Json.Encode
 import Json.Encode.Extra
 import List exposing (drop, take)
+import List.Extra exposing (maximumBy)
 
 
 type FileUploadErrorType
@@ -49,12 +50,16 @@ calculateCsvBatchSize csv =
             String.length row
 
         rowSize records =
-            case List.head records of
+            let
+                maxSize =
+                    maximumBy sizeOf records
+            in
+            case maxSize of
                 Nothing ->
-                    0
+                    1
 
-                Just r ->
-                    sizeOf r
+                Just record ->
+                    sizeOf record
 
         batchSize rowSize =
             floor <| ((1024 * 1024 * 0.75) / toFloat rowSize)
@@ -72,9 +77,13 @@ calculateJsonBatchSize json =
                 |> String.length
 
         rowSize json =
-            case List.head json.data of
+            let
+                maxSize =
+                    maximumBy sizeOf <| List.take 100 json.data
+            in
+            case maxSize of
                 Nothing ->
-                    0
+                    1
 
                 Just r ->
                     sizeOf r
