@@ -296,7 +296,7 @@ verifyDataContent : ContextModel -> field -> Validator ( field, String ) { c | c
 verifyDataContent context field input =
     let
         tooBig =
-            (String.length input.content * 2) > maxSize context.quotas
+            String.length input.content > maxSize context.quotas
 
         asCsv content =
             String.lines content
@@ -314,7 +314,7 @@ verifyDataContent context field input =
     in
     case tooBig of
         True ->
-            Err [ field => ("Data must be less than " ++ (maxSize context.quotas |> dataSizeWithSuffix) ++ " in size") ]
+            Err [ field => ("The file you are attempting to upload is too large for your subscription level. Your account currently has a limit of " ++ (maxSize context.quotas |> dataSizeWithCustomKSize 1000) ++ " per dataset. Please select a smaller file, or reduce the size of this dataset and try again.") ]
 
         False ->
             case input.contentType of
