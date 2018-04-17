@@ -11,8 +11,6 @@
         "test-output": "node node_modules/elm-test/bin/elm-test --report=junit > junit.xml",
         "remove-dist": "rimraf ./dist && rimraf ./temp",
         "clean-dist": "npm run remove-dist && mkdir dist && mkdir temp",
-        "elm-install": "elm-install",
-        "elm-install-tests": "cd tests/ && elm-install --skip-update",
         "prebuild": "npm run clean-dist",
         "build": "set TEMP=.\\temp\\&&babel-node tools/build.js",
         "open-app": "babel-node tools/srcServer.js",
