@@ -27,36 +27,42 @@ if (!Intercept.isWired()) {
 
 fetch('./config.json', { cache: 'no-store' }).then(function (response) {
     response.json().then(function (config) {
+        let logger;
 
-        _LTracker.push({
-            'logglyKey': config.loggly.key,
-            'sendConsoleErrors': false,
-            'tag': 'dashboard',
-        });
+        if (config.loggly) {
+            _LTracker.push({
+                'logglyKey': config.loggly.key,
+                'sendConsoleErrors': false,
+                'tag': 'dashboard',
+            });
 
-        if (config.loggly.sendConsoleErrors === 'true') {
-            window.onerror = function (msg, file, line, col, error) {
-                StackTrace.fromError(error).then(stack => {
-                    _LTracker.push({
-                        msg,
-                        file,
-                        stack,
-                        'Level': 'Error',
-                        userAgent: navigator['userAgent']
-                    });
-                }).catch(console.log);
+            if (config.loggly.sendConsoleErrors === 'true') {
+                window.onerror = function (msg, file, line, col, error) {
+                    StackTrace.fromError(error).then(stack => {
+                        _LTracker.push({
+                            msg,
+                            file,
+                            stack,
+                            'Level': 'Error',
+                            userAgent: navigator['userAgent']
+                        });
+                    }).catch(console.log);
+                }
+            }
+
+            logger = function (logMessage, level = 'Information') {
+                console.log(logMessage);
+                _LTracker.push({
+                    'Environment': config.loggly.environment,
+                    'Message': logMessage,
+                    'Level': level
+                });
+            };
+        } else {
+            logger = function (logMessage, level = 'Information') {
+                console.log(logMessage);
             }
         }
-
-
-        const logger = function (logMessage, level = 'Information') {
-            console.log(logMessage);
-            _LTracker.push({
-                'Environment': config.loggly.environment,
-                'Message': logMessage,
-                'Level': level
-            });
-        };
 
         const docsRequests = []
         for (let doc of config.explainers) {
