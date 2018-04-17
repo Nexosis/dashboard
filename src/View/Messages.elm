@@ -1,8 +1,8 @@
 module View.Messages exposing (messageSeverityDisplay, viewMessages)
 
-import Data.Message exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Nexosis.Types.Message exposing (Message, Severity(..))
 
 
 type alias DisplayMessage a =

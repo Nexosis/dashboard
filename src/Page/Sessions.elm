@@ -3,17 +3,17 @@ module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridRe
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (toDataSetName)
 import Data.DisplayDate exposing (toShortDateString)
-import Data.Session exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Nexosis.Api.Sessions exposing (get)
+import Nexosis.Types.DataSet exposing (toDataSetName)
+import Nexosis.Types.Session exposing (SessionData, SessionList)
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import Page.Helpers exposing (..)
 import RemoteData as Remote
-import Request.Session exposing (get)
-import Request.Sorting exposing (SortDirection(..), SortParameters)
 import StateStorage exposing (saveAppState)
 import Util exposing ((=>), formatDisplayName, formatDisplayNameWithWidth, spinner)
 import View.Breadcrumb as Breadcrumb
@@ -56,7 +56,7 @@ type alias SessionColumns msg =
 
 loadSessionList : Config -> Int -> Int -> SortParameters -> Cmd Msg
 loadSessionList config pageNo pageSize sortParams =
-    Request.Session.get config pageNo pageSize sortParams
+    Nexosis.Api.Sessions.get config.clientConfig pageNo pageSize sortParams
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
 
@@ -119,7 +119,7 @@ update msg model context =
                     cmd
 
                 pendingDeleteCmd =
-                    Request.Session.delete context.config >> ignoreCascadeParams
+                    Nexosis.Api.Sessions.delete context.config.clientConfig >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -358,5 +358,4 @@ deleteColumn =
 deleteButton : SessionData -> Grid.HtmlDetails Msg
 deleteButton model =
     Grid.HtmlDetails []
-        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ]
-        ]
+        [ a [ onClick (ShowDeleteDialog model), alt "Delete", attribute "role" "button" ] [ i [ class "fa fa-trash-o" ] [] ] ]

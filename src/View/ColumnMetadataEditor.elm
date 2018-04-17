@@ -2,11 +2,10 @@ module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, su
 
 import Autocomplete
 import Char
-import Data.Columns as Columns exposing (ColumnMetadata, DataType(..), Role(..), enumDataType, enumRole)
+import Data.Columns as Columns exposing (enumDataType, enumRole)
 import Data.Config as Config
 import Data.Context exposing (ContextModel)
-import Data.DataSet as DataSet exposing (ColumnStats, ColumnStatsDict, DataSetData, DataSetName, DataSetStats, toDataSetName)
-import Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
+import Data.ImputationStrategy exposing (enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as Dict
 import Html exposing (..)
@@ -14,11 +13,14 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onFocus, onInput)
 import Http
 import Json.Decode as Decode
+import Nexosis.Api.Data
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, ColumnStats, ColumnStatsDict, DataType(..), Role(..))
+import Nexosis.Types.DataSet as DataSet exposing (DataSetData, DataSetName, DataSetStats, toDataSetName)
+import Nexosis.Types.ImputationStrategy exposing (ImputationStrategy(..))
+import Nexosis.Types.SortParameters exposing (SortDirection(..), SortParameters)
 import Ports
 import RemoteData as Remote
-import Request.DataSet
 import Request.Log exposing (logHttpError)
-import Request.Sorting exposing (SortDirection(..), SortParameters)
 import SelectWithStyle as UnionSelect
 import StateStorage exposing (saveAppState)
 import String.Extra as String
@@ -134,7 +136,7 @@ updateDataSetResponse context model dataSetResponse =
                 |> Maybe.withDefault ""
     in
     { model | columnMetadata = mappedColumns, targetQuery = targetName, showAutocomplete = False }
-        => (Request.DataSet.getStats context.config model.dataSetName
+        => (Nexosis.Api.Data.getStats context.config.clientConfig model.dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map StatsResponse
            )
@@ -143,7 +145,7 @@ updateDataSetResponse context model dataSetResponse =
 delayAndRecheckStats : Config.Config -> DataSetName -> Cmd Msg
 delayAndRecheckStats config dataSetName =
     delayTask 20
-        |> Task.andThen (\_ -> Request.DataSet.getStats config dataSetName |> Http.toTask)
+        |> Task.andThen (\_ -> Nexosis.Api.Data.getStats config.clientConfig dataSetName |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map StatsResponse
 
@@ -352,7 +354,7 @@ update msg model context pendingSaveCommand =
                             (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
                             :: List.map
                                 (\c ->
-                                    Request.DataSet.getStatsForColumn context.config model.dataSetName c.name c.dataType
+                                    Nexosis.Api.Data.getStatsForColumn context.config.clientConfig model.dataSetName c.name c.dataType
                                         |> Remote.sendRequest
                                         |> Cmd.map (SingleStatsResponse c.name)
                                 )

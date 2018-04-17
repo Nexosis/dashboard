@@ -1,12 +1,12 @@
 module Data.Response exposing (GlobalMessage, Quota, Quotas, Response, ResponseError, decodeResponse, decodeXhrResponse, maxSize, responseErrorDecoder)
 
 import AppRoutes exposing (Route)
-import Data.Message exposing (Severity, decodeSeverity)
 import Dict exposing (Dict)
 import Http
 import Json.Decode exposing (Decoder, Value, andThen, decodeString, decodeValue, dict, fail, field, int, list, nullable, oneOf, string, succeed, value)
 import Json.Decode.Extra exposing (doubleEncoded, withDefault)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
+import Nexosis.Types.Message exposing (Severity(..))
 
 
 type alias Response =
@@ -139,3 +139,26 @@ decodeResponseBodyError =
 decodeErrorDetailValue : Decoder String
 decodeErrorDetailValue =
     oneOf [ string, list string |> andThen (\l -> succeed (toString l)), value |> andThen (\v -> succeed (toString v)) ]
+
+
+decodeSeverity : Decoder Severity
+decodeSeverity =
+    string
+        |> andThen
+            (\severity ->
+                case severity of
+                    "debug" ->
+                        succeed Debug
+
+                    "informational" ->
+                        succeed Informational
+
+                    "warning" ->
+                        succeed Warning
+
+                    "error" ->
+                        succeed Error
+
+                    unknown ->
+                        fail <| "Unknown message severity: " ++ unknown
+            )

@@ -1,12 +1,13 @@
 module Util exposing ((=>), commaFormatInteger, dataSizeWithCustomKSize, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
-import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Date exposing (Date, Month)
 import Html
 import Html.Attributes
 import List.Extra as List
 import Process
 import Regex
+import Result.Extra exposing (orElseLazy)
 import String.Extra exposing (ellipsis)
 import Task
 import Time
@@ -67,27 +68,9 @@ dataSizeWithCustomKSize kSize size =
                     commaFormatInteger k ++ " Kb"
 
 
-commaFormatInteger : Int -> String
-commaFormatInteger value =
-    String.join "," (splitThousands (toString value))
-
-
-splitThousands : String -> List String
-splitThousands integers =
-    let
-        reversedSplitThousands : String -> List String
-        reversedSplitThousands value =
-            if String.length value > 3 then
-                value
-                    |> String.dropRight 3
-                    |> reversedSplitThousands
-                    |> (::) (String.right 3 value)
-            else
-                [ value ]
-    in
-    integers
-        |> reversedSplitThousands
-        |> List.reverse
+styledNumber : String -> Html.Html msg
+styledNumber input =
+    Html.span [ Html.Attributes.class "number" ] [ Html.text (tryParseAndFormat input) ]
 
 
 formatFloatToString : Float -> String
@@ -145,9 +128,27 @@ isActuallyInteger input =
     (input / 1.0 - (toFloat <| round input)) == 0
 
 
-styledNumber : String -> Html.Html msg
-styledNumber input =
-    Html.span [ Html.Attributes.class "number" ] [ Html.text (tryParseAndFormat input) ]
+commaFormatInteger : Int -> String
+commaFormatInteger value =
+    String.join "," (splitThousands (toString value))
+
+
+splitThousands : String -> List String
+splitThousands integers =
+    let
+        reversedSplitThousands : String -> List String
+        reversedSplitThousands value =
+            if String.length value > 3 then
+                value
+                    |> String.dropRight 3
+                    |> reversedSplitThousands
+                    |> (::) (String.right 3 value)
+            else
+                [ value ]
+    in
+    integers
+        |> reversedSplitThousands
+        |> List.reverse
 
 
 unwrapErrors : Result (List err) a -> List err
@@ -162,16 +163,10 @@ unwrapErrors result =
 
 tryParseAndFormat : String -> String
 tryParseAndFormat input =
-    let
-        dateCandidate =
-            ZonedDateTime.fromISO8601 (utc ()) input
-    in
-    case dateCandidate of
-        Result.Ok date ->
-            toShortDateTimeString date
-
-        _ ->
-            input
+    (String.toInt input |> Result.map commaFormatInteger)
+        |> orElseLazy (\() -> String.toFloat input |> Result.map formatFloatToString)
+        |> orElseLazy (\() -> ZonedDateTime.fromISO8601 (utc ()) input |> Result.map toShortDateString)
+        |> Result.withDefault input
 
 
 delayTask : Int -> Task.Task x ()

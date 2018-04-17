@@ -1,20 +1,20 @@
 module View.Charts exposing (anomalyResults, distributionHistogram, forecastResults, impactResults, regressionResults, renderConfusionMatrix, wordOccurrenceTable)
 
 import Array
-import Data.AggregationStrategy as AggregationStrategy
-import Data.Columns as Columns exposing (ColumnMetadata)
-import Data.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
-import Data.DataSet exposing (DataSetData, DistributionShape)
-import Data.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
-import Data.Session as Session exposing (SessionData, SessionResults)
 import Dict exposing (Dict)
 import Html exposing (Html, a, div, h3, node, span, table, tbody, td, th, thead, tr)
 import Html.Attributes exposing (attribute, class, colspan, href, rowspan, style, target)
 import Json.Encode
 import List.Extra as List exposing (find)
+import Nexosis.Types.AggregationStrategy as AggregationStrategy
+import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, DistributionShape)
+import Nexosis.Types.ConfusionMatrix as ConfusionMatrix exposing (ConfusionMatrix)
+import Nexosis.Types.DataSet exposing (DataSetData)
+import Nexosis.Types.DistanceMetric exposing (DistanceMetrics, DistanceValue, fromDistanceMetrics)
+import Nexosis.Types.Session as Session exposing (SessionData, SessionResults)
 import String.Extra as String exposing (replace)
 import Time.TimeZone as TimeZone
-import Util exposing (formatDateWithTimezone, getTimezoneFromDate)
+import Util exposing (formatDateWithTimezone, getTimezoneFromDate, tryParseAndFormat)
 import VegaLite exposing (..)
 
 
@@ -26,7 +26,7 @@ renderChart spec =
 wordOccurrenceRow : DistributionShape -> Html msg
 wordOccurrenceRow item =
     case item of
-        Data.DataSet.Counts label count ->
+        Columns.Counts label count ->
             tr [] [ td [ class "value" ] [ Html.text label ], td [ class "number" ] [ Html.text <| toString count ] ]
 
         _ ->
@@ -83,14 +83,14 @@ distributionItemToRow shape =
             "Value"
     in
     case shape of
-        Data.DataSet.Counts label count ->
+        Columns.Counts label count ->
             dataRow [ ( itemLabel, Str label ), ( "Count", Number (toFloat count) ) ] []
 
-        Data.DataSet.Ranges min max count ->
+        Columns.Ranges min max count ->
             if min == max then
-                dataRow [ ( itemLabel, Str min ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str (tryParseAndFormat min) ), ( "Count", Number (toFloat count) ) ] []
             else
-                dataRow [ ( itemLabel, Str (min ++ " to " ++ max) ), ( "Count", Number (toFloat count) ) ] []
+                dataRow [ ( itemLabel, Str (tryParseAndFormat min ++ " to " ++ tryParseAndFormat max) ), ( "Count", Number (toFloat count) ) ] []
 
 
 forecastResults : SessionResults -> SessionData -> DataSetData -> Int -> Html msg

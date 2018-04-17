@@ -1,13 +1,27 @@
-module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), JsonData, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, fileReadStatusDecoder, jsonDataDecoder, jsonDataEncoder)
+module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), JsonData, UploadData(..), UploadDataRequest, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, encodeCsvDataFileUpload, encodeJsonDataFileUpload, fileContentEncoder, fileReadStatusDecoder, jsonDataDecoder, parseJson)
 
-import Data.Columns as Columns exposing (ColumnMetadata, decodeColumnMetadata, encodeColumnMetadataList)
 import Dict exposing (Dict)
-import Json.Decode exposing (dict, float, int, keyValuePairs, list, map, oneOf, string)
+import Json.Decode exposing (decodeString, dict, float, int, keyValuePairs, list, map, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (custom, decode, optional, required)
-import Json.Encode
+import Json.Encode as Encode exposing (Value, object)
 import Json.Encode.Extra
 import List exposing (drop, take)
 import List.Extra exposing (maximumBy)
+import Nexosis.Decoders.Columns as Columns exposing (decodeColumnMetadata)
+import Nexosis.Types.Columns exposing (ColumnMetadata, DataType(..))
+import Util exposing ((=>))
+
+
+type alias UploadDataRequest =
+    { name : String
+    , data : UploadData
+    }
+
+
+type alias PredictionRequest =
+    { modelId : String
+    , data : UploadData
+    }
 
 
 type FileUploadErrorType
@@ -19,6 +33,11 @@ type FileUploadErrorType
 type FileReadStatus
     = ReadError FileUploadErrorType
     | Success String String
+
+
+type UploadData
+    = Json JsonData
+    | Csv CsvData
 
 
 type alias JsonData =
@@ -73,7 +92,7 @@ calculateJsonBatchSize : JsonData -> Int
 calculateJsonBatchSize json =
     let
         sizeOf row =
-            Json.Encode.encode 0 (jsonDataEncoder (JsonData [] [ row ]))
+            Encode.encode 0 (jsonDataEncoder (JsonData [] [ row ]))
                 |> String.length
 
         rowSize json =
@@ -140,12 +159,11 @@ jsonDataDecoder =
         |> required "data" (list row)
 
 
-jsonDataEncoder : JsonData -> Json.Encode.Value
-jsonDataEncoder data =
-    Json.Encode.object
-        [ ( "columns", encodeColumnMetadataList data.columns )
-        , ( "data", Json.Encode.list (List.map (Json.Encode.Extra.dict identity Json.Encode.string) data.data) )
-        ]
+parseJson : field -> String -> Result (List ( field, String )) UploadData
+parseJson field content =
+    decodeString jsonDataDecoder content
+        |> Result.map (\d -> Json d)
+        |> Result.mapError (\e -> [ field => e ])
 
 
 fileReadStatusDecoder : Json.Decode.Decoder FileReadStatus
@@ -166,3 +184,70 @@ fileReadStatusDecoder =
                     _ ->
                         Json.Decode.succeed (ReadError UnknownError)
             )
+
+
+fileContentEncoder : { a | data : UploadData } -> ( String, String )
+fileContentEncoder { data } =
+    case data of
+        Json json ->
+            encodeJsonDataFileUpload json
+
+        Csv csv ->
+            encodeCsvDataFileUpload csv
+
+
+encodeJsonDataFileUpload : JsonData -> ( String, String )
+encodeJsonDataFileUpload json =
+    ( Encode.encode 0 (jsonDataEncoder json), "application/json" )
+
+
+encodeCsvDataFileUpload : CsvData -> ( String, String )
+encodeCsvDataFileUpload csv =
+    let
+        sep =
+            String.join ","
+
+        header =
+            sep csv.headers
+
+        line =
+            String.join "\x0D\n"
+
+        data =
+            line <| [ header ] ++ csv.records
+    in
+    ( data, "text/csv" )
+
+
+jsonDataEncoder : JsonData -> Encode.Value
+jsonDataEncoder data =
+    Encode.object
+        [ ( "columns", encodeColumnMetadataList data.columns )
+        , ( "data", Encode.list (List.map (Json.Encode.Extra.dict identity Encode.string) data.data) )
+        ]
+
+
+encodeColumnMetadataList : List ColumnMetadata -> Value
+encodeColumnMetadataList columns =
+    object <|
+        (columns
+            |> List.map (\c -> ( c.name, encodeColumnValues c ))
+        )
+
+
+encodeColumnValues : ColumnMetadata -> Value
+encodeColumnValues column =
+    object
+        [ ( "dataType", encodeDataType <| column.dataType )
+        , ( "role", Encode.string <| toString <| column.role )
+        , ( "imputation", Encode.string <| toString <| column.imputation )
+        , ( "aggregation", Encode.string <| toString <| column.aggregation )
+        ]
+
+
+encodeDataType : DataType -> Value
+encodeDataType dataType =
+    if dataType == Measure then
+        Encode.string "numericMeasure"
+    else
+        Encode.string <| toString dataType

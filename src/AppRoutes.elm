@@ -1,9 +1,11 @@
 module AppRoutes exposing (Route(..), fromApiUrl, fromLocation, href, modifyUrl, newUrl, routeToString)
 
-import Data.DataSet as DataSet
+import Combine exposing ((<$>), (>>=))
 import Html exposing (Attribute)
 import Html.Attributes as Attr
+import Http
 import Navigation exposing (Location)
+import Nexosis.Types.DataSet as DataSet exposing (DataSetName, toDataSetName)
 import Route exposing ((</>), Route, Router, custom, int, match, route, router, static, string)
 import String.Extra exposing (replace)
 import Util exposing ((=>))
@@ -39,14 +41,26 @@ routeMatcher =
     router
         [ route Home (static "")
         , route DataSets (static "data")
-        , route DataSetDetail (static "data" </> custom DataSet.dataSetNameParser)
+        , route DataSetDetail (static "data" </> custom dataSetNameParser)
         , route DataSetAdd (static "addData")
         , route Sessions (static "sessions")
         , route SessionDetail (static "sessions" </> string)
-        , route SessionStart (static "startSession" </> custom DataSet.dataSetNameParser)
+        , route SessionStart (static "startSession" </> custom dataSetNameParser)
         , route Models (static "models")
         , route ModelDetail (static "models" </> string)
         ]
+
+
+dataSetNameParser : Combine.Parser s DataSetName
+dataSetNameParser =
+    let
+        encoded name =
+            name
+                |> Http.decodeUri
+                |> Maybe.map Combine.succeed
+                |> Maybe.withDefault (Combine.fail "can't unencode")
+    in
+    toDataSetName <$> (Combine.regex "[^/]+" >>= encoded)
 
 
 

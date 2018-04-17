@@ -1,10 +1,11 @@
 module DataBatchingTests exposing (..)
 
 import Csv
-import Data.Columns exposing (ColumnMetadata, defaultColumnMetadata)
-import Data.File exposing (..)
+import Data.Columns exposing (defaultColumnMetadata)
+import Data.File exposing (CsvData, JsonData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize)
 import Dict
 import Expect
+import Nexosis.Types.Columns exposing (ColumnMetadata)
 import Test exposing (Test, describe, fuzz, fuzz2, test)
 
 

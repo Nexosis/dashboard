@@ -3,8 +3,6 @@ module Main exposing (..)
 import AppRoutes exposing (Route)
 import Data.Config exposing (Config, NexosisToken, TokenResponse)
 import Data.Context exposing (ContextModel, defaultContext)
-import Data.Message as Message
-import Data.Metric exposing (Metric)
 import Data.Response as Response exposing (Quotas)
 import Dom.Scroll as Scroll exposing (toTop)
 import Feature exposing (Feature, isEnabled)
@@ -14,6 +12,9 @@ import Json.Decode as Decode exposing (Value, decodeValue)
 import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Navigation exposing (Location)
+import Nexosis
+import Nexosis.Api.Metrics exposing (Metric)
+import Nexosis.Types.Message as Message
 import Page.DataSetAdd as DataSetAdd
 import Page.DataSetDetail as DataSetDetail
 import Page.DataSets as DataSets
@@ -28,7 +29,6 @@ import Page.Sessions as Sessions
 import Ports
 import RemoteData as Remote
 import Request.Log as Log
-import Request.Metric as Metrics
 import Request.Token as Token
 import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppState, updateContext)
 import Task
@@ -113,7 +113,7 @@ type Page
 
 getMetrics : ContextModel -> Cmd Msg
 getMetrics context =
-    Metrics.get context.config
+    Nexosis.Api.Metrics.get context.config.clientConfig
         |> Remote.sendRequest
         |> Cmd.map MetricTextLoaded
 
@@ -529,7 +529,7 @@ subscriptions model =
 
         Initialized app ->
             Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse app.context.config.clientConfig.url >> ResponseReceived)
+                [ Ports.responseReceived (Response.decodeXhrResponse (Nexosis.getBaseUrl app.context.config.clientConfig) >> ResponseReceived)
                 , Time.every Time.minute CheckToken
                 , pageSubscriptions app.page
                 , Sub.map OnAppStateUpdated (appStateLoaded app.context.config)

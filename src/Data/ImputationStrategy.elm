@@ -1,13 +1,6 @@
-module Data.ImputationStrategy exposing (ImputationStrategy(..), enumImputationStrategy)
+module Data.ImputationStrategy exposing (enumImputationStrategy)
 
-
-type ImputationStrategy
-    = Zeroes
-    | Mean
-    | Median
-    | Mode
-    | Min
-    | Max
+import Nexosis.Types.ImputationStrategy exposing (ImputationStrategy(..))
 
 
 enumImputationStrategy : List ImputationStrategy

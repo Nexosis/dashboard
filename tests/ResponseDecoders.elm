@@ -1,10 +1,10 @@
 module ResponseDecoders exposing (..)
 
 import AppRoutes exposing (Route)
-import Data.Message as Message
 import Data.Response as Response exposing (decodeResponse)
 import Expect
 import Json.Decode
+import Nexosis.Types.Message as Message
 import Test exposing (Test, describe, test)
 
 

@@ -1,23 +1,6 @@
-module Data.DisplayDate exposing (dateDecoder, toShortDateString, toShortDateStringOrEmpty, toShortDateTimeString)
+module Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty, toShortDateTimeString)
 
-import Json.Decode exposing (Decoder, andThen, fail, string, succeed)
-import Time.TimeZones exposing (etc_universal)
 import Time.ZonedDateTime exposing (ZonedDateTime, day, fromDateTime, fromISO8601, hour, minute, month, toISO8601, utcOffsetString, year)
-
-
-dateDecoder : Decoder ZonedDateTime
-dateDecoder =
-    let
-        convert : String -> Decoder ZonedDateTime
-        convert raw =
-            case fromISO8601 (etc_universal ()) raw of
-                Ok date ->
-                    succeed date
-
-                Err error ->
-                    fail error
-    in
-    string |> andThen convert
 
 
 toShortDateString : ZonedDateTime -> String

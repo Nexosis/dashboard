@@ -1,4 +1,4 @@
-module Data.DataFormat exposing (DataFormat(..), dataFormatToContentType, dataFormatToString, filenameToType, parseDataFormat)
+module Data.DataFormat exposing (DataFormat(..), dataFormatToMimeType, dataFormatToString, filenameToType, parseDataFormat)
 
 
 type DataFormat
@@ -33,6 +33,19 @@ dataFormatToString format =
             "other"
 
 
+dataFormatToMimeType : DataFormat -> String
+dataFormatToMimeType mime =
+    case mime of
+        Json ->
+            "application/json"
+
+        Csv ->
+            "text/csv"
+
+        _ ->
+            ""
+
+
 filenameToType : String -> DataFormat
 filenameToType name =
     let
@@ -45,16 +58,3 @@ filenameToType name =
         Csv
     else
         Other
-
-
-dataFormatToContentType : DataFormat -> String
-dataFormatToContentType uploadType =
-    case uploadType of
-        Json ->
-            "application/json"
-
-        Csv ->
-            "text/csv"
-
-        _ ->
-            ""

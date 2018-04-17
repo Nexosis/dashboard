@@ -37,7 +37,7 @@ rewind ziplist =
         Just a ->
             { previous = List.take (List.length ziplist.previous - 1) ziplist.previous
             , current = a
-            , next = [ ziplist.current ] ++ ziplist.next
+            , next = ziplist.current :: ziplist.next
             }
 
         Nothing ->

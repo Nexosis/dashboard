@@ -1,11 +1,11 @@
 module Data.Context exposing (..)
 
 import Data.Config exposing (Config)
-import Data.Metric exposing (Metric)
 import Data.Response exposing (Quotas)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Decode.Pipeline exposing (custom, decode, hardcoded, optional, required)
 import Json.Encode as Encode exposing (object)
+import Nexosis.Api.Metrics exposing (Metric)
 
 
 type alias ContextModel =

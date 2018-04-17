@@ -5,11 +5,8 @@ import Csv
 import Data.Config exposing (Config)
 import Data.Context as AppContext exposing (ContextModel)
 import Data.DataFormat as DataFormat
-import Data.DataSet
-import Data.File as File
-import Data.Import
+import Data.File as File exposing (UploadData(..), UploadDataRequest)
 import Data.Response as Response exposing (Quotas, maxSize)
-import Data.Status as Status
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -18,12 +15,16 @@ import Http
 import Json.Decode exposing (decodeString, succeed)
 import List.Extra as ListEx
 import Navigation
+import Nexosis.Api.Data
+import Nexosis.Api.Imports exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
+import Nexosis.Types.DataSet exposing (toDataSetName)
+import Nexosis.Types.Import exposing (ImportDetail)
+import Nexosis.Types.Status as Status
 import Page.Helpers exposing (explainer)
 import Ports exposing (fileContentRead, uploadFileSelected)
 import Regex
 import RemoteData as Remote
-import Request.DataSet exposing (PutUploadRequest, UploadData(..), createDataSetWithKey, put)
-import Request.Import exposing (PostAzureRequest, PostS3Request, PostUrlRequest)
+import Request.DataSet
 import Request.Log as Log
 import String.Verify exposing (notBlank)
 import Task exposing (Task)
@@ -41,7 +42,7 @@ type alias Model =
     , key : Maybe String
     , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
-    , importResponse : Remote.WebData Data.Import.ImportDetail
+    , importResponse : Remote.WebData ImportDetail
     , awsRegions : AwsRegions
     , errors : List FieldError
     , uploadPartsTotal : Int
@@ -102,7 +103,7 @@ type Tab
 
 
 type AddDataSetRequest
-    = PutUpload PutUploadRequest
+    = PutUpload UploadDataRequest
     | ImportUrl PostUrlRequest
     | ImportS3 PostS3Request
     | ImportAzure PostAzureRequest
@@ -239,9 +240,9 @@ validateModel context model =
                 |> Result.map ImportAzure
 
 
-validateFileUploadModel : Model -> ContextModel -> Validator FieldError FileUploadEntry PutUploadRequest
+validateFileUploadModel : Model -> ContextModel -> Validator FieldError FileUploadEntry UploadDataRequest
 validateFileUploadModel model context =
-    Verify.ok PutUploadRequest
+    Verify.ok UploadDataRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.custom (verifyDataContent context FileSelectionField)
 
@@ -274,9 +275,9 @@ validateAzureImportModel model =
         |> Verify.verify .blob (notBlank (AzureBlobField => "Blob required."))
 
 
-validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry PutUploadRequest
+validateDirectDataModel : Model -> ContextModel -> Validator FieldError DirectDataEntry UploadDataRequest
 validateDirectDataModel model context =
-    Verify.ok PutUploadRequest
+    Verify.ok UploadDataRequest
         |> Verify.verify (always model.name) (notBlank (DataSetNameField => "DataSet name required."))
         |> Verify.custom (verifyDataContent context DataField)
 
@@ -318,20 +319,13 @@ verifyDataContent context field input =
         False ->
             case input.contentType of
                 DataFormat.Json ->
-                    parseJson field input.content
+                    File.parseJson field input.content
 
                 DataFormat.Csv ->
                     asCsv input.content
 
                 _ ->
                     Err <| [ field => "Invalid content type" ]
-
-
-parseJson : field -> String -> Result (List ( field, String )) UploadData
-parseJson field content =
-    decodeString File.jsonDataDecoder content
-        |> Result.map (\d -> Json d)
-        |> Result.mapError (\e -> [ field => e ])
 
 
 verifyRegex : Regex.Regex -> error -> Validator error String String
@@ -398,7 +392,7 @@ type Msg
     | TabMsg TabMsg
     | CreateDataSet AddDataSetRequest
     | UploadDataSetParts ( List (Task Http.Error ()), Remote.WebData () )
-    | ImportResponse (Remote.WebData Data.Import.ImportDetail)
+    | ImportResponse (Remote.WebData ImportDetail)
 
 
 type TabMsg
@@ -464,7 +458,7 @@ update msg model context =
                 setKeyRequest name =
                     case model.key of
                         Just key ->
-                            createDataSetWithKey context.config name key
+                            Nexosis.Api.Data.createDataSetWithKey context.config.clientConfig name key
                                 |> Http.toTask
 
                         Nothing ->
@@ -475,7 +469,7 @@ update msg model context =
                     let
                         putDataRequests : List (Task Http.Error ())
                         putDataRequests =
-                            put context.config request
+                            Request.DataSet.batchPut context.config request
                                 |> List.map Http.toTask
 
                         putRequests : List (Task Http.Error ())
@@ -487,7 +481,7 @@ update msg model context =
                 ImportUrl request ->
                     let
                         doImport =
-                            Request.Import.postUrl context.config request
+                            Nexosis.Api.Imports.postUrl context.config.clientConfig request
                                 |> Http.toTask
 
                         importRequest =
@@ -501,7 +495,7 @@ update msg model context =
                 ImportS3 request ->
                     let
                         doImport =
-                            Request.Import.postS3 context.config request
+                            Nexosis.Api.Imports.postS3 context.config.clientConfig request
                                 |> Http.toTask
 
                         importRequest =
@@ -515,7 +509,7 @@ update msg model context =
                 ImportAzure request ->
                     let
                         doImport =
-                            Request.Import.postAzure context.config request
+                            Nexosis.Api.Imports.postAzure context.config.clientConfig request
                                 |> Http.toTask
 
                         importRequest =
@@ -531,7 +525,7 @@ update msg model context =
                 Remote.Success _ ->
                     case rest of
                         [] ->
-                            model => (Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| Data.DataSet.toDataSetName model.name))
+                            model => (Navigation.load <| AppRoutes.routeToString (AppRoutes.DataSetDetail <| toDataSetName model.name))
 
                         _ ->
                             { model | uploadedParts = model.uploadedParts + 1 } => next rest
@@ -597,7 +591,7 @@ validateStep context model =
 delayAndRecheckImport : Config -> String -> Cmd Msg
 delayAndRecheckImport config importId =
     delayTask 2
-        |> Task.andThen (\_ -> Request.Import.get config importId |> Http.toTask)
+        |> Task.andThen (\_ -> Nexosis.Api.Imports.get config.clientConfig importId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map ImportResponse
 

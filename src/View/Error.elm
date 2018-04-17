@@ -1,11 +1,11 @@
 module View.Error exposing (viewFieldError, viewHttpError, viewMessagesAsError, viewRemoteError)
 
-import Data.Message as Message exposing (Message)
 import Data.Response exposing (ResponseError, responseErrorDecoder)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http exposing (Error)
+import Nexosis.Types.Message as Message exposing (Message)
 import RemoteData as Remote
 import View.Extra exposing (viewIfElements, viewJust)
 

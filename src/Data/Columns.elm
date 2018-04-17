@@ -1,28 +1,8 @@
-module Data.Columns exposing (ColumnMetadata, DataType(..), Role(..), dataTypeToString, decodeColumnMetadata, defaultColumnMetadata, encodeColumnMetadataList, encodeColumnValues, enumDataType, enumRole)
+module Data.Columns exposing (defaultColumnMetadata, enumDataType, enumRole)
 
-import Data.AggregationStrategy as Aggregate exposing (AggregationStrategy)
-import Data.ImputationStrategy as Impute exposing (ImputationStrategy)
-import Json.Decode as Decode exposing (Decoder, andThen, dict, fail, float, int, list, string, succeed)
-import Json.Decode.Pipeline exposing (decode, optional, required)
-import Json.Encode as Encode
-
-
-type alias ColumnMetadata =
-    { dataType : DataType
-    , role : Role
-    , imputation : ImputationStrategy
-    , aggregation : AggregationStrategy
-    , name : String
-    }
-
-
-type DataType
-    = Measure
-    | String
-    | Numeric
-    | Logical
-    | Date
-    | Text
+import Nexosis.Types.AggregationStrategy as Aggregate
+import Nexosis.Types.Columns exposing (ColumnMetadata, DataType(..), Role(..))
+import Nexosis.Types.ImputationStrategy as Impute
 
 
 enumDataType : List DataType
@@ -36,14 +16,6 @@ enumDataType =
     ]
 
 
-type Role
-    = None
-    | Timestamp
-    | Target
-    | Feature
-    | Key
-
-
 enumRole : List Role
 enumRole =
     [ None
@@ -51,164 +23,6 @@ enumRole =
     , Target
     , Feature
     ]
-
-
-decodeColumnMetadata : Decoder (List ColumnMetadata)
-decodeColumnMetadata =
-    decode ColumnMetadata
-        |> optional "dataType" decodeDataType String
-        |> optional "role" decodeRole None
-        |> optional "imputation" decodeImputation Impute.Mean
-        |> optional "aggregation" decodeAggregation Aggregate.Mean
-        |> Decode.keyValuePairs
-        |> Decode.map (\a -> List.map (uncurry (|>)) a)
-
-
-decodeDataType : Decoder DataType
-decodeDataType =
-    string
-        |> andThen
-            (\columnType ->
-                case String.toLower columnType of
-                    "numericmeasure" ->
-                        succeed Measure
-
-                    "string" ->
-                        succeed String
-
-                    "numeric" ->
-                        succeed Numeric
-
-                    "logical" ->
-                        succeed Logical
-
-                    "date" ->
-                        succeed Date
-
-                    "text" ->
-                        succeed Text
-
-                    unknown ->
-                        fail <| "Unknown columnType: " ++ unknown
-            )
-
-
-decodeRole : Decoder Role
-decodeRole =
-    string
-        |> andThen
-            (\role ->
-                case String.toLower role of
-                    "none" ->
-                        succeed None
-
-                    "timestamp" ->
-                        succeed Timestamp
-
-                    "target" ->
-                        succeed Target
-
-                    "feature" ->
-                        succeed Feature
-
-                    "key" ->
-                        succeed Key
-
-                    unknown ->
-                        fail <| "Unknown column role: " ++ unknown
-            )
-
-
-decodeImputation : Decoder ImputationStrategy
-decodeImputation =
-    string
-        |> andThen
-            (\imputation ->
-                case String.toLower imputation of
-                    "zeroes" ->
-                        succeed Impute.Zeroes
-
-                    "mean" ->
-                        succeed Impute.Mean
-
-                    "median" ->
-                        succeed Impute.Median
-
-                    "mode" ->
-                        succeed Impute.Mode
-
-                    "min" ->
-                        succeed Impute.Min
-
-                    "max" ->
-                        succeed Impute.Max
-
-                    unknown ->
-                        fail <| "Unknown imputation strategy: " ++ unknown
-            )
-
-
-decodeAggregation : Decoder AggregationStrategy
-decodeAggregation =
-    string
-        |> andThen
-            (\aggregation ->
-                case String.toLower aggregation of
-                    "sum" ->
-                        succeed Aggregate.Sum
-
-                    "mean" ->
-                        succeed Aggregate.Mean
-
-                    "median" ->
-                        succeed Aggregate.Median
-
-                    "mode" ->
-                        succeed Aggregate.Mode
-
-                    "min" ->
-                        succeed Aggregate.Min
-
-                    "max" ->
-                        succeed Aggregate.Max
-
-                    unknown ->
-                        fail <| "Unknown aggregation strategy: " ++ unknown
-            )
-
-
-encodeColumnMetadataList : List ColumnMetadata -> Encode.Value
-encodeColumnMetadataList columns =
-    Encode.object <|
-        (columns
-            |> List.map (\c -> ( c.name, encodeColumnValues c ))
-        )
-
-
-encodeColumnValues : ColumnMetadata -> Encode.Value
-encodeColumnValues column =
-    Encode.object
-        [ ( "dataType", encodeDataType <| column.dataType )
-        , ( "role", Encode.string <| toString <| column.role )
-        , ( "imputation", Encode.string <| toString <| column.imputation )
-        , ( "aggregation", Encode.string <| toString <| column.aggregation )
-        ]
-
-
-encodeDataType : DataType -> Encode.Value
-encodeDataType dataType =
-    if dataType == Measure then
-        Encode.string "numericMeasure"
-    else
-        Encode.string <| toString dataType
-
-
-dataTypeToString : DataType -> String
-dataTypeToString dataType =
-    if dataType == Measure then
-        "numericMeasure"
-    else
-        toString dataType
 
 
 defaultColumnMetadata : ColumnMetadata

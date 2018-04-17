@@ -40,12 +40,13 @@
         "simonh1000/elm-jwt": "5.3.0 <= v < 6.0.0",
         "stoeffel/elm-verify": "3.0.0 <= v < 4.0.0",
         "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0",
+        "elm-community/result-extra": "2.2.0 <= v < 3.0.0",
         "Nexosis/nexosisclient-elm": "1.0.0 <= v < 2.0.0"
     },
     "dependency-sources": {
         "Nexosis/nexosisclient-elm": {
             "url": "https://github.com/Nexosis/nexosisclient-elm.git",
-            "ref": "4c12e1fded0ef9f48b66abd7957d9b7fe92b7307"
+            "ref": "b1002e9c6cae151a7a7e5eb9161686e1d15c6b7d"
         }
     },
     "elm-version": "0.18.0 <= v < 0.19.0"

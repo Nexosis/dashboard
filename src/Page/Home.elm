@@ -3,23 +3,23 @@ module Page.Home exposing (Model, Msg, init, update, view)
 import AppRoutes
 import Data.Config exposing (Config)
 import Data.Context exposing (ContextModel)
-import Data.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
-import Data.Model exposing (ModelData, ModelList)
 import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
-import Data.Session exposing (SessionData, SessionList)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
 import Html.Attributes exposing (attribute, class, href, id)
 import Html.Events exposing (onClick)
+import Nexosis.Api.Data
+import Nexosis.Api.Models
+import Nexosis.Api.Sessions
+import Nexosis.Types.DataSet exposing (DataSet, DataSetList, DataSetName, toDataSetName)
+import Nexosis.Types.Model exposing (ModelData, ModelList)
+import Nexosis.Types.Session exposing (SessionList)
+import Nexosis.Types.SortParameters as Sorting
 import Page.DataSets as DataSets exposing (viewDataSetGridReadonly)
 import Page.Helpers exposing (..)
 import Page.Models as Models exposing (viewModelGridReadonly)
 import Page.Sessions as Sessions exposing (viewSessionGridReadonly)
 import RemoteData as Remote
-import Request.DataSet
-import Request.Model
-import Request.Session
-import Request.Sorting as Sorting
 import Request.Subscription
 import Util exposing ((=>))
 import View.Extra exposing (viewIfElements)
@@ -50,13 +50,13 @@ init config =
         []
         config.apiManagerUrl
         => Cmd.batch
-            [ Request.DataSet.get config 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
+            [ Nexosis.Api.Data.get config.clientConfig 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-            , Request.Session.get config 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
+            , Nexosis.Api.Sessions.get config.clientConfig 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map SessionListResponse
-            , Request.Model.get config 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
+            , Nexosis.Api.Models.get config.clientConfig 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
             , Request.Subscription.list config
