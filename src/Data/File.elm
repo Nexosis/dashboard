@@ -1,4 +1,4 @@
-module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), UploadData(..), UploadDataRequest, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, encodeCsvDataFileUpload, encodeJsonDataFileUpload, fileContentEncoder, fileReadStatusDecoder, jsonDataDecoder, parseJson)
+module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), JsonData, UploadData(..), UploadDataRequest, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, encodeCsvDataFileUpload, encodeJsonDataFileUpload, fileContentEncoder, fileReadStatusDecoder, jsonDataDecoder, parseJson)
 
 import Dict exposing (Dict)
 import Json.Decode exposing (decodeString, dict, float, int, keyValuePairs, list, map, oneOf, string, succeed)

@@ -1,8 +1,8 @@
 module GraphDateRangeCalculation exposing (..)
 
-import Data.PredictionDomain as PredictionDomain
-import Data.Session exposing (ResultInterval(..))
 import Expect
+import Nexosis.Types.PredictionDomain as PredictionDomain
+import Nexosis.Types.Session exposing (ResultInterval(..))
 import Page.SessionDetail exposing (SessionDateData, getDataDateRange)
 import Test exposing (Test, describe, test)
 

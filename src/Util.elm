@@ -1,4 +1,4 @@
-module Util exposing ((=>), commaFormatInteger, dataSizeWithCustomKSize, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
+module Util exposing ((=>), commaFormatInteger, dataSizeWithCustomKSize, dataSizeWithSuffix, dateToUtcDateTime, delayTask, formatDateWithTimezone, formatDisplayName, formatDisplayNameWithWidth, formatFloatToString, getTimezoneFromDate, isActuallyInteger, isJust, spinner, styledNumber, tryParseAndFormat, unwrapErrors)
 
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Date exposing (Date, Month)
