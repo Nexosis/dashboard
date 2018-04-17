@@ -29,7 +29,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
     response.json().then(function (config) {
         let logger;
 
-        if (config.loggly) {
+        if (config.loggly.key) {
             _LTracker.push({
                 'logglyKey': config.loggly.key,
                 'sendConsoleErrors': false,
