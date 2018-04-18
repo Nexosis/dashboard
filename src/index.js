@@ -278,6 +278,15 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                     signout.href = headerValues.logoutLink;
                 }
             });
+
+            if (hbspt && config.hubspot) {
+                hbspt.forms.create({
+                    css: '',
+                    portalId: config.hubspot.portalId,
+                    formId: config.hubspot.newsletterFormId,
+                    target: '#hs-footer'
+                });
+            }
         });
     });
 });

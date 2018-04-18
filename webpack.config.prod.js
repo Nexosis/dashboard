@@ -108,6 +108,7 @@ export default {
                         loader: 'file-loader',
                         options: { name: '[name].[ext]' }
                     }
+                    , 'config-loader'
                 ]
             },
             {
