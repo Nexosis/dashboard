@@ -3,14 +3,14 @@
 
 module StateStorage exposing (Msg(..), appStateLoaded, loadAppState, saveAppState, updateContext)
 
-import Data.Config exposing (Config, configDecoder)
-import Data.Context exposing (ContextModel, defaultContext, encode, modelDecoder)
+import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel, LocalStorageState, defaultLocalStorageState, encode, localStorageDecoder)
 import Json.Decode as Decode exposing (Decoder, float, int, list, string)
 import Ports exposing (objectRetrieved, retrieveObject, storeObject)
 
 
 type Msg
-    = OnAppStateLoaded ContextModel
+    = OnAppStateLoaded LocalStorageState
 
 
 type alias ContextContainer a =
@@ -36,21 +36,19 @@ updateContext model context =
         newContext =
             { context | config = model.config }
     in
-    { model
-        | context = newContext
-    }
+    { model | context = newContext }
 
 
-appStateLoaded : Config -> Sub Msg
-appStateLoaded config =
+appStateLoaded : Sub Msg
+appStateLoaded =
     let
         getModel json =
-            case Decode.decodeValue (modelDecoder config) json of
+            case Decode.decodeValue localStorageDecoder json of
                 Ok m ->
                     m
 
                 Err _ ->
-                    defaultContext config
+                    defaultLocalStorageState
 
         retrieval ( key, json ) =
             OnAppStateLoaded (getModel json)
@@ -58,6 +56,6 @@ appStateLoaded config =
     objectRetrieved retrieval
 
 
-saveAppState : ContextModel -> Cmd msg
+saveAppState : LocalStorageState -> Cmd msg
 saveAppState model =
     storeObject ( stateKey, encode model )

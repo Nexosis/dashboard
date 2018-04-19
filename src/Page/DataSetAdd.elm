@@ -3,7 +3,7 @@ module Page.DataSetAdd exposing (Model, Msg, init, subscriptions, update, view)
 import AppRoutes exposing (Route)
 import Csv
 import Data.Config exposing (Config)
-import Data.Context as AppContext exposing (ContextModel)
+import Data.Context as AppContext exposing (ContextModel, contextToAuth)
 import Data.DataFormat as DataFormat
 import Data.File as File exposing (UploadData(..), UploadDataRequest)
 import Data.Response as Response exposing (Quotas, maxSize)
@@ -458,7 +458,7 @@ update msg model context =
                 setKeyRequest name =
                     case model.key of
                         Just key ->
-                            Nexosis.Api.Data.createDataSetWithKey context.config.clientConfig name key
+                            Nexosis.Api.Data.createDataSetWithKey (contextToAuth context) name key
                                 |> Http.toTask
 
                         Nothing ->
@@ -469,7 +469,7 @@ update msg model context =
                     let
                         putDataRequests : List (Task Http.Error ())
                         putDataRequests =
-                            Request.DataSet.batchPut context.config request
+                            Request.DataSet.batchPut context request
                                 |> List.map Http.toTask
 
                         putRequests : List (Task Http.Error ())
@@ -481,7 +481,7 @@ update msg model context =
                 ImportUrl request ->
                     let
                         doImport =
-                            Nexosis.Api.Imports.postUrl context.config.clientConfig request
+                            Nexosis.Api.Imports.postUrl (contextToAuth context) request
                                 |> Http.toTask
 
                         importRequest =
@@ -495,7 +495,7 @@ update msg model context =
                 ImportS3 request ->
                     let
                         doImport =
-                            Nexosis.Api.Imports.postS3 context.config.clientConfig request
+                            Nexosis.Api.Imports.postS3 (contextToAuth context) request
                                 |> Http.toTask
 
                         importRequest =
@@ -509,7 +509,7 @@ update msg model context =
                 ImportAzure request ->
                     let
                         doImport =
-                            Nexosis.Api.Imports.postAzure context.config.clientConfig request
+                            Nexosis.Api.Imports.postAzure (contextToAuth context) request
                                 |> Http.toTask
 
                         importRequest =
@@ -546,7 +546,7 @@ update msg model context =
                             else if importDetail.status == Status.Cancelled || importDetail.status == Status.Failed then
                                 result => Cmd.none
                             else
-                                Remote.Loading => delayAndRecheckImport context.config importDetail.importId
+                                Remote.Loading => delayAndRecheckImport context importDetail.importId
 
                         _ ->
                             result => Cmd.none
@@ -588,10 +588,10 @@ validateStep context model =
     stepValidation model
 
 
-delayAndRecheckImport : Config -> String -> Cmd Msg
-delayAndRecheckImport config importId =
+delayAndRecheckImport : ContextModel -> String -> Cmd Msg
+delayAndRecheckImport context importId =
     delayTask 2
-        |> Task.andThen (\_ -> Nexosis.Api.Imports.get config.clientConfig importId |> Http.toTask)
+        |> Task.andThen (\_ -> Nexosis.Api.Imports.get (contextToAuth context) importId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map ImportResponse
 

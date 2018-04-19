@@ -43,11 +43,8 @@ viewError error =
             [ div [ class "panel-heading" ] [ div [ class "panel-title text-center" ] [ h1 [] [ text "Error Loading Page" ] ] ]
             , div [ class "panel-body" ]
                 [ div [ class "center" ]
-                    [ img [ src "https://cdn2.hubspot.net/hubfs/2307117/assets/404.png" ] []
-                    ]
-                , div [ class "alert alert-danger" ]
-                    [ error
-                    ]
+                    [ img [ src "https://cdn2.hubspot.net/hubfs/2307117/assets/404.png" ] [] ]
+                , div [ class "alert alert-danger" ] [ error ]
                 ]
             ]
         ]

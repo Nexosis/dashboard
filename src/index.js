@@ -79,17 +79,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
         }
 
         Promise.all(docsRequests).then(docsContent => {
-            const cookie = getCookie('accessToken');
-            try {
-                const parsedTokenCookie = JSON.parse(cookie);
-                config.token = parsedTokenCookie.token;
-                config.identity = parsedTokenCookie.identity;
-            } catch (e) {
-                logger("Error parsing access token cookie: " + e.toString(), "Error");
-                window.location.href = config.loginUrl;
-                return;
-            }
-
+            config.cookie = getCookie('accessToken');
             config.toolTips = toolTips;
 
             config.explainerContent = {};
@@ -279,7 +269,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 }
             });
 
-            if (hbspt && config.hubspot) {
+            if (hbspt && config.hubspot && config.hubspot.portalId) {
                 hbspt.forms.create({
                     css: '',
                     portalId: config.hubspot.portalId,

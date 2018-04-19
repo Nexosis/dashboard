@@ -1,6 +1,6 @@
 module Page.DataSetData exposing (..)
 
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth, setPageSize)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -36,7 +36,7 @@ type alias Model =
 
 loadData : ContextModel -> Model -> Cmd Msg
 loadData context model =
-    getRetrieveDetail context.config.clientConfig model.dataSetName model.currentPage model.pageSize
+    getRetrieveDetail (contextToAuth context) model.dataSetName model.currentPage model.pageSize
         |> Remote.sendRequest
         |> Cmd.map DataLoaded
 
@@ -45,7 +45,7 @@ init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
 init context dataSetName =
     let
         model =
-            Model dataSetName (Grid.initialSort "" Descending) 0 context.userPageSize Remote.Loading []
+            Model dataSetName (Grid.initialSort "" Descending) 0 context.localStorage.userPageSize Remote.Loading []
     in
     model => Cmd.none
 
@@ -85,7 +85,7 @@ update msg model context =
             newModel
                 => Cmd.batch
                     [ loadData context newModel
-                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    , StateStorage.saveAppState <| setPageSize context pageSize
                     ]
 
         TableChanged state ->
@@ -100,7 +100,7 @@ view context model =
             , div [ class "col-sm-6" ]
                 [ Pager.view model.loadingResponse ChangePage ]
             , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                [ PageSize.view ChangePageSize context.userPageSize ]
+                [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
             ]
         , div [ class "row mb25" ]
             [ div [ class "col-sm-12 p0" ]

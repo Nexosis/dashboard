@@ -1,6 +1,6 @@
 module Request.DataSet exposing (batchPut)
 
-import Data.Config exposing (Config)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.File as File exposing (UploadData(..), UploadDataRequest, encodeCsvDataFileUpload, encodeJsonDataFileUpload)
 import Http
 import Nexosis.Api.Data as Data
@@ -44,6 +44,6 @@ batch request put =
             File.batchCsvData batchSize upload <| csv
 
 
-batchPut : Config -> UploadDataRequest -> List (Http.Request ())
+batchPut : ContextModel -> UploadDataRequest -> List (Http.Request ())
 batchPut config request =
-    batch request <| Data.put config.clientConfig
+    batch request <| Data.put <| contextToAuth config
