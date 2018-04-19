@@ -61,9 +61,6 @@ type InitError
 
 type alias App =
     { page : Page
-    , error : Maybe Http.Error
-    , lastRequest : String
-    , lastResponse : Maybe Response.Response
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     , context : ContextModel
@@ -236,7 +233,7 @@ update msg model =
                                     }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
+                                    App initialPage [] initState.enabledFeatures newContext Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
@@ -347,8 +344,7 @@ updatePage page msg app =
             { app | messages = messagesToKeep, context = setQuotas app.context } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
-            { app | lastResponse = Nothing }
-                => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
+            app => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
 
         ( CheckToken now, _ ) ->
             let
@@ -429,6 +425,10 @@ updatePage page msg app =
 
 view : Model -> Html Msg
 view model =
+    let
+        layout =
+            Page.layout
+    in
     case model of
         InitializationError err ->
             let
@@ -445,17 +445,13 @@ view model =
             in
             Error.pageLoadError Page.Home errorMessage
                 |> Error.view
-                |> Page.basicLayout Page.Other
+                |> layout Page.Other
 
         ConfigurationLoaded initState ->
             Html.text ""
-                |> Page.emptyLayout Page.Other
+                |> layout Page.Other
 
         Initialized app ->
-            let
-                layout =
-                    Page.layoutShowingResponses app
-            in
             case app.pageLoadFailed of
                 Just ( page, err ) ->
                     ErrorView.viewHttpError err |> Error.viewError |> layout Page.Other
