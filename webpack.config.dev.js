@@ -2,6 +2,7 @@ import path from 'path';
 import webpack from 'webpack';
 import combineLoaders from 'webpack-combine-loaders';
 import HtmlWebpackPlugin from 'html-webpack-plugin';
+import ScriptExtHtmlWebpackPlugin from 'script-ext-html-webpack-plugin';
 
 export default {
     mode: 'development',
@@ -36,7 +37,10 @@ export default {
                 removeComments: false,
                 collapseWhitespace: true
             },
-            inject: true
+            inject: 'head'
+        }),
+        new ScriptExtHtmlWebpackPlugin({
+            defaultAttribute: 'defer'
         })
     ],
     optimization: {

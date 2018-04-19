@@ -269,7 +269,7 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
                 }
             });
 
-            if (hbspt && config.hubspot && config.hubspot.portalId) {
+            if (window.hbspt && config.hubspot && config.hubspot.portalId) {
                 hbspt.forms.create({
                     css: '',
                     portalId: config.hubspot.portalId,
