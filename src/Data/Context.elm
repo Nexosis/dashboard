@@ -186,12 +186,6 @@ decodeConfigOptions =
         |> custom (field "applicationName" string |> andThen (\a -> succeed (Just a)))
 
 
-
--- |> custom (maybe tokenDecoder)
--- |> custom (decodeConfigOptions |> andThen (\options -> succeed (createConfigWithTokenOptions options)))
--- |> custom (maybe identityTokenDecoder)
-
-
 tokenDecoder : Decoder NexosisToken
 tokenDecoder =
     field "token"
