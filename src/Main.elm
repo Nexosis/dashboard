@@ -344,7 +344,7 @@ updatePage page msg app =
                         |> flip List.append app.messages
                         |> List.take 5
             in
-            { app | messages = messagesToKeep, context = setQuotas app.context } => Ports.prismHighlight ()
+            { app | messages = messagesToKeep, context = setQuotas app.context } => Cmd.none
 
         ( ResponseReceived (Err err), _ ) ->
             app => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)

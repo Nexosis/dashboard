@@ -5,7 +5,8 @@ CSV files uploaded through our dashboard *must* to have a header row.  Otherwise
 
 ##### Uploading a JSON file
 A JSON file can be useful if you want to set metadata when you create the data source. Your JSON file should at a minimum contain a field called *data* which contains the array of values:
-``` json
+
+<prism-highlight class="language-json">
 {
   "data": [
     {
@@ -18,7 +19,8 @@ A JSON file can be useful if you want to set metadata when you create the data s
     }
   ]
 }
-```
+</prism-highlight>
+
 If you would like to also provide the metadata add columns definition in line with <a href="http://docs.nexosis.com/guides/column-metadata#example" target="_blank">the documented format</a>
 
 **Any file upload must have a size on disk of less than 1MB.**

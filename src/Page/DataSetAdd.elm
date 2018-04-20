@@ -435,7 +435,7 @@ update msg model context =
                         |> Ziplist.find (\( _, name ) -> name == tabName)
                         |> Maybe.withDefault model.tabs
             in
-            { model | tabs = newTabs } => Ports.prismHighlight ()
+            { model | tabs = newTabs } => Cmd.none
 
         ( ChooseUploadType, FileSelected ) ->
             { model | errors = [] } => Ports.uploadFileSelected ( "upload-dataset", maxSize context.quotas )
