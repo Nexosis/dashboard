@@ -22,11 +22,8 @@
         "balloon-css": "^0.5.0",
         "loggly-jslogger": "^2.2.2",
         "nexosis-styles": "^1.0.45",
-        "npm": "^5.8.0",
         "prismjs": "^1.13.0",
-        "stacktrace-js": "^2.0.0",
-        "to": "^0.2.9",
-        "update": "^0.7.4"
+        "stacktrace-js": "^2.0.0"
     },
     "devDependencies": {
         "autoprefixer": "^8.1.0",
