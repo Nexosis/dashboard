@@ -1,8 +1,8 @@
 module Main exposing (..)
 
 import AppRoutes exposing (Route)
-import Data.Config exposing (Config, NexosisToken, TokenResponse)
-import Data.Context exposing (ContextModel, defaultContext)
+import Data.Config exposing (Config)
+import Data.Context as Context exposing (ContextModel, TokenResponse, UserAuth, contextToAuth)
 import Data.Response as Response exposing (Quotas)
 import Dom.Scroll as Scroll exposing (toTop)
 import Feature exposing (Feature, isEnabled)
@@ -12,7 +12,6 @@ import Json.Decode as Decode exposing (Value, decodeValue)
 import Json.Decode.Pipeline as Pipeline
 import Jwt
 import Navigation exposing (Location)
-import Nexosis
 import Nexosis.Api.Metrics exposing (Metric)
 import Nexosis.Types.Message as Message
 import Page.DataSetAdd as DataSetAdd
@@ -43,9 +42,9 @@ import View.Page as Page
 
 
 type Model
-    = ConfigurationLoaded InitState
+    = ConfigurationLoaded ( InitState, UserAuth )
     | Initialized App
-    | InitializationError String
+    | InitializationError InitError
 
 
 type alias InitState =
@@ -55,11 +54,13 @@ type alias InitState =
     }
 
 
+type InitError
+    = UserMessage String String
+    | GenericMessage String
+
+
 type alias App =
     { page : Page
-    , error : Maybe Http.Error
-    , lastRequest : String
-    , lastResponse : Maybe Response.Response
     , messages : List Response.GlobalMessage
     , enabledFeatures : List Feature
     , context : ContextModel
@@ -113,7 +114,7 @@ type Page
 
 getMetrics : ContextModel -> Cmd Msg
 getMetrics context =
-    Nexosis.Api.Metrics.get context.config.clientConfig
+    Nexosis.Api.Metrics.get (contextToAuth context)
         |> Remote.sendRequest
         |> Cmd.map MetricTextLoaded
 
@@ -130,88 +131,83 @@ getQuotas resp =
 
 setRoute : Maybe ( AppRoutes.Route, String ) -> App -> ( App, Cmd Msg )
 setRoute route app =
-    case app.context.config.token of
-        Nothing ->
-            app => Navigation.load app.context.config.loginUrl
+    let
+        enabled =
+            isEnabled app.enabledFeatures
 
-        Just _ ->
-            let
-                enabled =
-                    isEnabled app.enabledFeatures
+        scrollCmd =
+            Task.attempt (always NoOp) <| Scroll.toTop "html"
 
-                scrollCmd =
-                    Task.attempt (always NoOp) <| Scroll.toTop "html"
+        ( ( newApp, cmd ), title ) =
+            case route of
+                Nothing ->
+                    -- TODO Load 404 page not found
+                    ( app, Cmd.none ) => "Not Found"
 
-                ( ( newApp, cmd ), title ) =
-                    case route of
-                        Nothing ->
-                            -- TODO Load 404 page not found
-                            ( app, Cmd.none ) => "Not Found"
+                Just ( AppRoutes.Home, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            Home.init app.context
+                    in
+                    { app | page = Home pageModel } => Cmd.map HomeMsg initCmd => title
 
-                        Just ( AppRoutes.Home, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    Home.init app.context.config
-                            in
-                            { app | page = Home pageModel } => Cmd.map HomeMsg initCmd => title
+                Just ( AppRoutes.DataSets, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSets.init app.context
+                    in
+                    { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd => title
 
-                        Just ( AppRoutes.DataSets, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    DataSets.init app.context
-                            in
-                            { app | page = DataSets pageModel } => Cmd.map DataSetsMsg initCmd => title
+                Just ( AppRoutes.DataSetDetail name, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSetDetail.init app.context name
+                    in
+                    { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd => title
 
-                        Just ( AppRoutes.DataSetDetail name, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    DataSetDetail.init app.context name
-                            in
-                            { app | page = DataSetDetail pageModel } => Cmd.map DataSetDetailMsg initCmd => title
+                Just ( AppRoutes.DataSetAdd, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            DataSetAdd.init app.context.config
+                    in
+                    { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd => title
 
-                        Just ( AppRoutes.DataSetAdd, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    DataSetAdd.init app.context.config
-                            in
-                            { app | page = DataSetAdd pageModel } => Cmd.map DataSetAddMsg initCmd => title
+                Just ( AppRoutes.Sessions, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            Sessions.init app.context
+                    in
+                    { app | page = Sessions pageModel } => Cmd.map SessionsMsg initCmd => title
 
-                        Just ( AppRoutes.Sessions, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    Sessions.init app.context
-                            in
-                            { app | page = Sessions pageModel } => Cmd.map SessionsMsg initCmd => title
+                Just ( AppRoutes.SessionDetail id, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            SessionDetail.init app.context id
+                    in
+                    { app | page = SessionDetail pageModel } => Cmd.map SessionDetailMsg initCmd => title
 
-                        Just ( AppRoutes.SessionDetail id, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    SessionDetail.init app.context id
-                            in
-                            { app | page = SessionDetail pageModel } => Cmd.map SessionDetailMsg initCmd => title
+                Just ( AppRoutes.SessionStart dataSetName, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            SessionStart.init app.context dataSetName
+                    in
+                    { app | page = SessionStart pageModel } => Cmd.map SessionStartMsg initCmd => title
 
-                        Just ( AppRoutes.SessionStart dataSetName, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    SessionStart.init app.context.config dataSetName
-                            in
-                            { app | page = SessionStart pageModel } => Cmd.map SessionStartMsg initCmd => title
+                Just ( AppRoutes.Models, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            Models.init app.context
+                    in
+                    { app | page = Models pageModel } => Cmd.map ModelsMsg initCmd => title
 
-                        Just ( AppRoutes.Models, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    Models.init app.context
-                            in
-                            { app | page = Models pageModel } => Cmd.map ModelsMsg initCmd => title
-
-                        Just ( AppRoutes.ModelDetail id, title ) ->
-                            let
-                                ( pageModel, initCmd ) =
-                                    ModelDetail.init app.context id
-                            in
-                            { app | page = ModelDetail pageModel } => Cmd.map ModelDetailMsg initCmd => title
-            in
-            newApp => Cmd.batch [ cmd, Ports.setPageTitle title, scrollCmd ]
+                Just ( AppRoutes.ModelDetail id, title ) ->
+                    let
+                        ( pageModel, initCmd ) =
+                            ModelDetail.init app.context id
+                    in
+                    { app | page = ModelDetail pageModel } => Cmd.map ModelDetailMsg initCmd => title
+    in
+    newApp => Cmd.batch [ cmd, Ports.setPageTitle title, scrollCmd ]
 
 
 extractError : { b | loadingError : Maybe Http.Error } -> Maybe Http.Error
@@ -222,24 +218,29 @@ extractError { loadingError } =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case model of
-        ConfigurationLoaded initState ->
+        ConfigurationLoaded ( initState, auth ) ->
             case msg of
                 OnAppStateLoaded ctx ->
                     case ctx of
-                        StateStorage.OnAppStateLoaded mbctx ->
+                        StateStorage.OnAppStateLoaded localStorage ->
                             let
                                 newContext =
-                                    { mbctx | config = initState.config }
+                                    { localStorage = localStorage
+                                    , config = initState.config
+                                    , metricExplainers = []
+                                    , quotas = Nothing
+                                    , auth = auth
+                                    }
 
                                 app =
-                                    App initialPage Nothing "" Nothing [] initState.enabledFeatures newContext Nothing
+                                    App initialPage [] initState.enabledFeatures newContext Nothing
 
                                 ( routedApp, cmd ) =
                                     setRoute initState.route
                                         app
 
                                 headerValues =
-                                    { userName = newContext.config.identityToken |> Maybe.map .name |> Maybe.withDefault "Account"
+                                    { userName = Context.getUserName newContext |> Maybe.withDefault "Account"
                                     , overviewLink = newContext.config.accountSiteUrl ++ "/apiaccount/accountstatus"
                                     , referLink = newContext.config.accountSiteUrl ++ "/apiaccount/referAFriend"
                                     , logoutLink = newContext.config.accountSiteUrl ++ "/account/logout?returnUrl=" ++ newContext.config.apiManagerUrl ++ "/signout"
@@ -247,19 +248,23 @@ update msg model =
                             in
                             Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext, Ports.setHeaderValues headerValues ]
 
-                OnAppStateUpdated ctx ->
-                    model => Cmd.none
-
                 _ ->
-                    InitializationError
-                        "Unknown initialization message"
-                        => Cmd.none
+                    InitializationError (GenericMessage "Unknown initialization message") => Cmd.none
 
         Initialized app ->
             Tuple.mapFirst Initialized <| updatePage app.page msg app
 
         InitializationError err ->
-            model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ err) Log.Error)
+            let
+                logMessage =
+                    case err of
+                        GenericMessage error ->
+                            error
+
+                        UserMessage _ error ->
+                            error
+            in
+            model => (Log.logMessage <| Log.LogMessage ("Error initializing app: " ++ logMessage) Log.Error)
 
 
 updatePage : Page -> Msg -> App -> ( App, Cmd Msg )
@@ -339,8 +344,7 @@ updatePage page msg app =
             { app | messages = messagesToKeep, context = setQuotas app.context } => Ports.prismHighlight ()
 
         ( ResponseReceived (Err err), _ ) ->
-            { app | lastResponse = Nothing }
-                => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
+            app => (Log.logMessage <| Log.LogMessage ("Unable to decode Response " ++ err) Log.Error)
 
         ( CheckToken now, _ ) ->
             let
@@ -350,9 +354,9 @@ updatePage page msg app =
                         |> DateTime.addHours 1
                         |> DateTime.toTimestamp
             in
-            case app.context.config.token of
+            case Context.getRawToken app.context of
                 Just nexosisToken ->
-                    if Jwt.isExpired hourFromNow nexosisToken.rawToken |> Result.toMaybe |> Maybe.withDefault True then
+                    if Jwt.isExpired hourFromNow nexosisToken |> Result.toMaybe |> Maybe.withDefault True then
                         let
                             renewTokenRequest =
                                 Token.renewAccessToken app.context.config
@@ -367,17 +371,8 @@ updatePage page msg app =
 
         ( RenewToken (Ok newToken), _ ) ->
             let
-                config =
-                    app.context.config
-
-                newConfig =
-                    { config | token = Just newToken.accessToken, identityToken = Just newToken.identityToken }
-
-                context =
-                    app.context
-
                 newContext =
-                    { context | config = newConfig }
+                    Context.setNewToken app.context newToken
             in
             { app | context = newContext } => Cmd.none
 
@@ -389,18 +384,15 @@ updatePage page msg app =
 
         ( OnAppStateUpdated externalMsg, _ ) ->
             case externalMsg of
-                StateStorage.OnAppStateLoaded mbctx ->
+                StateStorage.OnAppStateLoaded localStorage ->
                     let
-                        existingConfig =
-                            app.context.config
+                        existingContext =
+                            app.context
 
                         newContext =
-                            { mbctx | config = existingConfig }
-
-                        newApp =
-                            { app | context = newContext }
+                            { existingContext | localStorage = localStorage }
                     in
-                    newApp => Cmd.none
+                    { app | context = newContext } => Cmd.none
 
         ( MetricTextLoaded response, _ ) ->
             case response of
@@ -433,25 +425,33 @@ updatePage page msg app =
 
 view : Model -> Html Msg
 view model =
+    let
+        layout =
+            Page.layout
+    in
     case model of
         InitializationError err ->
-            Error.pageLoadError Page.Home
-                """
-            Sorry, it seems we are having an issues starting the application.
-            Try checking your internet connection and refreshing the page.
-            """
+            let
+                errorMessage =
+                    case err of
+                        GenericMessage _ ->
+                            """
+                            Sorry, it seems we are having an issues starting the application.
+                            Try checking your internet connection and refreshing the page.
+                            """
+
+                        UserMessage message _ ->
+                            message
+            in
+            Error.pageLoadError Page.Home errorMessage
                 |> Error.view
-                |> Page.basicLayout Page.Other
+                |> layout Page.Other
 
         ConfigurationLoaded initState ->
             Html.text ""
-                |> Page.emptyLayout Page.Other
+                |> layout Page.Other
 
         Initialized app ->
-            let
-                layout =
-                    Page.layoutShowingResponses app
-            in
             case app.pageLoadFailed of
                 Just ( page, err ) ->
                     ErrorView.viewHttpError err |> Error.viewError |> layout Page.Other
@@ -524,16 +524,24 @@ view model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
-        ConfigurationLoaded initState ->
-            Sub.map OnAppStateLoaded (appStateLoaded initState.config)
+        ConfigurationLoaded ( initState, _ ) ->
+            Sub.map OnAppStateLoaded appStateLoaded
 
         Initialized app ->
-            Sub.batch
-                [ Ports.responseReceived (Response.decodeXhrResponse (Nexosis.getBaseUrl app.context.config.clientConfig) >> ResponseReceived)
-                , Time.every Time.minute CheckToken
-                , pageSubscriptions app.page
-                , Sub.map OnAppStateUpdated (appStateLoaded app.context.config)
-                ]
+            let
+                subs =
+                    [ Ports.responseReceived (Response.decodeXhrResponse (Context.getBaseUrl app.context) >> ResponseReceived)
+                    , pageSubscriptions app.page
+                    , Sub.map OnAppStateUpdated appStateLoaded
+                    ]
+
+                allSubs =
+                    if Context.isTokenAuth app.context then
+                        Time.every Time.minute CheckToken :: subs
+                    else
+                        subs
+            in
+            Sub.batch allSubs
 
         InitializationError _ ->
             Sub.none
@@ -574,20 +582,36 @@ initialPage =
 init : Value -> Location -> ( Model, Cmd Msg )
 init flags location =
     let
-        flagDecodeResult =
+        configDecodeResult =
             decodeValue flagsDecoder flags
+
+        authResult =
+            decodeValue Context.decodeUserAuth flags
     in
-    case flagDecodeResult of
-        Ok initState ->
+    case ( configDecodeResult, authResult ) of
+        ( Ok config, Ok auth ) ->
             let
                 route =
                     AppRoutes.fromLocation location
             in
-            ConfigurationLoaded { initState | route = route }
+            ConfigurationLoaded ( { config | route = route }, auth )
                 => loadAppState
 
-        Err error ->
-            ( InitializationError error, Cmd.none )
+        ( Ok initState, Err authError ) ->
+            if String.startsWith "localhost" location.host then
+                InitializationError
+                    (UserMessage
+                        """
+                    We were unable to find a Nexosis Api Key to use.  Please set an environment variable named "NEXOSIS_API_KEY" with your key.
+                    """
+                        authError
+                    )
+                    => Cmd.none
+            else
+                InitializationError (GenericMessage authError) => Navigation.load initState.config.loginUrl
+
+        ( Err error, _ ) ->
+            ( InitializationError (GenericMessage error), Cmd.none )
 
 
 flagsDecoder : Decode.Decoder InitState

@@ -1,8 +1,7 @@
 module Page.Sessions exposing (Model, Msg, init, update, view, viewSessionGridReadonly)
 
 import AppRoutes
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth, setPageSize)
 import Data.DisplayDate exposing (toShortDateString)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -54,9 +53,9 @@ type alias SessionColumns msg =
     }
 
 
-loadSessionList : Config -> Int -> Int -> SortParameters -> Cmd Msg
-loadSessionList config pageNo pageSize sortParams =
-    Nexosis.Api.Sessions.get config.clientConfig pageNo pageSize sortParams
+loadSessionList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
+loadSessionList context pageNo pageSize sortParams =
+    Nexosis.Api.Sessions.get (contextToAuth context) pageNo pageSize sortParams
         |> Remote.sendRequest
         |> Cmd.map SessionListResponse
 
@@ -67,8 +66,8 @@ init context =
         initialSort =
             Grid.initialSort "requestedDate" Descending
     in
-    Model Remote.Loading initialSort context.userPageSize 0 Nothing
-        => loadSessionList context.config 0 context.userPageSize initialSort
+    Model Remote.Loading initialSort context.localStorage.userPageSize 0 Nothing
+        => loadSessionList context 0 context.localStorage.userPageSize initialSort
 
 
 
@@ -92,11 +91,11 @@ update msg model context =
 
         SetTableState newState ->
             { model | tableState = newState, sessionList = Remote.Loading }
-                => loadSessionList context.config model.currentPage model.pageSize newState
+                => loadSessionList context model.currentPage model.pageSize newState
 
         ChangePage pgNum ->
             { model | sessionList = Remote.Loading, currentPage = pgNum }
-                => loadSessionList context.config pgNum model.pageSize model.tableState
+                => loadSessionList context pgNum model.pageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -105,8 +104,8 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadSessionList context.config 0 pageSize model.tableState
-                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    [ loadSessionList context 0 pageSize model.tableState
+                    , StateStorage.saveAppState <| setPageSize context pageSize
                     ]
 
         ShowDeleteDialog sessionData ->
@@ -119,7 +118,7 @@ update msg model context =
                     cmd
 
                 pendingDeleteCmd =
-                    Nexosis.Api.Sessions.delete context.config.clientConfig >> ignoreCascadeParams
+                    Nexosis.Api.Sessions.delete (contextToAuth context) >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -142,7 +141,7 @@ update msg model context =
                                             )
                                         |> Remote.withDefault 0
                             in
-                            loadSessionList context.config pageNumber model.pageSize model.tableState
+                            loadSessionList context pageNumber model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -189,7 +188,7 @@ viewSessionListResults context model =
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.sessionList ChangePage ]
                     , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                        [ PageSize.view ChangePageSize context.userPageSize ]
+                        [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
             ]

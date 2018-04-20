@@ -1,7 +1,7 @@
 module Page.ModelPredict exposing (Model, Msg, init, subscriptions, update, view)
 
 import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.DataFormat as DataFormat
 import Data.File as File
 import Data.Response exposing (maxSize)
@@ -141,7 +141,7 @@ update msg model context =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predict context.config.clientConfig model.modelId value (DataFormat.dataFormatToMimeType model.inputType)
+                    predict (contextToAuth context) model.modelId value (DataFormat.dataFormatToMimeType model.inputType)
                         |> Remote.sendRequest
                         |> Cmd.map PredictResponse
             in
@@ -156,7 +156,7 @@ update msg model context =
                     Maybe.withDefault "" model.dataInput
 
                 predictRequest =
-                    predictRaw context.config.clientConfig model.modelId value (DataFormat.dataFormatToMimeType model.inputType) (DataFormat.dataFormatToMimeType downloadType)
+                    predictRaw (contextToAuth context) model.modelId value (DataFormat.dataFormatToMimeType model.inputType) (DataFormat.dataFormatToMimeType downloadType)
                         |> Remote.sendRequest
                         |> Cmd.map DownloadResponse
             in

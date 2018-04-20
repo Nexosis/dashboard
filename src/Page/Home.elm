@@ -1,8 +1,7 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
@@ -40,26 +39,26 @@ type alias Model =
     }
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
     Model
         Remote.Loading
         Remote.Loading
         Remote.Loading
         Remote.Loading
         []
-        config.apiManagerUrl
+        context.config.apiManagerUrl
         => Cmd.batch
-            [ Nexosis.Api.Data.get config.clientConfig 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
+            [ Nexosis.Api.Data.get (contextToAuth context) 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-            , Nexosis.Api.Sessions.get config.clientConfig 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
+            , Nexosis.Api.Sessions.get (contextToAuth context) 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map SessionListResponse
-            , Nexosis.Api.Models.get config.clientConfig 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
+            , Nexosis.Api.Models.get (contextToAuth context) 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
-            , Request.Subscription.list config
+            , Request.Subscription.list context.config
                 |> Remote.sendRequest
                 |> Cmd.map SubscriptionListResponse
             ]

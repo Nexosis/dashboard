@@ -1,9 +1,8 @@
-module View.Page exposing (ActivePage(..), basicLayout, emptyLayout, layoutShowingResponses)
+module View.Page exposing (ActivePage(..), layout)
 
 import AppRoutes
 import Data.Context as AppContext exposing (ContextModel)
 import Data.Response as Response exposing (GlobalMessage, Response)
-import Feature exposing (Feature)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Keyed
@@ -25,21 +24,7 @@ type ActivePage
 
 
 type alias PageValues a =
-    { a
-        | lastRequest : String
-        , lastResponse : Maybe Response
-        , messages : List GlobalMessage
-        , context : ContextModel
-        , enabledFeatures : List Feature
-    }
-
-
-emptyLayout : ActivePage -> Html msg -> Html msg
-emptyLayout page content =
-    div [ id "docs-container", class "layout" ]
-        [ div [ class "layout-row layout-row-content" ]
-            [ content ]
-        ]
+    { a | context : ContextModel }
 
 
 {-| Take a page's Html and layout it with a header and footer.
@@ -47,30 +32,14 @@ emptyLayout page content =
 isLoading can be used to show loading during slow transitions
 
 -}
-layoutShowingResponses : PageValues a -> ActivePage -> Html msg -> Html msg
-layoutShowingResponses pageValues page content =
+layout : ActivePage -> Html msg -> Html msg
+layout page content =
     div [ id "docs-container", class "layout" ]
         [ div [ class "layout-row layout-row-content" ]
             [ content ]
 
         --todo - put messages back in
         --, div [] [ viewMessages pageValues.messages ]
-        ]
-
-
-headerLinks : List (Html msg)
-headerLinks =
-    [ li [] [ a [ AppRoutes.href AppRoutes.DataSets ] [ text "Datasets" ] ]
-    , li [] [ a [ AppRoutes.href AppRoutes.Sessions ] [ text "Sessions" ] ]
-    , li [] [ a [ AppRoutes.href AppRoutes.Models ] [ text "Models" ] ]
-    ]
-
-
-basicLayout : ActivePage -> Html msg -> Html msg
-basicLayout page content =
-    div [ id "docs-container", class "layout" ]
-        [ div [ class "layout-row layout-row-content" ]
-            [ div [] [ content ] ]
         ]
 
 
