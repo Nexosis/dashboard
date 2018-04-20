@@ -184,15 +184,15 @@ viewSessionListResults context model =
     if sessionsFound then
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ div [ class "row mb25" ]
+                [ div [ class "row" ]
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.sessionList ChangePage ]
-                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                    , div [ id "view-rows", class "col-sm-2 col-sm-offset-1 right" ]
                         [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
             ]
-        , viewSessionsGrid context model.tableState model.sessionList
+        , div [ id "sessions" ] [ viewSessionsGrid context model.tableState model.sessionList ]
         , hr [] []
         , div [ class "center" ]
             [ Pager.view model.sessionList ChangePage ]
