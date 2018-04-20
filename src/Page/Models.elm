@@ -1,8 +1,7 @@
 module Page.Models exposing (Model, Msg, init, update, view, viewModelGridReadonly)
 
 import AppRoutes as AppRoutes
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth, setPageSize)
 import Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -35,9 +34,9 @@ type alias Model =
     }
 
 
-loadModelList : Config -> Int -> Int -> SortParameters -> Cmd Msg
-loadModelList config page pageSize sorting =
-    Nexosis.Api.Models.get config.clientConfig page pageSize sorting
+loadModelList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
+loadModelList context page pageSize sorting =
+    Nexosis.Api.Models.get (contextToAuth context) page pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map ModelListResponse
 
@@ -48,8 +47,8 @@ init context =
         initSort =
             Grid.initialSort "createdDate" Descending
     in
-    Model Remote.Loading initSort 0 context.userPageSize Nothing
-        => loadModelList context.config 0 context.userPageSize initSort
+    Model Remote.Loading initSort 0 context.localStorage.userPageSize Nothing
+        => loadModelList context 0 context.localStorage.userPageSize initSort
 
 
 
@@ -73,7 +72,7 @@ update msg model context =
 
         SetTableState newState ->
             { model | tableState = newState, modelList = Remote.Loading }
-                => loadModelList context.config model.currentPage model.pageSize newState
+                => loadModelList context model.currentPage model.pageSize newState
 
         ShowDeleteDialog modelData ->
             let
@@ -89,7 +88,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Nexosis.Api.Models.delete context.config.clientConfig >> ignoreCascadeParams
+                    Nexosis.Api.Models.delete (contextToAuth context) >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -112,14 +111,14 @@ update msg model context =
                                             )
                                         |> Remote.withDefault 0
                             in
-                            loadModelList context.config pageNumber model.pageSize model.tableState
+                            loadModelList context pageNumber model.pageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
 
         ChangePage pgNum ->
             { model | modelList = Remote.Loading, currentPage = pgNum }
-                => loadModelList context.config pgNum model.pageSize model.tableState
+                => loadModelList context pgNum model.pageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -128,8 +127,8 @@ update msg model context =
             in
             newModel
                 => Cmd.batch
-                    [ loadModelList context.config 0 pageSize model.tableState
-                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    [ loadModelList context 0 pageSize model.tableState
+                    , StateStorage.saveAppState <| setPageSize context pageSize
                     ]
 
 
@@ -175,7 +174,7 @@ viewModelListResults context model =
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.modelList ChangePage ]
                     , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                        [ PageSize.view ChangePageSize context.userPageSize ]
+                        [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
             ]

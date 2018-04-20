@@ -3,8 +3,7 @@ module View.ColumnMetadataEditor exposing (ExternalMsg(..), Model, Msg, init, su
 import Autocomplete
 import Char
 import Data.Columns as Columns exposing (enumDataType, enumRole)
-import Data.Config as Config
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth, setPageSize)
 import Data.ImputationStrategy exposing (enumImputationStrategy)
 import Dict exposing (Dict)
 import Dict.Extra as Dict
@@ -106,11 +105,11 @@ mapColumnListToPagedListing context columns =
             List.length columns
 
         pageSize =
-            context.userPageSize
+            context.localStorage.userPageSize
     in
     { pageNumber = 0
     , totalPages = calcTotalPages count pageSize
-    , pageSize = context.userPageSize
+    , pageSize = pageSize
     , totalCount = count
     , metadata = Dict.fromListBy .name columns
     }
@@ -136,16 +135,16 @@ updateDataSetResponse context model dataSetResponse =
                 |> Maybe.withDefault ""
     in
     { model | columnMetadata = mappedColumns, targetQuery = targetName, showAutocomplete = False }
-        => (Nexosis.Api.Data.getStats context.config.clientConfig model.dataSetName
+        => (Nexosis.Api.Data.getStats (contextToAuth context) model.dataSetName
                 |> Remote.sendRequest
                 |> Cmd.map StatsResponse
            )
 
 
-delayAndRecheckStats : Config.Config -> DataSetName -> Cmd Msg
-delayAndRecheckStats config dataSetName =
+delayAndRecheckStats : ContextModel -> DataSetName -> Cmd Msg
+delayAndRecheckStats context dataSetName =
     delayTask 20
-        |> Task.andThen (\_ -> Nexosis.Api.Data.getStats config.clientConfig dataSetName |> Http.toTask)
+        |> Task.andThen (\_ -> Nexosis.Api.Data.getStats (contextToAuth context) dataSetName |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map StatsResponse
 
@@ -174,7 +173,7 @@ update msg model context pendingSaveCommand =
 
                         reFetchStats =
                             if Dict.size stats < allMetadata then
-                                delayAndRecheckStats context.config model.dataSetName
+                                delayAndRecheckStats context model.dataSetName
                             else
                                 Cmd.none
                     in
@@ -218,7 +217,7 @@ update msg model context pendingSaveCommand =
                 ( columnListing, cmd ) =
                     Remote.update (updateColumnPageSize pageSize) model.columnMetadata
             in
-            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState { context | userPageSize = pageSize }, cmd ] => NoOp
+            { model | columnMetadata = columnListing } => Cmd.batch [ StateStorage.saveAppState <| setPageSize context pageSize, cmd ] => NoOp
 
         RoleSelectionChanged selection ->
             { model
@@ -354,13 +353,13 @@ update msg model context pendingSaveCommand =
                             (model.changesPendingSave |> Dict.keys |> List.map (\c -> "column_" ++ c |> String.classify))
                             :: List.map
                                 (\c ->
-                                    Nexosis.Api.Data.getStatsForColumn context.config.clientConfig model.dataSetName c.name c.dataType
+                                    Nexosis.Api.Data.getStatsForColumn (contextToAuth context) model.dataSetName c.name c.dataType
                                         |> Remote.sendRequest
                                         |> Cmd.map (SingleStatsResponse c.name)
                                 )
                                 columnsWithNewDataType
                         )
-                    => Updated (Dict.values model.changesPendingSave)
+                    => Updated (Dict.values modifiedMetadata)
             else
                 { model | saveResult = result } => Cmd.none => NoOp
 
@@ -516,7 +515,7 @@ view context model =
             [ div [ class "col-sm-3 pleft0" ]
                 [ h3 [] [ text "Column metadata" ] ]
             , div [ class "col-sm-2 col-sm-offset-7 right" ]
-                [ PageSize.view ChangePageSize context.userPageSize ]
+                [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
             ]
         , Grid.view filterColumnsToDisplay (config context.config.toolTips model.statsResponse editTable model.columnInEditMode) model.tableState mergedMetadata
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]

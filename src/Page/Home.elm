@@ -1,8 +1,7 @@
 module Page.Home exposing (Model, Msg, init, update, view)
 
 import AppRoutes
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.Response exposing (GlobalMessage, Quota, Quotas, Response)
 import Data.Subscription exposing (Subscription)
 import Html exposing (..)
@@ -40,26 +39,26 @@ type alias Model =
     }
 
 
-init : Config -> ( Model, Cmd Msg )
-init config =
+init : ContextModel -> ( Model, Cmd Msg )
+init context =
     Model
         Remote.Loading
         Remote.Loading
         Remote.Loading
         Remote.Loading
         []
-        config.apiManagerUrl
+        context.config.apiManagerUrl
         => Cmd.batch
-            [ Nexosis.Api.Data.get config.clientConfig 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
+            [ Nexosis.Api.Data.get (contextToAuth context) 0 5 (Grid.initialSort "lastModified" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map DataSetListResponse
-            , Nexosis.Api.Sessions.get config.clientConfig 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
+            , Nexosis.Api.Sessions.get (contextToAuth context) 0 5 (Grid.initialSort "requestedDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map SessionListResponse
-            , Nexosis.Api.Models.get config.clientConfig 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
+            , Nexosis.Api.Models.get (contextToAuth context) 0 5 (Grid.initialSort "createdDate" Sorting.Descending)
                 |> Remote.sendRequest
                 |> Cmd.map ModelListResponse
-            , Request.Subscription.list config
+            , Request.Subscription.list context.config
                 |> Remote.sendRequest
                 |> Cmd.map SubscriptionListResponse
             ]
@@ -125,10 +124,11 @@ view model context messages =
                 , viewRecentPanel "Model" (modelListView context model) (AppRoutes.Models => Nothing)
                 ]
             , div [ class "col-sm-12 col-md-4 col-lg-3 col-xl-3" ]
-                [ viewSidePanel (loadingOrView model.subscriptionList (viewSubscriptions model))
-                , hr [] []
-                , viewSidePanel (viewQuotas context.quotas)
-                , viewSidePanel (viewRecentMessages messages)
+                [ div [ class "row" ]
+                    [ div [ class "col-sm-6 col-md-12 p0" ] [ viewSidePanel "api-keys" (loadingOrView model.subscriptionList (viewSubscriptions model)) ]
+                    , div [ class "col-sm-6 col-md-12 p0" ] [ viewSidePanel "account-status" (viewQuotas context.quotas) ]
+                    , div [ class "col-sm-12 p0" ] [ viewSidePanel "api-messages" (viewRecentMessages messages) ]
+                    ]
                 ]
             ]
         ]
@@ -186,7 +186,6 @@ viewQuota name quota =
                 ]
                 [ text ((value quota.current |> toString) ++ "/" ++ (value quota.allotted |> toString)) ]
             ]
-        , hr [] []
         ]
 
 
@@ -228,9 +227,9 @@ viewMessage message =
         |> Maybe.withDefault messageDisplay
 
 
-viewSidePanel : Html Msg -> Html Msg
-viewSidePanel view =
-    div [ class "panel" ]
+viewSidePanel : String -> Html Msg -> Html Msg
+viewSidePanel css_id view =
+    div [ class "panel", id css_id ]
         [ div [ class "panel-body p15" ]
             [ view ]
         ]
@@ -318,18 +317,17 @@ viewRecentPanel thing view ( linkRoute, addRoute ) =
                         , text (" Add " ++ String.toLower thing)
                         ]
     in
-    div [ class "panel panel-default" ]
+    div [ id (String.toLower (thing ++ "s")), class "panel panel-default" ]
         [ div [ class "panel-body" ]
-            [ div [ class "row" ]
+            [ div [ class "row panel-name" ]
                 [ div [ class "col-sm-6 pleft0" ]
                     [ h4 [] [ strong [] [ text ("Recent " ++ thing ++ "s") ] ]
                     ]
-                , div [ class "col-sm-6 pt5 pr0 right" ]
+                , div [ class "col-sm-6 action" ]
                     [ a [ AppRoutes.href linkRoute, class "btn btn-primary btn-sm mr10" ] [ text ("View All " ++ thing ++ "s") ]
                     , addButton addRoute
                     ]
                 ]
-            , hr [ class "mt10" ] []
             , view
             ]
         ]

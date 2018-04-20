@@ -56,7 +56,7 @@ type alias Model =
 
 loadDataSetList : ContextModel -> Int -> Int -> SortParameters -> Cmd Msg
 loadDataSetList context pageNum pageSize sorting =
-    Nexosis.Api.Data.get context.config.clientConfig pageNum pageSize sorting
+    Nexosis.Api.Data.get (contextToAuth context) pageNum pageSize sorting
         |> Remote.sendRequest
         |> Cmd.map DataSetListResponse
 
@@ -67,8 +67,8 @@ init context =
         initialSorting =
             Grid.initialSort "lastModified" Descending
     in
-    Model Remote.Loading 0 context.userPageSize initialSorting Nothing
-        => loadDataSetList context 0 context.userPageSize initialSorting
+    Model Remote.Loading 0 context.localStorage.userPageSize initialSorting Nothing
+        => loadDataSetList context 0 context.localStorage.userPageSize initialSorting
 
 
 
@@ -93,14 +93,14 @@ update msg model context =
         SetTableState newState ->
             let
                 sortedRequest =
-                    loadDataSetList context 0 context.userPageSize newState
+                    loadDataSetList context 0 context.localStorage.userPageSize newState
             in
             { model | tableState = newState, dataSetList = Remote.Loading }
                 => sortedRequest
 
         ChangePage pgNum ->
             { model | dataSetList = Remote.Loading, currentPage = pgNum }
-                => loadDataSetList context pgNum context.userPageSize model.tableState
+                => loadDataSetList context pgNum context.localStorage.userPageSize model.tableState
 
         ChangePageSize pageSize ->
             let
@@ -110,7 +110,7 @@ update msg model context =
             newModel
                 => Cmd.batch
                     [ loadDataSetList context 0 pageSize model.tableState
-                    , StateStorage.saveAppState { context | userPageSize = pageSize }
+                    , StateStorage.saveAppState <| setPageSize context pageSize
                     ]
 
         ShowDeleteDialog dataSet ->
@@ -123,7 +123,7 @@ update msg model context =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Nexosis.Api.Data.delete context.config.clientConfig
+                    toDataSetName >> Nexosis.Api.Data.delete (contextToAuth context)
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
@@ -146,7 +146,7 @@ update msg model context =
                                             )
                                         |> Remote.withDefault 0
                             in
-                            loadDataSetList context pageNumber context.userPageSize model.tableState
+                            loadDataSetList context pageNumber context.localStorage.userPageSize model.tableState
             in
             { model | deleteDialogModel = deleteModel }
                 ! [ Cmd.map DeleteDialogMsg cmd, closeCmd ]
@@ -177,7 +177,7 @@ view model context =
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.dataSetList ChangePage ]
                     , div [ class "col-sm-2 col-sm-offset-1 right" ]
-                        [ PageSize.view ChangePageSize context.userPageSize ]
+                        [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 , viewDataSetGrid context.config.toolTips model.tableState model.dataSetList
                 , hr [] []

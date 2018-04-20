@@ -1,7 +1,7 @@
 module Page.ModelDetail exposing (Model, Msg, init, subscriptions, update, view)
 
 import AppRoutes as Routes
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.Metric exposing (..)
 import Dict exposing (Dict)
 import Html exposing (..)
@@ -37,7 +37,7 @@ init : ContextModel -> String -> ( Model, Cmd Msg )
 init context modelId =
     let
         loadModelDetail =
-            getOne context.config.clientConfig modelId
+            getOne (contextToAuth context) modelId
                 |> Remote.sendRequest
                 |> Cmd.map ModelResponse
     in
@@ -106,7 +106,7 @@ update msg model context =
                     request
 
                 pendingDeleteCmd =
-                    Nexosis.Api.Models.delete context.config.clientConfig >> ignoreCascadeParams
+                    Nexosis.Api.Models.delete (contextToAuth context) >> ignoreCascadeParams
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd

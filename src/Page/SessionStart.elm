@@ -2,8 +2,7 @@ module Page.SessionStart exposing (Model, Msg, init, subscriptions, update, view
 
 import AppRoutes exposing (Route)
 import Data.Columns
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.DisplayDate exposing (toShortDateString, toShortDateTimeString)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Date exposing (Date, Month(..))
@@ -111,14 +110,14 @@ type SessionRequest
 -- todo : change datasetname to a maybe
 
 
-init : Config -> DataSetName -> ( Model, Cmd Msg )
-init config dataSetName =
+init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
+init context dataSetName =
     let
         steps =
             Ziplist.create [] NameSession [ SessionType, ColumnMetadata, StartSession ]
 
         loadDataSetRequest =
-            Nexosis.Api.Data.getRetrieveDetail config.clientConfig dataSetName 0 1
+            Nexosis.Api.Data.getRetrieveDetail (contextToAuth context) dataSetName 0 1
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -459,17 +458,17 @@ update msg model context =
                 sessionRequest =
                     case request of
                         ForecastRequest forecastRequest ->
-                            postForecast context.config.clientConfig forecastRequest
+                            postForecast (contextToAuth context) forecastRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
                         ImpactRequest impactRequest ->
-                            postImpact context.config.clientConfig impactRequest
+                            postImpact (contextToAuth context) impactRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
 
                         ModelRequest modelRequest ->
-                            postModel context.config.clientConfig modelRequest
+                            postModel (contextToAuth context) modelRequest
                                 |> Remote.sendRequest
                                 |> Cmd.map StartSessionResponse
             in
@@ -578,19 +577,14 @@ update msg model context =
                             model.sessionColumnMetadata
 
                 newTarget =
-                    getTargetColumn modifiedMetadata
-
-                target =
-                    if newTarget /= Nothing then
-                        newTarget
-                    else
-                        model.target
+                    mergeMetadata (getMetaDataColumns model) modifiedMetadata
+                        |> getTargetColumn
             in
             { model
                 | columnEditorModel = newModel
                 , sessionColumnMetadata = modifiedMetadata
                 , stats = newModel.statsResponse
-                , target = target
+                , target = newTarget
             }
                 |> recheckErrors
                 => Cmd.map ColumnMetadataEditorMsg cmd

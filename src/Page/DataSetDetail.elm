@@ -2,8 +2,7 @@ module Page.DataSetDetail exposing (Model, Msg, init, subscriptions, update, vie
 
 import AppRoutes
 import Data.Cascade as Cascade
-import Data.Config exposing (Config)
-import Data.Context exposing (ContextModel)
+import Data.Context exposing (ContextModel, contextToAuth)
 import Data.DisplayDate exposing (toShortDateString)
 import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
@@ -53,7 +52,7 @@ init : ContextModel -> DataSetName -> ( Model, Cmd Msg )
 init context dataSetName =
     let
         loadData =
-            Nexosis.Api.Data.getRetrieveDetail context.config.clientConfig dataSetName 0 context.userPageSize
+            Nexosis.Api.Data.getRetrieveDetail (contextToAuth context) dataSetName 0 context.localStorage.userPageSize
                 |> Remote.sendRequest
                 |> Cmd.map DataSetDataResponse
 
@@ -65,7 +64,7 @@ init context dataSetName =
     in
     Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked initTabs dataSetModel
         ! [ loadData
-          , loadRelatedSessions context.config dataSetName
+          , loadRelatedSessions context dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
           ]
 
@@ -78,9 +77,9 @@ initTabs =
         ]
 
 
-loadRelatedSessions : Config -> DataSetName -> Cmd Msg
-loadRelatedSessions config dataset =
-    getForDataset config.clientConfig dataset
+loadRelatedSessions : ContextModel -> DataSetName -> Cmd Msg
+loadRelatedSessions context dataset =
+    getForDataset (contextToAuth context) dataset
         |> Remote.sendRequest
         |> Cmd.map SessionDataListResponse
 
@@ -123,7 +122,7 @@ update msg model context =
                         model.columnMetadataEditorModel
                         context
                         (\modifiedMetadata ->
-                            Nexosis.Api.Data.updateMetadata context.config.clientConfig (Nexosis.Api.Data.MetadataUpdateRequest model.dataSetName modifiedMetadata)
+                            Nexosis.Api.Data.updateMetadata (contextToAuth context) (Nexosis.Api.Data.MetadataUpdateRequest model.dataSetName modifiedMetadata)
                                 |> Remote.sendRequest
                         )
 
@@ -153,7 +152,7 @@ update msg model context =
         DeleteDialogMsg subMsg ->
             let
                 pendingDeleteCmd =
-                    toDataSetName >> Nexosis.Api.Data.delete context.config.clientConfig
+                    toDataSetName >> Nexosis.Api.Data.delete (contextToAuth context)
 
                 ( ( deleteModel, cmd ), msgFromDialog ) =
                     DeleteDialog.update model.deleteDialogModel subMsg pendingDeleteCmd
