@@ -33,7 +33,7 @@ import StateStorage exposing (Msg(OnAppStateLoaded), appStateLoaded, loadAppStat
 import Task
 import Time
 import Time.DateTime as DateTime
-import Util exposing ((=>))
+import Util exposing ((=>), delayTask)
 import View.Error as ErrorView
 import View.Page as Page
 
@@ -112,11 +112,9 @@ type Page
 ---- UPDATE ----
 
 
-getMetrics : ContextModel -> Cmd Msg
-getMetrics context =
-    Nexosis.Api.Metrics.get (contextToAuth context)
-        |> Remote.sendRequest
-        |> Cmd.map MetricTextLoaded
+getMetricsTask : ContextModel -> Task.Task Http.Error (List Metric)
+getMetricsTask context =
+    Nexosis.Api.Metrics.get (contextToAuth context) |> Http.toTask
 
 
 getQuotas : Maybe Response.Response -> Maybe Response.Quotas
@@ -245,8 +243,13 @@ update msg model =
                                     , referLink = newContext.config.accountSiteUrl ++ "/apiaccount/referAFriend"
                                     , logoutLink = newContext.config.accountSiteUrl ++ "/account/logout?returnUrl=" ++ newContext.config.apiManagerUrl ++ "/signout"
                                     }
+
+                                getMetrics =
+                                    getMetricsTask newContext
+                                        |> Remote.asCmd
+                                        |> Cmd.map MetricTextLoaded
                             in
-                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics newContext, Ports.setHeaderValues headerValues ]
+                            Initialized routedApp => Cmd.batch [ Task.perform CheckToken Time.now, cmd, getMetrics, Ports.setHeaderValues headerValues ]
 
                 _ ->
                     InitializationError (GenericMessage "Unknown initialization message") => Cmd.none
@@ -405,6 +408,21 @@ updatePage page msg app =
                             { context | metricExplainers = metrics }
                     in
                     { app | context = newContext } => Cmd.none
+
+                Remote.Failure err ->
+                    case err of
+                        Http.NetworkError ->
+                            let
+                                delayMetricsCall =
+                                    delayTask 60
+                                        |> Task.andThen (\_ -> getMetricsTask app.context)
+                                        |> Remote.asCmd
+                                        |> Cmd.map MetricTextLoaded
+                            in
+                            app => delayMetricsCall
+
+                        _ ->
+                            app => Cmd.none
 
                 _ ->
                     app => Cmd.none
