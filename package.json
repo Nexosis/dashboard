@@ -21,7 +21,7 @@
     "dependencies": {
         "balloon-css": "^0.5.0",
         "loggly-jslogger": "^2.2.2",
-        "nexosis-styles": "^1.0.15",
+        "nexosis-styles": "^1.0.45",
         "prismjs": "^1.13.0",
         "stacktrace-js": "^2.0.0"
     },
