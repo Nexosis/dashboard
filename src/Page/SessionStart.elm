@@ -578,19 +578,14 @@ update msg model context =
                             model.sessionColumnMetadata
 
                 newTarget =
-                    getTargetColumn modifiedMetadata
-
-                target =
-                    if newTarget /= Nothing then
-                        newTarget
-                    else
-                        model.target
+                    mergeMetadata (getMetaDataColumns model) modifiedMetadata
+                        |> getTargetColumn
             in
             { model
                 | columnEditorModel = newModel
                 , sessionColumnMetadata = modifiedMetadata
                 , stats = newModel.statsResponse
-                , target = target
+                , target = newTarget
             }
                 |> recheckErrors
                 => Cmd.map ColumnMetadataEditorMsg cmd
