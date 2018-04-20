@@ -20,6 +20,7 @@ import 'nexosis-styles/api-styles.css';
 import 'nexosis-styles/docs-styles.css';
 import 'nexosis-styles/hubspot-forms.css';
 import './elements/vega-chart';
+import './elements/prism-highlight';
 
 if (!Intercept.isWired()) {
     Intercept.wire();
@@ -96,12 +97,6 @@ fetch('./config.json', { cache: 'no-store' }).then(function (response) {
             app.ports.log.subscribe(function (logString) {
                 const logMessage = JSON.parse(logString);
                 logger(logMessage.message, logMessage.level);
-            });
-
-            app.ports.prismHighlight.subscribe(function () {
-                requestAnimationFrame(() => {
-                    Prism.highlightAll();
-                });
             });
 
             initLocalStoragePort(app);

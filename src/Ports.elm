@@ -1,4 +1,4 @@
-port module Ports exposing (HeaderValues, fileContentRead, fileSaved, highlightIds, log, objectRetrieved, prismHighlight, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setHeaderValues, setPageTitle, storeObject, uploadFileSelected)
+port module Ports exposing (HeaderValues, fileContentRead, fileSaved, highlightIds, log, objectRetrieved, requestSaveFile, requestSent, responseReceived, retrieveObject, scrollIntoView, setHeaderValues, setPageTitle, storeObject, uploadFileSelected)
 
 import Json.Decode
 import Json.Encode
@@ -11,9 +11,6 @@ port requestSent : (Json.Encode.Value -> msg) -> Sub msg
 
 
 port responseReceived : (Json.Encode.Value -> msg) -> Sub msg
-
-
-port prismHighlight : () -> Cmd msg
 
 
 port uploadFileSelected : ( String, Int ) -> Cmd msg
