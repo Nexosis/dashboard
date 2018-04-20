@@ -46,7 +46,7 @@ The name of the environment variable is **NEXOSIS_API_KEY**
 
 You can find a key on your [Nexosis Account](https://account.nexosis.com).
 
-Note that your API key should not be deployed with this application.  If you would like to deploy the dashboard to your own server, please contact us.  We can help you get setup with token authentication.
+Note that your API key should not be deployed with this application.
 
 **3.** Build and run:
 
