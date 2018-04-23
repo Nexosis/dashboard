@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Dashboard used to interface and manage the Nexosis Machine Learning API",
     "author": "Nexosis",
-    "license": "UNLICENSED",
+    "license": "Apache 2",
     "private": true,
     "scripts": {
         "test": "node node_modules/elm-test/bin/elm-test",
