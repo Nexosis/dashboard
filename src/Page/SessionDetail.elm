@@ -407,22 +407,21 @@ viewSessionDetails model context =
         pendingOrCompleted model session =
             if session.status == Status.Completed then
                 div []
-                    [ viewCompletedSession session
-                    , errorOrView model.resultsResponse <| viewMetricsList context
+                    [ viewSessionDataColumn model session
                     ]
             else
                 div []
                     [ viewPendingSession session ]
     in
     div [ class "row", id "details" ]
-        [ div [ class "col-sm-3" ]
+        [ div [ class "col-sm-4" ]
             [ loadingOr pendingOrCompleted ]
 
         --, p []
         --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
         --        [ text "(TODO) View algorithm contestants" ]
         --    ]
-        , div [ class "col-sm-4" ]
+        , div [ class "col-sm-3" ]
             [ loadingOr viewSessionInfo
             ]
         , div [ class "col-sm-5" ]
@@ -434,25 +433,19 @@ viewSessionDetails model context =
 
 viewSessionInfo : Model -> SessionData -> Html Msg
 viewSessionInfo model session =
+    let
+        s =
+            session
+    in
     div []
-        [ p []
+        [ modelLink session
+        , p []
             [ strong []
-                [ text "Session Type: " ]
-            , text <| toString session.predictionDomain
+                [ text "Source: " ]
+            , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
+                [ text <| formatDisplayName session.dataSourceName ]
             ]
-        , p []
-            [ strong [] [ text "Session ID: " ]
-            , br [] []
-            , copyableText session.sessionId
-            ]
-        , p []
-            [ strong [] [ text "API Endpoint URL: " ]
-            , br [] []
-            , copyableText ("/sessions/" ++ session.sessionId)
-            ]
-        , p []
-            [ deleteSessionButton model
-            ]
+        , viewTargetColumn session
         ]
 
 
@@ -525,7 +518,7 @@ viewSessionHeader model =
     div []
         [ loadingOr viewSessionName
         , div [ class "col-sm-3" ]
-            [ div [ class "mt5 right" ]
+            [ div [ id "action" ]
                 [ div
                     [ class "btn-group", attribute "role" "group" ]
                     [ --loadingOr iterateSessionButton TODO: V2 Feature?
@@ -563,14 +556,6 @@ viewPredictButton model session =
         div [] []
 
 
-viewSessionDetail : SessionData -> Html Msg
-viewSessionDetail session =
-    if session.status == Status.Completed then
-        viewCompletedSession session
-    else
-        viewPendingSession session
-
-
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
     div []
@@ -580,6 +565,25 @@ viewPendingSession session =
             , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
             ]
         , div [ class "p15" ] [ button [ class "btn btn-xs btn-default", onClick HowLongButtonClicked ] [ text "How long will my session run?" ] ]
+        ]
+
+
+viewSessionDataColumn : Model -> SessionData -> Html Msg
+viewSessionDataColumn model session =
+    div []
+        [ p []
+            [ strong [] [ text "Session ID: " ]
+            , br [] []
+            , copyableText session.sessionId
+            ]
+        , p []
+            [ strong [] [ text "API Endpoint URL: " ]
+            , br [] []
+            , copyableText ("/sessions/" ++ session.sessionId)
+            ]
+        , p []
+            [ deleteSessionButton model
+            ]
         ]
 
 
@@ -598,8 +602,8 @@ modelLink session =
                 ]
 
 
-viewCompletedSession : SessionData -> Html Msg
-viewCompletedSession session =
+viewTargetColumn : SessionData -> Html Msg
+viewTargetColumn session =
     let
         targetColumnFromColumns : SessionData -> Maybe String
         targetColumnFromColumns session =
@@ -637,7 +641,15 @@ viewCompletedSession session =
 
                 Just c ->
                     Just <| formatDisplayName c.name
+    in
+    div []
+        [ viewTargetColumn (targetColumn session)
+        ]
 
+
+viewAlgorithmOverview : ContextModel -> Model -> SessionData -> Html Msg
+viewAlgorithmOverview context model session =
+    let
         algorithmName : Maybe Algorithm -> String
         algorithmName algo =
             case algo of
@@ -647,20 +659,11 @@ viewCompletedSession session =
                 Just a ->
                     a.name
     in
-    div []
-        [ modelLink session
-        , p []
-            [ strong []
-                [ text "Source: " ]
-            , a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName session.dataSourceName)) ]
-                [ text <| formatDisplayName session.dataSourceName ]
-            ]
-        , viewTargetColumn (targetColumn session)
-        , p []
-            [ strong []
-                [ text "Algorithm: " ]
-            , text (algorithmName session.algorithm)
-            ]
+    div [ class "col-sm-4 pt15" ]
+        [ h6 [] [ strong [] [ text "Algorithm:" ], text (algorithmName session.algorithm) ]
+        , hr [] []
+        , p [] [ strong [] [ text "Metrics" ] ]
+        , div [ class "table-responsive" ] [ errorOrView model.resultsResponse <| viewMetricsList context ]
         ]
 
 
@@ -698,7 +701,7 @@ viewSessionName model session =
 
 viewSessionId : SessionData -> Html Msg
 viewSessionId session =
-    div [ class "col-sm-4" ]
+    div [ class "col-sm-3" ]
         [ p [ class "small" ]
             [ strong []
                 [ text "Session ID: " ]
@@ -810,9 +813,9 @@ viewModelTrainingResults model sessionData =
             in
             div [ class "row" ]
                 [ div [ class "col-sm-12" ]
-                    [ div [ class "row" ]
-                        [ div [ class "col-sm-6" ] [ h3 [] [ text "Test Data" ] ]
-                        , div [ class "col-sm-6" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ], renderExplanatoryButton sessionData ] ]
+                    [ div [ class "row mb15" ]
+                        [ div [ class "col-xs-4" ] [ h3 [] [ text "Test Data" ] ]
+                        , div [ class "col-xs-8 text-right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ], renderExplanatoryButton sessionData ]
                         ]
                     , table [ class "table table-striped" ]
                         [ thead []
@@ -834,7 +837,7 @@ viewModelTrainingResults model sessionData =
 renderExplanatoryButton : SessionData -> Html Msg
 renderExplanatoryButton session =
     if session.predictionDomain == PredictionDomain.Regression then
-        div [ style [ ( "margin-top", "5px" ) ] ]
+        div [ style [ ( "margin-top", "5px" ) ], id "action" ]
             [ a [ href "https://docs.nexosis.com/guides/analyzing-regression-results", target "_blank" ]
                 [ button [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ]
                 ]
@@ -867,9 +870,9 @@ viewAnomalyResults model sessionData =
     in
     div [ class "row" ]
         [ div [ class "col-sm-12" ]
-            [ div [ class "row" ]
-                [ div [ class "col-sm-9" ] [ h3 [] [ text "Anomaly Results" ] ]
-                , div [ class "col-sm-3" ] [ div [ class "mt5 right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ] ]
+            [ div [ class "row mb15" ]
+                [ div [ class "col-xs-4" ] [ h3 [] [ text "Anomaly Results" ] ]
+                , div [ class "col-xs-8 action" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ]
                 ]
             , table [ class "table table-striped" ]
                 [ thead []
