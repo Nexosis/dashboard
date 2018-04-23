@@ -43,7 +43,7 @@ view pagedValues changePageMsg =
                         last =
                             changePageMsg (successResponse.totalPages - 1)
                     in
-                    div [ class "pagination" ]
+                    div [ class "pagination", id "pagination-controls" ]
                         [ div [ class "btn-group", attribute "role" "group" ]
                             (firstButton prevEnabled first
                                 :: [ backButton prevEnabled prev ]

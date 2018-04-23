@@ -511,13 +511,15 @@ view context model =
             buildEditTable context model.statsResponse model
     in
     div []
-        [ div [ class "row mb25" ]
-            [ div [ class "col-sm-3 pleft0" ]
+        [ div [ id "pagination-controls", class "row" ]
+            [ div [ class "col-xs-12 col-sm-3 pleft0" ]
                 [ h3 [] [ text "Column metadata" ] ]
-            , div [ class "col-sm-2 col-sm-offset-7 right" ]
+            , div [ class "col-sm-6 p0" ] [ Pager.view model.columnMetadata ChangePage ]
+            , div [ id "view-rows", class "col-sm-2 col-sm-offset-1 right" ]
                 [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
             ]
-        , Grid.view filterColumnsToDisplay (config context.config.toolTips model.statsResponse editTable model.columnInEditMode) model.tableState mergedMetadata
+        , div [ class "row mb25", id "list" ] [ Grid.view filterColumnsToDisplay (config context.config.toolTips model.statsResponse editTable model.columnInEditMode) model.tableState mergedMetadata ]
+        , hr [] []
         , div [ class "center" ] [ Pager.view model.columnMetadata ChangePage ]
         ]
 
