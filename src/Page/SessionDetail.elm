@@ -385,16 +385,6 @@ view model context =
             , viewSessionHeader model
             ]
         , viewSessionDetails model context
-        , viewConfusionMatrix model
-        , viewResultsGraph model
-        , viewResultsTable model
-        , DeleteDialog.view model.deleteDialogModel
-            { headerMessage = "Delete Session"
-            , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
-            , associatedAssets = []
-            }
-            |> Html.map DeleteDialogMsg
-        , Modal.view model.howLongModalModel
         ]
 
 
@@ -413,21 +403,33 @@ viewSessionDetails model context =
                 div []
                     [ viewPendingSession session ]
     in
-    div [ class "row", id "details" ]
-        [ div [ class "col-sm-4" ]
-            [ loadingOr pendingOrCompleted ]
+    div []
+        [ div [ class "row", id "details" ]
+            [ div [ class "col-sm-4" ]
+                [ loadingOr pendingOrCompleted ]
 
-        --, p []
-        --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
-        --        [ text "(TODO) View algorithm contestants" ]
-        --    ]
-        , div [ class "col-sm-3" ]
-            [ loadingOr viewSessionInfo
+            --, p []
+            --    [ a [ class "btn btn-xs btn-primary", href "dashboard-session-champion.html" ]
+            --        [ text "(TODO) View algorithm contestants" ]
+            --    ]
+            , div [ class "col-sm-3" ]
+                [ loadingOr viewSessionInfo
+                ]
+            , div [ class "col-sm-5" ]
+                [ loadingOr viewMessages
+                , loadingOr viewStatusHistory
+                ]
             ]
-        , div [ class "col-sm-5" ]
-            [ loadingOr viewMessages
-            , loadingOr viewStatusHistory
-            ]
+        , viewConfusionMatrix model (loadingOr (viewAlgorithmOverview context))
+        , loadingOr (viewResultsGraph (loadingOr (viewAlgorithmOverview context)))
+        , viewResultsTable model
+        , DeleteDialog.view model.deleteDialogModel
+            { headerMessage = "Delete Session"
+            , bodyMessage = Just "This action cannot be undone but you can always run another session with the same parameters."
+            , associatedAssets = []
+            }
+            |> Html.map DeleteDialogMsg
+        , Modal.view model.howLongModalModel
         ]
 
 
@@ -572,9 +574,17 @@ viewSessionDataColumn : Model -> SessionData -> Html Msg
 viewSessionDataColumn model session =
     div []
         [ p []
+            [ strong [] [ text "Session Type: " ]
+            , text (toString session.predictionDomain)
+            ]
+        , p []
             [ strong [] [ text "Session ID: " ]
             , br [] []
             , copyableText session.sessionId
+            ]
+        , p []
+            [ strong [] [ text "Created: " ]
+            , text (Data.DisplayDate.toShortDateString session.requestedDate)
             ]
         , p []
             [ strong [] [ text "API Endpoint URL: " ]
@@ -660,10 +670,10 @@ viewAlgorithmOverview context model session =
                     a.name
     in
     div [ class "col-sm-4 pt15" ]
-        [ h6 [] [ strong [] [ text "Algorithm:" ], text (algorithmName session.algorithm) ]
+        [ h6 [] [ strong [] [ text "Algorithm: " ], text (algorithmName session.algorithm) ]
         , hr [] []
         , p [] [ strong [] [ text "Metrics" ] ]
-        , div [ class "table-responsive" ] [ errorOrView model.resultsResponse <| viewMetricsList context ]
+        , div [] [ errorOrView model.resultsResponse <| viewMetricsList context ]
         ]
 
 
@@ -671,25 +681,20 @@ viewMetricsList : ContextModel -> SessionResults -> Html Msg
 viewMetricsList context results =
     let
         listMetric key value =
-            li []
-                [ strong []
-                    ([ text (getMetricNameFromKey context.metricExplainers key) ]
-                        ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers key)
-                    )
-                , br []
-                    []
-                , styledNumber <| formatFloatToString value
+            tr []
+                [ th []
+                    [ strong []
+                        ([ text (getMetricNameFromKey context.metricExplainers key) ]
+                            ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers key)
+                        )
+                    ]
+                , td [ class "number" ]
+                    [ styledNumber <| formatFloatToString value
+                    ]
                 ]
     in
-    div []
-        [ p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "false", attribute "aria-controls" "metrics" ]
-            [ strong []
-                [ text "Metrics" ]
-            , i [ class "fa fa-angle-down ml5" ] []
-            ]
-        , ul [ class "collapse small algorithm-metrics", id "metrics" ]
-            (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics)
-        ]
+    table [ class "table table-striped metrics" ]
+        [ tbody [] (Dict.foldr (\key val html -> listMetric key val :: html) [] results.metrics) ]
 
 
 viewSessionName : Model -> SessionData -> Html Msg
@@ -714,19 +719,28 @@ viewSessionId session =
         ]
 
 
-viewResultsGraph : Model -> Html Msg
-viewResultsGraph model =
+viewResultsGraph : Html Msg -> Model -> SessionData -> Html Msg
+viewResultsGraph metrics model session =
     let
         graphSpec =
             graphModel model
     in
     case graphSpec of
         Just spec ->
-            div [ class "col-sm-12" ]
-                [ div [ id "result-vis" ] [ spec ], hr [] [] ]
+            div []
+                [ div [ class "col-sm-12" ]
+                    [ div [ class "col-xs-4" ] []
+                    , div [ class "col-xs-8 action" ] [ renderExplanatoryButton session ]
+                    ]
+                , div []
+                    [ div [ class "col-sm-8" ]
+                        [ div [ class "center" ] [ spec ] ]
+                    , metrics
+                    ]
+                ]
 
         Nothing ->
-            div [ class "col-sm-12" ]
+            div [ class "col-sm-8" ]
                 [ div [] [] ]
 
 
@@ -815,7 +829,7 @@ viewModelTrainingResults model sessionData =
                 [ div [ class "col-sm-12" ]
                     [ div [ class "row mb15" ]
                         [ div [ class "col-xs-4" ] [ h3 [] [ text "Test Data" ] ]
-                        , div [ class "col-xs-8 text-right" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ], renderExplanatoryButton sessionData ]
+                        , div [ class "col-xs-8 action" ] [ button [ class "btn btn-danger", onClick DownloadResults ] [ text "Download Results" ] ]
                         ]
                     , table [ class "table table-striped" ]
                         [ thead []
@@ -836,9 +850,9 @@ viewModelTrainingResults model sessionData =
 
 renderExplanatoryButton : SessionData -> Html Msg
 renderExplanatoryButton session =
-    if session.predictionDomain == PredictionDomain.Regression then
+    if session.predictionDomain == PredictionDomain.Regression || session.predictionDomain == PredictionDomain.Anomalies then
         div [ style [ ( "margin-top", "5px" ) ], id "action" ]
-            [ a [ href "https://docs.nexosis.com/guides/analyzing-regression-results", target "_blank" ]
+            [ a [ href ("https://docs.nexosis.com/guides/analyzing-" ++ (String.toLower <| toString session.predictionDomain) ++ "-results"), target "_blank" ]
                 [ button [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ]
                 ]
             ]
@@ -958,8 +972,8 @@ loadingOrView model request view =
             div [] []
 
 
-viewConfusionMatrix : Model -> Html Msg
-viewConfusionMatrix model =
+viewConfusionMatrix : Model -> Html Msg -> Html Msg
+viewConfusionMatrix model metrics =
     case model.confusionMatrixResponse of
         Remote.NotAsked ->
             div [] []
@@ -968,7 +982,7 @@ viewConfusionMatrix model =
             div [] []
 
         Remote.Success response ->
-            div [] [ Charts.renderConfusionMatrix response, hr [] [] ]
+            div [] [ Charts.renderConfusionMatrix response metrics, hr [] [] ]
 
         Remote.Failure error ->
             viewHttpError error

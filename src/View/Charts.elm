@@ -647,33 +647,32 @@ mapAggregation aggregate =
 widthToSize : Int -> ( Float, Float )
 widthToSize width =
     if width >= 1440 then
-        ( 1140, 570 )
+        ( 640, 360 )
     else if width >= 768 then
-        ( 768, 384 )
+        ( 384, 216 )
     else
-        ( 429, 215 )
+        ( 256, 144 )
 
 
-renderConfusionMatrix : ConfusionMatrix -> Html msg
-renderConfusionMatrix matrix =
-    div []
-        [ div [ class "row" ]
-            [ div [ class "col-sm-6" ] [ h3 [] [ Html.text "Confusion Matrix" ] ]
-            , div [ class "col-sm-6 text-right" ]
+renderConfusionMatrix : ConfusionMatrix -> Html msg -> Html msg
+renderConfusionMatrix matrix metrics =
+    div [ class "row" ]
+        [ div [ class "col-sm-12 p0" ]
+            [ div [ class "col-xs-4" ] [ h3 [] [ Html.text "Confusion Matrix" ] ]
+            , div [ class "col-xs-8 action" ]
                 [ a [ href "https://docs.nexosis.com/guides/analyzing-classification-results", target "_blank" ] [ div [ class "btn btn-default btn-sm" ] [ Html.text "Understanding your results" ] ]
                 ]
             ]
-        , div [ class "row" ]
-            [ div [ class "col-sm-12" ]
-                [ table [ class "table table-bordered confusion-matrix" ]
-                    [ tbody []
-                        (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
-                            -- footer is the set of classes
-                            ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
-                        )
-                    ]
+        , div [ class "col-sm-8" ]
+            [ table [ class "table table-bordered confusion-matrix" ]
+                [ tbody []
+                    (List.map (\r -> toConfusionMatrixRow matrix.classes r) (Array.toIndexedList matrix.confusionMatrix)
+                        -- footer is the set of classes
+                        ++ [ tr [ class "footer" ] (td [] [] :: List.map (\c -> td [] [ div [] [ span [] [ Html.text c ] ] ]) (Array.toList matrix.classes)) ]
+                    )
                 ]
             ]
+        , metrics
         ]
 
 
