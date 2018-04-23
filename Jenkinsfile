@@ -3,12 +3,10 @@ pipeline {
     agent { label 'master' }
 
     triggers{
-        gitlab(triggerOnPush: true, triggerOnMergeRequest:true, branchFilterType: 'All')
+        pollSCM('* * * * *')
     }
 
     options {
-        gitLabConnection('GitLab')
-        gitlabBuilds(builds: ['Build', 'Test', 'Deploy'])
         disableConcurrentBuilds()
     }
 
@@ -19,32 +17,18 @@ pipeline {
     stages {
         stage('Build'){
             steps {
-                updateGitlabCommitStatus name: 'Build', state: 'running'
                 bat 'yarn'
                 bat 'yarn build'
-                updateGitlabCommitStatus name: 'Build', state: 'success'
-            }
-
-            post {
-                failure {
-                    updateGitlabCommitStatus name: 'Build', state: 'failed'
-                }
             }
         }
         stage('Test'){
             steps {
-                updateGitlabCommitStatus name: 'Test', state: 'running'
                 bat 'yarn test-output'
-                updateGitlabCommitStatus name: 'Test', state: 'success'
             }
 
             post {
                 always{
                     junit 'junit.xml'
-                }
-
-                failure {
-                    updateGitlabCommitStatus name: 'Test', state: 'failed'
                 }
             }
         }
@@ -53,7 +37,6 @@ pipeline {
                 branch 'master'
             }
             steps {
-                updateGitlabCommitStatus name: 'Deploy', state: 'running'
                 powershell '''
                     Add-Type -Assembly "System.IO.Compression.FileSystem";
                     [System.IO.Compression.ZipFile]::CreateFromDirectory("dist\\docs", "Dashboard.Docs.0.1.$env:BUILD_NUMBER.zip") ;
@@ -66,13 +49,6 @@ pipeline {
                     $wc = new-object System.Net.WebClient
                     $wc.UploadFile("$env:DEPLOYMENT_PACKAGE_FEED", "Dashboard.0.1.$env:BUILD_NUMBER.zip")
                 '''          
-                updateGitlabCommitStatus name: 'Deploy', state: 'success'
-            }
-
-            post {
-                failure {
-                    updateGitlabCommitStatus name: 'Deploy', state: 'failed'
-                }
             }
         }
         
@@ -84,7 +60,6 @@ pipeline {
             }
 
             steps {
-                updateGitlabCommitStatus name: 'Deploy', state: 'running'
                 powershell '''
                     Add-Type -Assembly "System.IO.Compression.FileSystem";
                     [System.IO.Compression.ZipFile]::CreateFromDirectory("dist\\docs", "Dashboard.Docs.0.1.$env:BUILD_NUMBER-$env:BRANCH_NAME.zip") ;
@@ -97,14 +72,8 @@ pipeline {
                     $wc = new-object System.Net.WebClient
                     $wc.UploadFile("$env:DEPLOYMENT_PACKAGE_FEED", "Dashboard.0.1.$env:BUILD_NUMBER-$env:BRANCH_NAME.zip")
                 '''
-                updateGitlabCommitStatus name: 'Deploy', state: 'success'
             }
 
-            post {
-                failure {
-                    updateGitlabCommitStatus name: 'Deploy', state: 'failed'
-                }
-            }
         }
     }
 
