@@ -13,7 +13,7 @@ import Json.Decode exposing (succeed)
 import Nexosis.Api.Models exposing (predict, predictRaw)
 import Nexosis.Types.Model exposing (PredictionResult)
 import Page.Helpers exposing (expandedMessagesTable, explainer)
-import Ports exposing (fileContentRead, fileSaved, prismHighlight, requestSaveFile, scrollIntoView, uploadFileSelected)
+import Ports exposing (fileContentRead, fileSaved, requestSaveFile, scrollIntoView, uploadFileSelected)
 import RemoteData as Remote
 import Request.Log as Log
 import Util exposing ((=>), isJust, spinner, styledNumber)
@@ -75,7 +75,7 @@ update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
 update msg model context =
     case msg of
         ChangeTab tab ->
-            { model | activeTab = tab } => prismHighlight ()
+            { model | activeTab = tab } => Cmd.none
 
         FileSelected ->
             --don't pass quotas because we don't have kind of 'batch' upload capability for predictions
