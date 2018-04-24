@@ -171,21 +171,6 @@ detailRow model context =
         Remote.Success resp ->
             div [ id "details", class "row" ]
                 [ div [ class "col-sm-4" ]
-                    [ p []
-                        [ strong [] [ text "Session Used: " ]
-                        , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text resp.sessionId ]
-                        ]
-                    , p []
-                        [ strong [] [ text "Source: " ]
-                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text <| formatDisplayName resp.dataSourceName ]
-                        ]
-                    , p []
-                        [ strong [] [ text "Target Column: " ]
-                        , text (find (\c -> c.role == Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
-                        ]
-                    ]
-                , div [ class "col-sm-4" ] [ metricsList context resp.algorithm.name resp.metrics ]
-                , div [ class "col-sm-4 " ]
                     [ p [] [ strong [] [ text "Model Type: " ], text (toString model.modelType) ]
                     , p []
                         [ strong [] [ text "Model ID:" ]
@@ -201,6 +186,23 @@ detailRow model context =
                         [ i [ class "fa fa-trash-o mr5" ] []
                         , text "Delete Model"
                         ]
+                    ]
+                , div [ class "col-sm-3" ]
+                    [ p []
+                        [ strong [] [ text "Session Used: " ]
+                        , a [ Routes.href (Routes.SessionDetail resp.sessionId) ] [ text (Maybe.withDefault resp.sessionId resp.modelName) ]
+                        ]
+                    , p []
+                        [ strong [] [ text "Source: " ]
+                        , a [ Routes.href (Routes.DataSetDetail (toDataSetName resp.dataSourceName)) ] [ text <| formatDisplayName resp.dataSourceName ]
+                        ]
+                    , p []
+                        [ strong [] [ text "Target Column: " ]
+                        , text (find (\c -> c.role == Target) resp.columns |> Maybe.map (\t -> t.name) |> Maybe.withDefault "" |> formatDisplayName)
+                        ]
+                    ]
+                , div [ class "col-sm-5" ]
+                    [ metricsList context resp.algorithm.name resp.metrics
                     ]
                 ]
 
@@ -218,20 +220,25 @@ metricsList context algo metrics =
             [ strong [] [ text "Algorithm: " ]
             , text algo
             ]
-        , p [ class "small", attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#metrics", attribute "aria-expanded" "true", attribute "aria-controls" "metrics" ]
+        , p []
             [ strong [] [ text "Metrics" ]
-            , i [ class "fa fa-angle-down ml5" ] []
             ]
-        , ul [ class "small algorithm-metrics collapse", id "metrics" ] (List.map (metricListItem context) (Dict.toList metrics))
+        , table [ class "table table-striped metrics" ] [ tbody [] (List.map (metricListItem context) (Dict.toList metrics)) ]
         ]
 
 
 metricListItem : ContextModel -> ( String, Float ) -> Html Msg
 metricListItem context ( name, value ) =
-    li []
-        [ strong [] ([ text (getMetricNameFromKey context.metricExplainers name) ] ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers name))
-        , br [] []
-        , styledNumber <| formatFloatToString value
+    tr []
+        [ th []
+            [ strong []
+                ([ text (getMetricNameFromKey context.metricExplainers name) ]
+                    ++ helpIconFromText (getMetricDescriptionFromKey context.metricExplainers name)
+                )
+            ]
+        , td [ class "number" ]
+            [ styledNumber <| formatFloatToString value
+            ]
         ]
 
 

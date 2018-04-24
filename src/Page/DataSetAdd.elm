@@ -751,8 +751,8 @@ view model context =
                     viewSetKey context model
             ]
         , hr [] []
-        , div [ class "row" ]
-            [ div [ class "col-sm-12 right" ]
+        , div [ class "col-xs-12" ]
+            [ div [ class "well well-sm right" ]
                 [ viewButtons (configWizard context True)
                     model
                     model.steps
