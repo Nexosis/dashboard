@@ -168,17 +168,17 @@ viewModelListResults context model =
                     True
     in
     if modelsFound then
-        [ div [ class "row" ]
+        [ div [ id "list", class "row" ]
             [ div [ class "col-sm-12" ]
-                [ div [ class "row mb25" ]
+                [ div [ class "row", id "pagination-controls" ]
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.modelList ChangePage ]
-                    , div [ class "col-sm-2 col-sm-offset-1 right" ]
+                    , div [ class "col-sm-2 col-sm-offset-1 right", id "view-rows" ]
                         [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
             ]
-        , Grid.view .items (config context.config.toolTips) model.tableState model.modelList
+        , div [ id "models" ] [ Grid.view .items (config context.config.toolTips) model.tableState model.modelList ]
         , hr [] []
         , div [ class "center" ]
             [ Pager.view model.modelList ChangePage ]

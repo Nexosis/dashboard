@@ -313,7 +313,7 @@ viewUploadTab context model =
                 model.fileName
     in
     div [ class "row" ]
-        [ div [ class "col-sm-6 pl0" ]
+        [ div [ class "col-sm-6" ]
             [ div [ class "form-group" ]
                 [ input
                     [ id "upload-dataset"
@@ -338,7 +338,7 @@ viewUploadTab context model =
                     model.fileUploadErrorOccurred
                 ]
             ]
-        , div [ class "col-sm-6" ]
+        , div [ class "col-sm-6 help" ]
             [ div [ class "alert alert-info" ]
                 [ explainer context.config "how_upload_csv" ]
             ]

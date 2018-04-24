@@ -184,7 +184,7 @@ viewSessionListResults context model =
     if sessionsFound then
         [ div [ class "row" ]
             [ div [ class "col-sm-12" ]
-                [ div [ class "row" ]
+                [ div [ class "row", id "pagination-controls" ]
                     [ div [ class "col-sm-6 col-sm-offset-3" ]
                         [ Pager.view model.sessionList ChangePage ]
                     , div [ id "view-rows", class "col-sm-2 col-sm-offset-1 right" ]
