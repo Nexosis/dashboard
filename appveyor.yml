@@ -1,0 +1,11 @@
+version: 1.0.{build}
+image: Visual Studio 2017
+install:
+- ps: Install-Product node 6
+build_script:
+- cmd: >-
+    yarn
+
+    yarn build
+    
+    yarn test

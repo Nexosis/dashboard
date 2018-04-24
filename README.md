@@ -1,5 +1,7 @@
 # Nexosis API Dashboard
 
+[![Build status](https://ci.appveyor.com/api/projects/status/ga45ljuh216w0tat?svg=true)](https://ci.appveyor.com/project/Nexosis/dashboard)
+
 Interact with the [Nexosis API](https://nexosis.com) using this dashboard front-end.
 
 The Nexosis API provides an easy way to build machine learning applications.  It provides a Rest API that allows you to write programs that upload and manage data, run machine learning algorithms to build models, and make predictions on new data.
