@@ -18,11 +18,9 @@ before_install:
     fi
 
 install:
-  - nvm install $TARGET_NODE_VERSION
-  - nvm use $TARGET_NODE_VERSION
   - node --version
   - npm --version
-  - npm install -g elm@$ELM_VERSION
+  - npm install -g elm@0.18.0
   - mv $(npm config get prefix)/bin/elm-make $(npm config get prefix)/bin/elm-make-old
   - printf "#\041/bin/bash\n\necho \"Running elm-make with sysconfcpus -n 2\"\n\n$TRAVIS_BUILD_DIR/sysconfcpus/bin/sysconfcpus -n 2 elm-make-old \"\$@\"" > $(npm config get prefix)/bin/elm-make
   - chmod +x $(npm config get prefix)/bin/elm-make
