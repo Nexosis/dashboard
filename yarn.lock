@@ -4644,8 +4644,8 @@ neo-async@^2.5.0:
   resolved "https://registry.yarnpkg.com/neo-async/-/neo-async-2.5.1.tgz#acb909e327b1e87ec9ef15f41b8a269512ad41ee"
 
 nexosis-styles@^1.0.45:
-  version "1.0.49"
-  resolved "https://registry.yarnpkg.com/nexosis-styles/-/nexosis-styles-1.0.49.tgz#9c455988c1ec4b49843b7d31525216b5a224dd03"
+  version "1.0.50"
+  resolved "https://registry.yarnpkg.com/nexosis-styles/-/nexosis-styles-1.0.50.tgz#5977f5ccfcb7ce5b76f3805ef7d542467cbafcdc"
 
 no-case@^2.2.0:
   version "2.3.2"
