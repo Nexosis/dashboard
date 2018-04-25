@@ -689,7 +689,7 @@ updateTabContents model msg =
 
                                 -- uses first non-whitespace character to see if it's JSON
                                 inputType =
-                                    if trimmed |> String.startsWith "{" then
+                                    if (trimmed |> String.startsWith "{") || (trimmed |> String.startsWith "[") then
                                         DataFormat.Json
                                     else if trimmed |> String.contains "," then
                                         DataFormat.Csv

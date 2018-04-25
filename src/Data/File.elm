@@ -1,7 +1,7 @@
 module Data.File exposing (CsvData, FileReadStatus(..), FileUploadErrorType(..), JsonData, UploadData(..), UploadDataRequest, batchCsvData, batchJsonData, calculateCsvBatchSize, calculateJsonBatchSize, encodeCsvDataFileUpload, encodeJsonDataFileUpload, fileContentEncoder, fileReadStatusDecoder, jsonDataDecoder, parseJson)
 
 import Dict exposing (Dict)
-import Json.Decode exposing (decodeString, dict, float, int, keyValuePairs, list, map, oneOf, string, succeed)
+import Json.Decode exposing (andThen, decodeString, dict, float, int, keyValuePairs, list, map, oneOf, string, succeed)
 import Json.Decode.Pipeline exposing (custom, decode, optional, required)
 import Json.Encode as Encode exposing (Value, object)
 import Json.Encode.Extra
@@ -145,23 +145,31 @@ batchCsvData batchSize callBack data =
     List.map process <| split batchSize data.records
 
 
-jsonDataDecoder : Json.Decode.Decoder JsonData
-jsonDataDecoder =
+dataRow : Json.Decode.Decoder (Dict String String)
+dataRow =
     let
         val =
             oneOf [ string, map toString int, map toString float ]
-
-        row =
-            dict val
     in
+    dict val
+
+
+jsonDataDecoder : Json.Decode.Decoder JsonData
+jsonDataDecoder =
     decode JsonData
         |> optional "columns" decodeColumnMetadata []
-        |> required "data" (list row)
+        |> required "data" (list dataRow)
+
+
+bareArrayJsonDataDecoder : Json.Decode.Decoder JsonData
+bareArrayJsonDataDecoder =
+    list dataRow
+        |> andThen (\d -> succeed <| JsonData [] d)
 
 
 parseJson : field -> String -> Result (List ( field, String )) UploadData
 parseJson field content =
-    decodeString jsonDataDecoder content
+    decodeString (oneOf [ jsonDataDecoder, bareArrayJsonDataDecoder ]) content
         |> Result.map (\d -> Json d)
         |> Result.mapError (\e -> [ field => e ])
 
