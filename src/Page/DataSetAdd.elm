@@ -40,6 +40,8 @@ type alias Model =
     { steps : Ziplist Step
     , name : String
     , key : Maybe String
+    , missingValues : Maybe (List String)
+    , missingValuesText : Maybe String
     , tabs : Ziplist ( Tab, String )
     , uploadResponse : Remote.WebData ()
     , importResponse : Remote.WebData ImportDetail
@@ -160,6 +162,8 @@ init config =
     Model
         steps
         ""
+        Nothing
+        Nothing
         Nothing
         initTabs
         Remote.NotAsked
@@ -393,6 +397,7 @@ type Msg
     | CreateDataSet AddDataSetRequest
     | UploadDataSetParts ( List (Task Http.Error ()), Remote.WebData () )
     | ImportResponse (Remote.WebData ImportDetail)
+    | ChangeMissingValues String
 
 
 type TabMsg
@@ -453,12 +458,31 @@ update msg model context =
             in
             { model | key = keyValue } => Cmd.none
 
+        ( SetKey, ChangeMissingValues missingValuesText ) ->
+            let
+                ( values, text ) =
+                    if String.isEmpty missingValuesText then
+                        Nothing => Nothing
+                    else
+                        Just (String.split "," missingValuesText) => Just missingValuesText
+            in
+            { model | missingValuesText = text, missingValues = values } => Cmd.none
+
         ( SetKey, CreateDataSet createRequest ) ->
             let
                 setKeyRequest name =
                     case model.key of
                         Just key ->
                             Nexosis.Api.Data.createDataSetWithKey (contextToAuth context) name key
+                                |> Http.toTask
+
+                        Nothing ->
+                            Task.succeed ()
+
+                setMissingRequest name =
+                    case model.missingValues of
+                        Just values ->
+                            Nexosis.Api.Data.setMissingValues (contextToAuth context) name values
                                 |> Http.toTask
 
                         Nothing ->
@@ -474,7 +498,7 @@ update msg model context =
 
                         putRequests : List (Task Http.Error ())
                         putRequests =
-                            [ setKeyRequest request.name ] ++ putDataRequests
+                            [ setKeyRequest request.name, setMissingRequest request.name ] ++ putDataRequests
                     in
                     { model | uploadResponse = Remote.Loading, uploadPartsTotal = List.length putRequests } => next putRequests
 
@@ -486,6 +510,7 @@ update msg model context =
 
                         importRequest =
                             setKeyRequest request.dataSetName
+                                |> Task.andThen (always <| setMissingRequest request.dataSetName)
                                 |> Task.andThen (always doImport)
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
@@ -500,6 +525,7 @@ update msg model context =
 
                         importRequest =
                             setKeyRequest request.dataSetName
+                                |> Task.andThen (always <| setMissingRequest request.dataSetName)
                                 |> Task.andThen (always doImport)
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
@@ -514,6 +540,7 @@ update msg model context =
 
                         importRequest =
                             setKeyRequest request.dataSetName
+                                |> Task.andThen (always <| setMissingRequest request.dataSetName)
                                 |> Task.andThen (always doImport)
                                 |> Remote.asCmd
                                 |> Cmd.map ImportResponse
@@ -855,27 +882,36 @@ viewSetKey context model =
                 ]
             , div
                 [ class "col-sm-4 right" ]
-                [ viewButtons (configWizard context False) model model.steps (uploadIsLoading model) (model.errors == [])
-                ]
+                [ viewButtons (configWizard context False) model model.steps (uploadIsLoading model) (model.errors == []) ]
             ]
+        , div [ class "col-sm-12" ] [ errorDisplay ]
         , div
             [ class "col-sm-12" ]
-            [ hr []
-                []
-            , h3
-                [ class "mt0" ]
-                [ text "Do you want to specify a key?" ]
+            [ hr [] []
+            , h3 [ class "mt0" ] [ text "Do you want to specify a key?" ]
             , div [ class "col-sm-4" ]
                 [ div [ class "form-group" ]
                     [ label [] [ text "Key" ]
                     , input [ type_ "text", class "form-control", placeholder "(Optional)", value <| Maybe.withDefault "" model.key, onInput ChangeKey ] []
                     ]
-                , errorDisplay
                 ]
             , div [ class "col-sm-6 col-sm-offset-2" ]
                 [ div [ class "alert alert-info" ]
-                    [ explainer context.config "why_choose_key"
+                    [ explainer context.config "why_choose_key" ]
+                ]
+            ]
+        , div [ class "col-sm-12" ]
+            [ hr [] []
+            , h3 [ class "mt0" ] [ text "Are there any values that should be treated as missing?" ]
+            , div [ class "col-sm-4" ]
+                [ div [ class "form-group" ]
+                    [ label [] [ text "Missing Values" ]
+                    , input [ type_ "text", class "form-control", placeholder "(Optional)", value <| Maybe.withDefault "" model.missingValuesText, onInput ChangeMissingValues ] []
                     ]
+                ]
+            , div [ class "col-sm-6 col-sm-offset-2" ]
+                [ div [ class "alert alert-info" ]
+                    [ explainer context.config "how_set_missing" ]
                 ]
             ]
         ]
