@@ -7,7 +7,7 @@ pipeline {
     }
 
     options {
-        disableConcurrentBuilds()
+        lock resource: 'dashboard-build'
     }
 
     environment{

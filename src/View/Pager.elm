@@ -65,15 +65,17 @@ generatePageButtons currentPage numberOfPages changePageMsg =
         currentPageDisplay =
             currentPage + 1
 
-        -- Display 2 pages on either side of the current page.  This way we are always showing 5 pages that could be jumped to.
-        -- Unless, we are at the beginning or the end of the page list.  Then, this is number adjusted so we still end up with 5 pages total.
+        -- Display 1 pages on either side of the current page.  This way we are always showing 3 pages that could be jumped to.
+        -- Unless, we are at the beginning or the end of the page list.  Then, this is number adjusted so we still end up with 3 pages total.
         numPagesAroundCurrent =
             if currentPageDisplay < 3 then
-                5 - currentPageDisplay
-            else if currentPageDisplay > (numberOfPages - 2) then
-                4 - (numberOfPages - currentPageDisplay)
-            else
+                3 - currentPageDisplay
+            else if currentPageDisplay > numberOfPages then
+                2 - (numberOfPages - currentPageDisplay)
+            else if currentPageDisplay == numberOfPages then
                 2
+            else
+                1
 
         lowPageNum =
             Basics.max 1 (currentPageDisplay - numPagesAroundCurrent)

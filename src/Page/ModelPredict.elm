@@ -245,8 +245,8 @@ view model context =
         predictButton =
             div [ class "mt5 right" ] [ button [ class "btn btn-danger", disabled <| not canProceedWithPrediction, onClick PredictionStarted ] [ buttonText ] ]
     in
-    div [ class "row" ]
-        [ div [ class "col-sm-12" ] (viewPredictInput context model predictButton)
+    div [ id "predict", class "row" ]
+        [ viewPredictInput context model predictButton
         , div [ class "col-sm-12" ] [ viewRemoteError model.uploadResponse ]
         , div [ class "col-sm-9" ] []
         , div [ class "col-sm-3" ] [ predictButton ]
@@ -254,24 +254,22 @@ view model context =
         ]
 
 
-viewPredictInput : ContextModel -> Model -> Html Msg -> List (Html Msg)
+viewPredictInput : ContextModel -> Model -> Html Msg -> Html Msg
 viewPredictInput context model predictButton =
-    [ div [ id "predict" ]
-        [ div [ class "row" ]
-            [ div [ class "col-sm-9" ]
-                [ h3 [] [ text "Run a prediction" ] ]
-            , div [ class "col-sm-3" ] [ predictButton ]
-            , div [ class "col-sm-12" ]
-                [ h4 []
+    div []
+        [ div [ class "col-sm-12 session-step" ]
+            [ div [ class "col-sm-6 pleft0" ]
+                [ h3 [] [ text "Run a prediction" ]
+                , h4 []
                     [ text "Choose your prediction file" ]
                 ]
-            , div [ class "col-sm-12" ]
-                [ viewTabControl model
-                , viewTabContent context model
-                ]
+            , div [ class "col-sm-6 pr0" ] [ predictButton ]
+            ]
+        , div [ class "col-sm-12" ]
+            [ viewTabControl model
+            , viewTabContent context model
             ]
         ]
-    ]
 
 
 viewTabControl : Model -> Html Msg
