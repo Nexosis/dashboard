@@ -314,7 +314,7 @@ getDataDateRange { startDate, endDate, resultInterval, predictionDomain } =
 
 delayAndRecheckSession : ContextModel -> String -> Cmd Msg
 delayAndRecheckSession context sessionId =
-    delayTask 15
+    delayTask 5
         |> Task.andThen (\_ -> Nexosis.Api.Sessions.getOne (contextToAuth context) sessionId |> Http.toTask)
         |> Remote.asCmd
         |> Cmd.map SessionResponse
@@ -560,11 +560,29 @@ viewPredictButton model session =
 
 viewPendingSession : SessionData -> Html Msg
 viewPendingSession session =
+    let
+        pct =
+            toString session.approximateCompletionPercentage
+
+        showSpinner =
+            (not <| Data.Session.sessionIsCompleted session) && (session.approximateCompletionPercentage == 0)
+
+        showProgress =
+            (not <| Data.Session.sessionIsCompleted session) && (session.approximateCompletionPercentage > 0)
+
+        progress =
+            div [ class "progress-bar", attribute "role" "progressbar", attribute "aria-valuemin" "0", attribute "aria-valuemax" "100", attribute "aria-valuenow" pct, attribute "style" ("width:" ++ pct ++ "%") ]
+                [ span [] [ text (pct ++ "%") ]
+                ]
+    in
     div []
         [ h5 [ class "mb15" ] [ text "Session Status" ]
-        , h4 []
-            [ statusDisplay session.status
-            , viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| not <| Data.Session.sessionIsCompleted session
+        , h4 [ class "row" ]
+            [ div [ class "col-sm-3" ] [ statusDisplay session.status ]
+            , div [ class "col-sm-9" ]
+                [ viewIf (\() -> span [ class "pl20" ] [ spinner ]) <| showSpinner
+                , viewIf (\() -> progress) <| showProgress
+                ]
             ]
         , div [ class "p15" ] [ button [ class "btn btn-xs btn-default", onClick HowLongButtonClicked ] [ text "How long will my session run?" ] ]
         ]
