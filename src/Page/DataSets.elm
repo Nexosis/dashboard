@@ -171,7 +171,7 @@ view model context =
                 [ div [ id "action" ] [ a [ AppRoutes.href AppRoutes.DataSetAdd, class "btn btn-danger" ] [ i [ class "fa fa-plus mr5" ] [], text "Add dataset" ] ]
                 ]
             ]
-        , div [ class "row" ]
+        , div [ class "row", id "list" ]
             [ div [ class "col-sm-12" ]
                 [ div [ class "row", id "pagination-controls" ]
                     [ div [ class "col-sm-6 col-sm-offset-3" ]

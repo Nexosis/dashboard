@@ -861,9 +861,9 @@ statsCell stats column =
     if column.role == Key then
         Grid.HtmlDetails [ class "stats" ]
             [ div [ class "row m0" ]
-                [ div [ class "col-sm-6 pl0 pr0" ]
+                [ div [ class "col-xs-6 pl0 pr0" ]
                     [ text "N/A" ]
-                , div [ class "col-sm-6 pl0 pr0" ]
+                , div [ class "col-xs-6 pl0 pr0" ]
                     [ text "N/A" ]
                 ]
             ]
