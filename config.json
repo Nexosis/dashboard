@@ -14,6 +14,7 @@
         "how_upload_s3",
         "how_upload_azure",
         "how_paste_data",
+        "how_set_missing",
         "how_name_session",
         "session_classification",
         "session_regression",
