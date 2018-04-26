@@ -191,11 +191,10 @@ viewSessionListResults context model =
                         [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
+            , div [ id "sessions" ] [ viewSessionsGrid context model.tableState model.sessionList ]
             ]
-        , div [ id "sessions" ] [ viewSessionsGrid context model.tableState model.sessionList ]
         , hr [] []
-        , div [ class "center" ]
-            [ Pager.view model.sessionList ChangePage ]
+        , div [] [ Pager.view model.sessionList ChangePage ]
         ]
     else
         [ div [ class "help col-sm-12" ]
@@ -302,7 +301,7 @@ dataSourceColumn =
 
 dataSourceCell : SessionData -> Grid.HtmlDetails msg
 dataSourceCell model =
-    Grid.HtmlDetails [ class "left", attribute "style" "width:200px" ]
+    Grid.HtmlDetails [ class "left" ]
         [ a [ AppRoutes.href (AppRoutes.DataSetDetail (toDataSetName model.dataSourceName)) ] [ text <| formatDisplayName model.dataSourceName ]
         ]
 
