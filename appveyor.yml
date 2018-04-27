@@ -1,11 +1,26 @@
 version: 1.0.{build}
+
 image: Visual Studio 2017
+
 install:
 - ps: Install-Product node 6
-build_script:
-- cmd: >-
-    yarn
 
-    yarn build
-    
-    yarn test
+cache:
+    - node_modules
+    - elm-stuff/build-artifacts
+    - tests/elm-stuff/build-artifacts
+
+before_build:
+- yarn
+
+build_script:
+- yarn build
+
+test_script:
+- yarn test-output
+
+after_test:
+- ps: >-
+    $wc = New-Object 'System.Net.WebClient'
+
+    $wc.UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))
