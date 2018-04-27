@@ -891,11 +891,11 @@ statsDisplay columnStats =
     case columnStats of
         Remote.Loading ->
             div [ class "row m0" ]
-                [ div [ class "col-sm-6 pl0 pr0" ]
+                [ div [ class "col-xs-6 pl0 pr0" ]
                     [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
                     , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
-                , div [ class "col-sm-6 pl0 pr0" ]
+                , div [ class "col-xs-6 pl0 pr0" ]
                     [ i [ class "fa fa-refresh fa-spin fa-fw" ] []
                     , span [ class "sr-only" ] [ text "Calculating..." ]
                     ]
