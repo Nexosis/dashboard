@@ -348,7 +348,7 @@ view toData config state response =
                 errorMessageRow =
                     tr [] [ td [ colspan columnCount ] [ text (niceErrorMessage err) ] ]
             in
-            div []
+            div [ class "col-sm-12" ]
                 [ viewTable config state []
                 , table [ id "dataset-details", class "table table-striped" ]
                     [ thead []
