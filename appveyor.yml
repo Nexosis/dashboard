@@ -2,15 +2,17 @@ version: 1.0.{build}
 image: Visual Studio 2017
 install:
 - ps: Install-Product node 6
-build_script:
-- cmd: >-
-    yarn
 
-    yarn build
+before_build:
+- yarn
+
+build_script:
+- yarn build
 
 test_script:
-- cmd: >-
-    yarn test
+- yarn test
+
+after_test:
 - ps: >-
     $wc = New-Object 'System.Net.WebClient'
 
