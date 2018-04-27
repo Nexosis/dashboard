@@ -182,9 +182,11 @@ detailRow model context =
                         , br [] []
                         , copyableText ("/models/" ++ model.modelId)
                         ]
-                    , button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
-                        [ i [ class "fa fa-trash-o mr5" ] []
-                        , text "Delete Model"
+                    , p []
+                        [ button [ class "btn btn-xs btn-primary", onClick ShowDeleteDialog ]
+                            [ i [ class "fa fa-trash-o mr5" ] []
+                            , text "Delete Model"
+                            ]
                         ]
                     ]
                 , div [ class "col-sm-3" ]

@@ -179,7 +179,7 @@ view model context =
                     , div [ id "view-rows", class "col-sm-2 col-sm-offset-1 right" ]
                         [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
-                , div [ class "datasets" ] [ viewDataSetGrid context.config.toolTips model.tableState model.dataSetList ]
+                , div [ id "datasets" ] [ viewDataSetGrid context.config.toolTips model.tableState model.dataSetList ]
                 , hr [] []
                 , div [ class "center" ]
                     [ Pager.view model.dataSetList ChangePage ]
