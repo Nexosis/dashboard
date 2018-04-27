@@ -7,8 +7,6 @@ install:
 
 cache:
     - node_modules
-    - elm-stuff/build-artifacts
-    - tests/elm-stuff/build-artifacts
 
 before_build:
 - yarn
