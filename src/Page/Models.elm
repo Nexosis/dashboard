@@ -178,7 +178,7 @@ viewModelListResults context model =
                     ]
                 ]
             ]
-        , div [ id "models" ] [ Grid.view .items (config context.config.toolTips) model.tableState model.modelList ]
+        , div [ id "models", class "row" ] [ Grid.view .items (config context.config.toolTips) model.tableState model.modelList ]
         , hr [] []
         , div [ class "center" ]
             [ Pager.view model.modelList ChangePage ]

@@ -191,7 +191,7 @@ viewSessionListResults context model =
                         [ PageSize.view ChangePageSize context.localStorage.userPageSize ]
                     ]
                 ]
-            , div [ id "sessions" ] [ viewSessionsGrid context model.tableState model.sessionList ]
+            , div [ id "sessions", class "row col-sm-12" ] [ viewSessionsGrid context model.tableState model.sessionList ]
             ]
         , hr [] []
         , div [] [ Pager.view model.sessionList ChangePage ]
