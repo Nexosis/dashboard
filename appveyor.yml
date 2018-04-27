@@ -8,7 +8,7 @@ build_script:
 
     yarn build
 
-test:
+test_script:
 - cmd: >-
     yarn test
 - ps: >-
