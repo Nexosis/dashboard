@@ -51,6 +51,8 @@ type alias Model =
     , columnEditorModel : ColumnMetadataEditor.Model
     , sessionColumnMetadata : List ColumnMetadata
     , sessionName : Maybe String
+    , missingValuesText : Maybe String
+    , missingValues : List String
     , selectedSessionType : Maybe PredictionDomain
     , sessionStartRequest : Remote.WebData SessionData
     , startDate : Maybe Date
@@ -87,6 +89,7 @@ type Msg
     | SelectBalance Bool
     | SetWizardPage Step
     | NoOp
+    | ChangeMissingValues String
 
 
 type Step
@@ -131,6 +134,8 @@ init context dataSetName =
         editorModel
         []
         Nothing
+        Nothing
+        []
         Nothing
         Remote.NotAsked
         Nothing
@@ -277,6 +282,7 @@ validateForecast =
         |> Verify.keep .sessionName
         |> Verify.keep .dataSetName
         |> Verify.keep .sessionColumnMetadata
+        |> Verify.keep .missingValues
         |> Verify.custom verifyStartEndDates
         |> Verify.keep .resultInterval
 
@@ -287,6 +293,7 @@ validateImpact =
         |> Verify.keep .sessionName
         |> Verify.keep .dataSetName
         |> Verify.keep .sessionColumnMetadata
+        |> Verify.keep .missingValues
         |> Verify.custom verifyStartEndDates
         |> Verify.custom verifyEventName
         |> Verify.keep .resultInterval
@@ -298,6 +305,7 @@ validateModelRequest =
         |> Verify.keep .sessionName
         |> Verify.keep .dataSetName
         |> Verify.keep .sessionColumnMetadata
+        |> Verify.keep .missingValues
         |> Verify.custom verifySessionTypeSelected
         |> Verify.custom keepBalance
         |> Verify.custom keepContainsAnomalies
@@ -417,6 +425,16 @@ update msg model context =
                         Just sessionName
             in
             { model | sessionName = name } => Cmd.none
+
+        ( NameSession, ChangeMissingValues missingValuesText ) ->
+            let
+                ( values, text ) =
+                    if String.isEmpty missingValuesText then
+                        [] => Nothing
+                    else
+                        String.split "," missingValuesText => Just missingValuesText
+            in
+            { model | missingValuesText = text, missingValues = values } => Cmd.none
 
         ( SessionType, SelectSessionType sessionType ) ->
             let
@@ -717,7 +735,20 @@ viewNameSession context model =
             ]
         , div [ class "help col-sm-6 pull-right" ]
             [ div [ class "alert alert-info" ]
-                [ explainer context.config "how_name_session"
+                [ explainer context.config "how_name_session" ]
+            ]
+        , div [ class "col-sm-12" ]
+            [ hr [] []
+            , h3 [ class "mt0" ] [ text "Are there any values that should be treated as missing?" ]
+            , div [ class "col-sm-4" ]
+                [ div [ class "form-group" ]
+                    [ label [] [ text "Missing Values" ]
+                    , input [ type_ "text", class "form-control", placeholder "(Optional)", value <| Maybe.withDefault "" model.missingValuesText, onInput ChangeMissingValues ] []
+                    ]
+                ]
+            , div [ class "col-sm-6 col-sm-offset-2" ]
+                [ div [ class "alert alert-info" ]
+                    [ explainer context.config "how_set_missing" ]
                 ]
             ]
         ]
