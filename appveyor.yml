@@ -2,6 +2,10 @@ version: 1.0.{build}
 image: Visual Studio 2017
 install:
 - ps: Install-Product node 6
+cache:
+    - node_modules
+    - elm-stuff/build-artifacts
+    - tests/elm-stuff/build-artifacts
 
 before_build:
 - yarn
