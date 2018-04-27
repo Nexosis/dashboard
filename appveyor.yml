@@ -10,7 +10,7 @@ build_script:
 - yarn build
 
 test_script:
-- yarn test
+- yarn test-output
 
 after_test:
 - ps: >-
