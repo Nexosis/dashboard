@@ -1,7 +1,7 @@
 {
     "loggly": {},
     "hubspot": {},
-    "apiUrl": "https://ml.nexosis.com/v1",
+    "apiUrl": "https://api.dev.nexosisdev.com/v2",
     "loginUrl": "https://account.nexosis.com/account/login?returnUrl=/dashboard",
     "renewalUrl": "https://account.nexosis.com/account/renewToken",
     "subscriptionUrl": "https://account.nexosis.com/api/keys",
