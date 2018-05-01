@@ -173,7 +173,7 @@ type alias RowOverrideFunctions data msg =
 
 toTableAttrs : List (Attribute msg)
 toTableAttrs =
-    [ id "dataset-details", class "table table-striped" ]
+    [ class "table table-striped" ]
 
 
 customStringColumn : String -> (data -> String) -> List (Attribute msg) -> List (Html msg) -> Column data msg
@@ -330,8 +330,7 @@ view toData config state response =
                 items =
                     successResponse |> toData
             in
-            div []
-                [ viewTable config state items ]
+            viewTable config state items
 
         Remote.Failure err ->
             let
@@ -348,9 +347,9 @@ view toData config state response =
                 errorMessageRow =
                     tr [] [ td [ colspan columnCount ] [ text (niceErrorMessage err) ] ]
             in
-            div [ class "col-sm-12" ]
+            div []
                 [ viewTable config state []
-                , table [ id "dataset-details", class "table table-striped" ]
+                , table [ class "table table-striped" ]
                     [ thead []
                         [ tr []
                             fakeHeaders
@@ -378,9 +377,9 @@ view toData config state response =
                 loadingRows =
                     List.repeat 10 (tr [] loadingTds)
             in
-            div []
+            div [ class "col-sm-12" ]
                 [ viewTable config state []
-                , table [ id "dataset-details", class "table table-striped" ]
+                , table [ class "table table-striped" ]
                     [ thead []
                         [ tr []
                             loadingHeaders

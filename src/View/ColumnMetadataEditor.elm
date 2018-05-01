@@ -989,12 +989,12 @@ statsDisplay columnStats =
                             [ min, max, stdDev, errors, variance ] => [ count, missing, mean, mode ]
             in
             div [ class "row m0" ]
-                [ div [ class "col-sm-6 pl0 pr0" ]
+                [ div [ class "col-xs-6 pl0 pr0" ]
                     (statsLeft
                         |> List.intersperse [ br [] [] ]
                         |> List.concat
                     )
-                , div [ class "col-sm-6 pl0 pr0" ]
+                , div [ class "col-xs-6 pl0 pr0" ]
                     (statsRight
                         |> List.intersperse [ br [] [] ]
                         |> List.concat
