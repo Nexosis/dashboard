@@ -59,6 +59,9 @@ messageSeverityDisplay message =
                 Informational ->
                     "info"
 
+                Status ->
+                    "info"
+
                 Warning ->
                     "warning"
 

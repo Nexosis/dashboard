@@ -6,7 +6,7 @@ import Html exposing (Html, div, h5, i, li, span, text, ul)
 import Html.Attributes exposing (attribute, class, classList, id, style)
 import List
 import Markdown
-import Nexosis.Types.Message exposing (Message)
+import Nexosis.Types.Message exposing (Message, ObjectMessage)
 import Nexosis.Types.Status exposing (..)
 import RemoteData as Remote
 import String.Extra exposing (unquote)
@@ -46,7 +46,7 @@ makeCollapsible elementId expanded view =
         ]
 
 
-expandedMessagesTable : String -> List Message -> Html msg
+expandedMessagesTable : String -> List ObjectMessage -> Html msg
 expandedMessagesTable elementId messages =
     div []
         [ h5 [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" ("#" ++ elementId), attribute "aria-expanded" "true", attribute "aria-controls" elementId ]

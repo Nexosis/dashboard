@@ -5,7 +5,7 @@ import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Http exposing (Error)
-import Nexosis.Types.Message as Message exposing (Message)
+import Nexosis.Types.Message as Message exposing (Message, ObjectMessage)
 import RemoteData as Remote
 import View.Extra exposing (viewIfElements, viewJust)
 
@@ -75,7 +75,7 @@ detailItem ( key, value ) =
         ]
 
 
-viewMessagesAsError : List Message -> Html msg
+viewMessagesAsError : List ObjectMessage -> Html msg
 viewMessagesAsError messages =
     let
         errorMessages =

@@ -14,7 +14,7 @@
     "dependencies": {
         "Bogdanp/elm-combine": "3.1.1 <= v < 4.0.0",
         "Fresheyeball/elm-tuple-extra": "3.0.0 <= v < 4.0.0",
-        "Nexosis/nexosisclient-elm": "3.0.0 <= v < 4.0.0",
+        "Nexosis/nexosisclient-elm": "4.0.0 <= v < 5.0.0",
         "NoRedInk/elm-decode-pipeline": "3.0.0 <= v < 4.0.0",
         "NoRedInk/view-extra": "2.0.0 <= v < 3.0.0",
         "abadi199/datetimepicker": "6.0.0 <= v < 7.0.0",
