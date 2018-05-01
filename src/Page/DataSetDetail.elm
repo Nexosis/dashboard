@@ -8,7 +8,7 @@ import Data.Ziplist as Ziplist exposing (Ziplist)
 import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onBlur, onClick, onInput)
 import Http exposing (encodeUri)
 import Nexosis.Api.Data
 import Nexosis.Api.Sessions exposing (getForDataset)
@@ -31,6 +31,8 @@ type alias Model =
     { dataSetName : DataSetName
     , loadingResponse : Remote.WebData DataSetData
     , columnMetadataEditorModel : ColumnMetadataEditor.Model
+    , missingValuesText : Maybe String
+    , missingValues : List String
     , deleteDialogModel : Maybe DeleteDialog.Model
     , sessionResponse : Remote.WebData SessionList
     , tabs : Ziplist ( Tab, String )
@@ -39,8 +41,7 @@ type alias Model =
 
 
 type alias SessionLinks =
-    { links : List Link
-    }
+    { links : List Link }
 
 
 type Tab
@@ -62,7 +63,7 @@ init context dataSetName =
         ( dataSetModel, _ ) =
             DataSetData.init context dataSetName
     in
-    Model dataSetName Remote.Loading editorModel Nothing Remote.NotAsked initTabs dataSetModel
+    Model dataSetName Remote.Loading editorModel Nothing [] Nothing Remote.NotAsked initTabs dataSetModel
         ! [ loadData
           , loadRelatedSessions context dataSetName
           , Cmd.map ColumnMetadataEditorMsg initCmd
@@ -96,6 +97,9 @@ type Msg
     | ColumnMetadataEditorMsg ColumnMetadataEditor.Msg
     | ChangeTab String
     | DataSetDataMsg DataSetData.Msg
+    | ChangeMissingValues String
+    | SetMissingValues
+    | MissingValuesChangeResponse (Remote.WebData ())
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -187,6 +191,29 @@ update msg model context =
             in
             { model | dataSetDataModel = newModel }
                 => Cmd.map DataSetDataMsg cmd
+
+        ChangeMissingValues missingValuesText ->
+            let
+                text =
+                    if String.isEmpty missingValuesText then
+                        Nothing
+                    else
+                        Just missingValuesText
+            in
+            { model | missingValuesText = text } => Cmd.none
+
+        SetMissingValues ->
+            let
+                ( values, setMissingCmd ) =
+                    model.missingValuesText
+                        |> Maybe.map (\text -> String.split "," text)
+                        |> Maybe.map (\values -> ( values, Nexosis.Api.Data.setMissingValues (contextToAuth context) (dataSetNameToString model.dataSetName) values |> Remote.sendRequest |> Cmd.map MissingValuesChangeResponse ))
+                        |> Maybe.withDefault ( [], Cmd.none )
+            in
+            { model | missingValues = values } => setMissingCmd
+
+        MissingValuesChangeResponse resp ->
+            model => Cmd.none
 
 
 subscriptions : Model -> Sub Msg
@@ -280,9 +307,36 @@ sessionLinkItem session =
 
 viewRolesCol : ContextModel -> Model -> Html Msg
 viewRolesCol context model =
+    let
+        existingMissingValues =
+            case model.loadingResponse of
+                Remote.Success dataSet ->
+                    dataSet.missingValues
+                        |> String.join ","
+
+                _ ->
+                    ""
+
+        missingValuesText =
+            Maybe.withDefault existingMissingValues model.missingValuesText
+
+        missingValuesForm =
+            case model.loadingResponse of
+                Remote.Success _ ->
+                    [ label [ class "control-label col-sm-3 mr0 pr0" ] [ text "Missing Values" ]
+                    , div [ class "col-sm-8" ] [ input [ class "form-control", type_ "text", onInput ChangeMissingValues, onBlur SetMissingValues, value missingValuesText ] [] ]
+                    , div [ class "col-sm-3" ] []
+                    , p [ class "col-sm-8 help-block" ] [ text "Comma separated list of values that should be considered missing." ]
+                    ]
+
+                _ ->
+                    []
+    in
     div [ class "col-sm-5" ]
         [ ColumnMetadataEditor.viewTargetAndKeyColumns context model.columnMetadataEditorModel
             |> Html.map ColumnMetadataEditorMsg
+        , div [ class "form-horizontal" ]
+            [ div [ class "form-group" ] missingValuesForm ]
         ]
 
 
