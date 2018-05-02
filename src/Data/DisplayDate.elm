@@ -1,4 +1,4 @@
-module Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty, toShortDateTimeString)
+module Data.DisplayDate exposing (toShortDateString, toShortDateStringOrEmpty, toShortDateTimeString, toShortTimeString)
 
 import Time.ZonedDateTime exposing (ZonedDateTime, day, fromDateTime, fromISO8601, hour, minute, month, toISO8601, utcOffsetString, year)
 
@@ -31,6 +31,15 @@ toShortDateTimeString time =
         ++ toString (year time)
         ++ " "
         ++ padded (hour time)
+        ++ ":"
+        ++ padded (minute time)
+        ++ " "
+        ++ utcOffsetString time
+
+
+toShortTimeString : ZonedDateTime -> String
+toShortTimeString time =
+    padded (hour time)
         ++ ":"
         ++ padded (minute time)
         ++ " "

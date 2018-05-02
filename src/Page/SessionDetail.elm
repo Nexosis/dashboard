@@ -3,7 +3,7 @@ module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRang
 import AppRoutes
 import Data.Context exposing (ContextModel, contextToAuth)
 import Data.DataFormat as Format
-import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.DisplayDate exposing (toShortDateTimeString, toShortTimeString)
 import Data.Metric exposing (getMetricDescriptionFromKey, getMetricNameFromKey)
 import Data.Session exposing (canPredictSession, sessionIsCompleted)
 import Dict exposing (Dict)
@@ -14,12 +14,14 @@ import Http
 import List exposing (filter, foldr, head)
 import List.Extra as List
 import Nexosis.Api.Data exposing (getDataByDateRange)
+import Nexosis.Api.Messages exposing (..)
 import Nexosis.Api.Sessions exposing (..)
 import Nexosis.Types.Algorithm exposing (..)
 import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, Role)
 import Nexosis.Types.ConfusionMatrix exposing (ConfusionMatrix)
 import Nexosis.Types.DataSet exposing (DataSetData, toDataSetName)
 import Nexosis.Types.DistanceMetric exposing (..)
+import Nexosis.Types.Message exposing (..)
 import Nexosis.Types.PredictionDomain as PredictionDomain
 import Nexosis.Types.Session exposing (..)
 import Nexosis.Types.Status as Status exposing (Status)
@@ -29,6 +31,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
+import Time.ZonedDateTime exposing (fromDateTime)
 import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
@@ -56,6 +59,7 @@ type alias Model =
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
     , howLongModalModel : Maybe (Modal.Config Msg)
     , distanceMetricsResponse : Remote.WebData DistanceMetrics
+    , messagesResponse : Remote.WebData MessageList
     }
 
 
@@ -70,7 +74,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing Remote.NotAsked Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -87,6 +91,7 @@ type Msg
     | HowLongButtonClicked
     | HowLongCloseClicked
     | DistanceMetricLoaded (Remote.WebData DistanceMetrics)
+    | MessagesLoaded (Remote.WebData MessageList)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -95,6 +100,15 @@ update msg model context =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
+                    let
+                        messageQuery =
+                            Nexosis.Api.Messages.MessageQuery (Just sessionInfo.sessionId) (Just [ Status ]) 0 5
+
+                        getMessages =
+                            Nexosis.Api.Messages.get (contextToAuth context) messageQuery
+                                |> Remote.sendRequest
+                                |> Cmd.map MessagesLoaded
+                    in
                     if sessionInfo.sessionId /= model.sessionId then
                         -- we got a refresh updated for a different session Id
                         model => Cmd.none
@@ -125,7 +139,10 @@ update msg model context =
                                 ]
                     else if not <| sessionIsCompleted sessionInfo then
                         { model | loadingResponse = response }
-                            => delayAndRecheckSession context model.sessionId
+                            => Cmd.batch
+                                [ delayAndRecheckSession context model.sessionId
+                                , getMessages
+                                ]
                     else
                         { model | loadingResponse = response } => Cmd.none
 
@@ -204,6 +221,17 @@ update msg model context =
             case response of
                 Remote.Success data ->
                     { model | dataSetResponse = response } => Cmd.none
+
+                Remote.Failure err ->
+                    model => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        MessagesLoaded response ->
+            case response of
+                Remote.Success data ->
+                    { model | messagesResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -402,6 +430,28 @@ viewSessionDetails model context =
             else
                 div []
                     [ viewPendingSession session ]
+
+        sessionHistory : Model -> SessionData -> Html Msg
+        sessionHistory model session =
+            let
+                completed =
+                    session.status == Status.Completed || session.status == Status.Failed
+
+                loadingOrMessages =
+                    loadingOrView model model.messagesResponse
+            in
+            case completed of
+                True ->
+                    div []
+                        [ viewMessages model session
+                        , viewStatusHistory model session
+                        ]
+
+                False ->
+                    div []
+                        [ loadingOrMessages viewStatusMessages
+                        , viewMessages model session
+                        ]
     in
     div []
         [ div [ class "row", id "details" ]
@@ -416,9 +466,7 @@ viewSessionDetails model context =
                 [ loadingOr viewSessionInfo
                 ]
             , div [ class "col-sm-5" ]
-                [ loadingOr viewMessages
-                , loadingOr viewStatusHistory
-                ]
+                [ loadingOr sessionHistory ]
             ]
         , viewConfusionMatrix model (loadingOr (viewAlgorithmOverview context))
         , loadingOr (viewResultsGraph (loadingOr (viewAlgorithmOverview context)))
@@ -463,6 +511,49 @@ viewMessages model session =
             , i [ class "fa fa-angle-down" ] []
             ]
         , makeCollapsible "messages" expanded <| Messages.viewMessages session.messages
+        ]
+
+
+viewStatusMessages : Model -> MessageList -> Html Msg
+viewStatusMessages model messages =
+    let
+        displayDate createdAt dateResult =
+            case dateResult of
+                Ok date ->
+                    toShortTimeString (fromDateTime (getTimezoneFromDate (Just createdAt)) date)
+
+                _ ->
+                    ""
+
+        messageEntry : Nexosis.Types.Message.Message -> Html Msg
+        messageEntry msg =
+            tr []
+                [ td [ class "number small" ]
+                    [ text <| displayDate msg.createdAt <| DateTime.fromISO8601 msg.createdAt ]
+                , td [] [ text msg.content ]
+                ]
+
+        expanded =
+            True
+    in
+    div []
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "status-log" ]
+            [ strong [] [ text "Progress Log" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , makeCollapsible "status-log" expanded <|
+            table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [ class "per10" ]
+                            [ text "Date" ]
+                        , th []
+                            [ text "Message" ]
+                        ]
+                    ]
+                , tbody []
+                    (List.map messageEntry messages.items)
+                ]
         ]
 
 
