@@ -505,6 +505,38 @@ viewMessages model session =
         , makeCollapsible "messages" expanded <| Messages.viewMessages session.messages
         ]
 
+viewStatusMessages : Model -> MessageList -> Html Msg
+viewStatusMessages model messages =
+    let
+        messageEntry msg =
+            tr []
+                [ td [ class "number small" ]
+                    [ text (msg.createdAt) ]
+                , td [] [text msg.content]
+                ]
+
+        expanded =
+            True
+    in
+    div []
+        [ p [ attribute "role" "button", attribute "data-toggle" "collapse", attribute "href" "#status-log", attribute "aria-expanded" (toString expanded |> String.toLower), attribute "aria-controls" "status-log" ]
+            [ strong [] [ text "Progress Log" ]
+            , i [ class "fa fa-angle-down" ] []
+            ]
+        , makeCollapsible "status-log" expanded <|
+            table [ class "table table-striped" ]
+                [ thead []
+                    [ tr []
+                        [ th [ class "per10" ]
+                            [ text "Date" ]
+                        , th [ ]
+                            [text "Message"]
+                        ]
+                    ]
+                , tbody []
+                    (List.map messageEntry messages.items)
+                ]
+        ]
 
 viewStatusHistory : Model -> SessionData -> Html Msg
 viewStatusHistory model session =
