@@ -3,7 +3,7 @@ module Page.SessionDetail exposing (Model, Msg, SessionDateData, getDataDateRang
 import AppRoutes
 import Data.Context exposing (ContextModel, contextToAuth)
 import Data.DataFormat as Format
-import Data.DisplayDate exposing (toShortDateTimeString)
+import Data.DisplayDate exposing (toShortDateTimeString, toShortTimeString)
 import Data.Metric exposing (getMetricDescriptionFromKey, getMetricNameFromKey)
 import Data.Session exposing (canPredictSession, sessionIsCompleted)
 import Dict exposing (Dict)
@@ -14,14 +14,14 @@ import Http
 import List exposing (filter, foldr, head)
 import List.Extra as List
 import Nexosis.Api.Data exposing (getDataByDateRange)
-import Nexosis.Api.Sessions exposing (..)
 import Nexosis.Api.Messages exposing (..)
-import Nexosis.Types.Message exposing (..)
+import Nexosis.Api.Sessions exposing (..)
 import Nexosis.Types.Algorithm exposing (..)
 import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, Role)
 import Nexosis.Types.ConfusionMatrix exposing (ConfusionMatrix)
 import Nexosis.Types.DataSet exposing (DataSetData, toDataSetName)
 import Nexosis.Types.DistanceMetric exposing (..)
+import Nexosis.Types.Message exposing (..)
 import Nexosis.Types.PredictionDomain as PredictionDomain
 import Nexosis.Types.Session exposing (..)
 import Nexosis.Types.Status as Status exposing (Status)
@@ -31,6 +31,7 @@ import RemoteData as Remote
 import Request.Log as Log
 import Task
 import Time.DateTime as DateTime exposing (DateTime)
+import Time.ZonedDateTime exposing (fromDateTime)
 import Util exposing ((=>), delayTask, formatDateWithTimezone, formatDisplayName, formatFloatToString, getTimezoneFromDate, spinner, styledNumber)
 import View.Breadcrumb as Breadcrumb
 import View.Charts as Charts
@@ -99,6 +100,15 @@ update msg model context =
         SessionResponse response ->
             case response of
                 Remote.Success sessionInfo ->
+                    let
+                        messageQuery =
+                            Nexosis.Api.Messages.MessageQuery (Just sessionInfo.sessionId) (Just [ Status ]) 0 5
+
+                        getMessages =
+                            Nexosis.Api.Messages.get (contextToAuth context) messageQuery
+                                |> Remote.sendRequest
+                                |> Cmd.map MessagesLoaded
+                    in
                     if sessionInfo.sessionId /= model.sessionId then
                         -- we got a refresh updated for a different session Id
                         model => Cmd.none
@@ -118,13 +128,6 @@ update msg model context =
 
                                     _ ->
                                         Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
-                            messageQuery = 
-                                Nexosis.Api.Messages.MessageQuery (Just sessionInfo.sessionId) (Just ([Status])) 0 10
-                            
-                            getMessages =
-                                Nexosis.Api.Messages.get (contextToAuth context) messageQuery 
-                                    |> Remote.sendRequest
-                                    |> Cmd.map MessagesLoaded
                         in
                         { model | loadingResponse = response }
                             => Cmd.batch
@@ -132,12 +135,14 @@ update msg model context =
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
-                                , getMessages
                                 , Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                                 ]
                     else if not <| sessionIsCompleted sessionInfo then
                         { model | loadingResponse = response }
-                            => delayAndRecheckSession context model.sessionId
+                            => Cmd.batch
+                                [ delayAndRecheckSession context model.sessionId
+                                , getMessages
+                                ]
                     else
                         { model | loadingResponse = response } => Cmd.none
 
@@ -226,7 +231,7 @@ update msg model context =
         MessagesLoaded response ->
             case response of
                 Remote.Success data ->
-                    {model | messagesResponse = response} => Cmd.none
+                    { model | messagesResponse = response } => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -431,6 +436,9 @@ viewSessionDetails model context =
             let
                 completed =
                     session.status == Status.Completed || session.status == Status.Failed
+
+                loadingOrMessages =
+                    loadingOrView model model.messagesResponse
             in
             case completed of
                 True ->
@@ -441,8 +449,8 @@ viewSessionDetails model context =
 
                 False ->
                     div []
-                        [ viewMessages model session
-                        ,  viewStatusHistory model session
+                        [ loadingOrMessages viewStatusMessages
+                        , viewMessages model session
                         ]
     in
     div []
@@ -505,14 +513,24 @@ viewMessages model session =
         , makeCollapsible "messages" expanded <| Messages.viewMessages session.messages
         ]
 
+
 viewStatusMessages : Model -> MessageList -> Html Msg
 viewStatusMessages model messages =
     let
+        displayDate createdAt dateResult =
+            case dateResult of
+                Ok date ->
+                    toShortTimeString (fromDateTime (getTimezoneFromDate (Just createdAt)) date)
+
+                _ ->
+                    ""
+
+        messageEntry : Nexosis.Types.Message.Message -> Html Msg
         messageEntry msg =
             tr []
                 [ td [ class "number small" ]
-                    [ text (msg.createdAt) ]
-                , td [] [text msg.content]
+                    [ text <| displayDate msg.createdAt <| DateTime.fromISO8601 msg.createdAt ]
+                , td [] [ text msg.content ]
                 ]
 
         expanded =
@@ -529,14 +547,15 @@ viewStatusMessages model messages =
                     [ tr []
                         [ th [ class "per10" ]
                             [ text "Date" ]
-                        , th [ ]
-                            [text "Message"]
+                        , th []
+                            [ text "Message" ]
                         ]
                     ]
                 , tbody []
                     (List.map messageEntry messages.items)
                 ]
         ]
+
 
 viewStatusHistory : Model -> SessionData -> Html Msg
 viewStatusHistory model session =
