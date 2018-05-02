@@ -15,6 +15,8 @@ import List exposing (filter, foldr, head)
 import List.Extra as List
 import Nexosis.Api.Data exposing (getDataByDateRange)
 import Nexosis.Api.Sessions exposing (..)
+import Nexosis.Api.Messages exposing (..)
+import Nexosis.Types.Message exposing (..)
 import Nexosis.Types.Algorithm exposing (..)
 import Nexosis.Types.Columns as Columns exposing (ColumnMetadata, Role)
 import Nexosis.Types.ConfusionMatrix exposing (ConfusionMatrix)
@@ -56,6 +58,7 @@ type alias Model =
     , predictionDomain : Maybe PredictionDomain.PredictionDomain
     , howLongModalModel : Maybe (Modal.Config Msg)
     , distanceMetricsResponse : Remote.WebData DistanceMetrics
+    , messagesResponse : Remote.WebData MessageList
     }
 
 
@@ -70,7 +73,7 @@ init context sessionId =
                 |> Remote.sendRequest
                 |> Cmd.map SessionResponse
     in
-    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
+    Model sessionId Remote.Loading Remote.NotAsked Remote.NotAsked Remote.NotAsked Nothing 1140 0 Remote.NotAsked Nothing Nothing Remote.NotAsked Remote.NotAsked ! [ loadSessionDetail, getWindowWidth ]
 
 
 type Msg
@@ -87,6 +90,7 @@ type Msg
     | HowLongButtonClicked
     | HowLongCloseClicked
     | DistanceMetricLoaded (Remote.WebData DistanceMetrics)
+    | MessagesLoaded (Remote.WebData MessageList)
 
 
 update : Msg -> Model -> ContextModel -> ( Model, Cmd Msg )
@@ -114,6 +118,13 @@ update msg model context =
 
                                     _ ->
                                         Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
+                            messageQuery = 
+                                Nexosis.Api.Messages.MessageQuery (Just sessionInfo.sessionId) (Just ([Status])) 0 10
+                            
+                            getMessages =
+                                Nexosis.Api.Messages.get (contextToAuth context) messageQuery 
+                                    |> Remote.sendRequest
+                                    |> Cmd.map MessagesLoaded
                         in
                         { model | loadingResponse = response }
                             => Cmd.batch
@@ -121,6 +132,7 @@ update msg model context =
                                     |> Remote.sendRequest
                                     |> Cmd.map ResultsResponse
                                 , details
+                                , getMessages
                                 , Ports.setPageTitle (formatDisplayName sessionInfo.name ++ " Details")
                                 ]
                     else if not <| sessionIsCompleted sessionInfo then
@@ -204,6 +216,17 @@ update msg model context =
             case response of
                 Remote.Success data ->
                     { model | dataSetResponse = response } => Cmd.none
+
+                Remote.Failure err ->
+                    model => Log.logHttpError err
+
+                _ ->
+                    model => Cmd.none
+
+        MessagesLoaded response ->
+            case response of
+                Remote.Success data ->
+                    {model | messagesResponse = response} => Cmd.none
 
                 Remote.Failure err ->
                     model => Log.logHttpError err
@@ -402,6 +425,25 @@ viewSessionDetails model context =
             else
                 div []
                     [ viewPendingSession session ]
+
+        sessionHistory : Model -> SessionData -> Html Msg
+        sessionHistory model session =
+            let
+                completed =
+                    session.status == Status.Completed || session.status == Status.Failed
+            in
+            case completed of
+                True ->
+                    div []
+                        [ viewMessages model session
+                        , viewStatusHistory model session
+                        ]
+
+                False ->
+                    div []
+                        [ viewMessages model session
+                        ,  viewStatusHistory model session
+                        ]
     in
     div []
         [ div [ class "row", id "details" ]
@@ -416,9 +458,7 @@ viewSessionDetails model context =
                 [ loadingOr viewSessionInfo
                 ]
             , div [ class "col-sm-5" ]
-                [ loadingOr viewMessages
-                , loadingOr viewStatusHistory
-                ]
+                [ loadingOr sessionHistory ]
             ]
         , viewConfusionMatrix model (loadingOr (viewAlgorithmOverview context))
         , loadingOr (viewResultsGraph (loadingOr (viewAlgorithmOverview context)))
